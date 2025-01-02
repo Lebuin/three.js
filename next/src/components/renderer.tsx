@@ -8,10 +8,17 @@ const Renderer: React.FC = () => {
 
   useEffect(() => {
     const mount = mountRef.current;
-    if (!mount) return;
+    if (!mount) {
+      return;
+    }
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, mount.clientWidth / mount.clientHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      mount.clientWidth / mount.clientHeight,
+      0.1,
+      1000,
+    );
     const renderer = new THREE.WebGLRenderer();
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     mount.appendChild(renderer.domElement);
@@ -37,7 +44,12 @@ const Renderer: React.FC = () => {
     };
   }, []);
 
-  return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
+  return (
+    <div
+      ref={mountRef}
+      style={{ width: '100%', height: '100%' }}
+    />
+  );
 };
 
 export default Renderer;

@@ -13,7 +13,7 @@ const compat = new FlatCompat({
 });
 
 export default tseslint.config(
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+  ...compat.extends('next/core-web-vitals', 'next/typescript', 'prettier'),
   eslint.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
   tseslint.configs.stylisticTypeChecked,
@@ -34,35 +34,36 @@ export default tseslint.config(
       '@typescript-eslint/no-unnecessary-condition': [
         'error',
         {
-          'allowConstantLoopConditions': true
-        }
+          allowConstantLoopConditions: true,
+        },
       ],
       '@typescript-eslint/no-unused-vars': [
         'warn',
         {
-          'args': 'all',
-          'argsIgnorePattern': '^_',
-          'caughtErrors': 'all',
-          'caughtErrorsIgnorePattern': '^_',
-          'destructuredArrayIgnorePattern': '^_',
-          'varsIgnorePattern': '^_',
-          'ignoreRestSiblings': true
-        }
+          args: 'all',
+          argsIgnorePattern: '^_',
+          caughtErrors: 'all',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
       ],
       '@typescript-eslint/restrict-template-expressions': [
         'error',
         {
-          'allowAny': false,
-          'allowBoolean': true,
-          'allowNullish': true,
-          'allowNumber': true,
-          'allowRegExp': true,
-          'allowNever': true
-        }
+          allowAny: false,
+          allowBoolean: true,
+          allowNullish: true,
+          allowNumber: true,
+          allowRegExp: true,
+          allowNever: true,
+        },
       ],
+      curly: ['error', 'all'],
     },
   },
   {
-    ignores: ['**/*.mjs']
+    ignores: ['**/*.mjs'],
   },
 );
