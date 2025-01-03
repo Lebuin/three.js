@@ -1,12 +1,8 @@
-import { MouseDrag, MouseTracker } from '@/lib/mouse-tracker';
 import { platform } from '@/lib/util';
 import _ from 'lodash';
 import * as THREE from 'three';
 import { Axes } from './axes';
-
-interface MouseTrackerData {
-  cameraPosition: THREE.Vector3;
-}
+import { OrbitControls } from './orbit-controls';
 
 export class Renderer {
   private renderer: THREE.WebGLRenderer;
@@ -14,10 +10,10 @@ export class Renderer {
   private camera: THREE.OrthographicCamera;
   private lightHolder: THREE.Group;
   private groundPlane: THREE.Mesh;
+  private controls: OrbitControls;
   private axes: Axes;
-  private cube: THREE.Mesh;
+  private objects: THREE.Mesh[];
   private onResizeThrottled = _.throttle(this.onResize.bind(this), 100);
-  private mouseTracker: MouseTracker<MouseTrackerData>;
 
   private showLightHelpers = false;
   private readonly groundPlaneSize = 100;
@@ -36,33 +32,37 @@ export class Renderer {
     this.lightHolder = this.createLights();
     this.scene.add(this.lightHolder);
 
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+
     if (this.showLightHelpers) {
       const lightHelperHolder = this.createLightHelpers(this.lightHolder);
       this.scene.add(lightHelperHolder);
     }
 
-    this.cube = this.createCube();
-    this.scene.add(this.cube);
+    this.objects = this.createObjects();
+    this.scene.add(...this.objects);
 
     window.addEventListener('resize', this.onResizeThrottled);
+    window.addEventListener('mousedown', this.onMouseDown);
     this.elem.addEventListener('contextmenu', this.onContextMenu);
-    this.elem.addEventListener('wheel', this.onScroll);
+    this.elem.addEventListener('wheel', this.onWheel);
 
-    this.mouseTracker = new MouseTracker({
-      elem: this.renderer.domElement,
-      onMouseDown: this.onMouseDown,
-      onMouseMove: this.onMouseMove,
-      filter: this.filterMouseEvent,
-    });
-    this.mouseTracker.start();
+    // this.mouseTracker = new MouseTracker({
+    //   elem: this.renderer.domElement,
+    //   onMouseDown: this.onMouseDown,
+    //   onMouseMove: this.onMouseMove,
+    //   filter: this.filterMouseEvent,
+    // });
+    // this.mouseTracker.start();
   }
 
   destroy() {
     this.pause();
     window.removeEventListener('resize', this.onResizeThrottled);
+    window.removeEventListener('mousedown', this.onMouseDown);
     this.elem.removeEventListener('contextmenu', this.onContextMenu);
-    this.elem.removeEventListener('wheel', this.onScroll);
-    this.mouseTracker.stop();
+    this.elem.removeEventListener('wheel', this.onWheel);
+    // this.mouseTracker.stop();
   }
 
   get domElement() {
@@ -100,7 +100,7 @@ export class Renderer {
       frustrum * aspect,
       frustrum,
       -frustrum,
-      0.1,
+      -1000,
       1000,
     );
     camera.position.set(3, 3, 5);
@@ -168,15 +168,20 @@ export class Renderer {
     return plane;
   }
 
-  private createCube() {
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+  private createObjects() {
+    const objects = [0, 5].map((x) => {
+      const geometry = new THREE.BoxGeometry();
+      const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
 
-    const cube = new THREE.Mesh(geometry, material);
-    cube.position.set(0.5, 1, 0.5);
-    cube.castShadow = true;
-    cube.receiveShadow = true;
-    return cube;
+      const cube = new THREE.Mesh(geometry, material);
+      cube.position.set(x + 0.5, 1, 0.5);
+      cube.castShadow = true;
+      cube.receiveShadow = true;
+
+      return cube;
+    });
+
+    return objects;
   }
 
   onResize() {
@@ -192,44 +197,47 @@ export class Renderer {
     this.renderer.render(this.scene, this.camera);
   };
 
-  /// Mouse tracking
-
+  /// Controls
   private onContextMenu = (event: MouseEvent) => {
     event.preventDefault();
   };
 
-  private filterMouseEvent = (event: MouseEvent) => {
-    return event.button === 2;
+  private onMouseDown = (event: MouseEvent) => {
+    const size = this.renderer.getSize(new THREE.Vector2());
+    const pointer = new THREE.Vector2();
+    pointer.x = (event.clientX / size.width) * 2 - 1;
+    pointer.y = -((event.clientY / size.height) * 2 - 1);
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(pointer, this.camera);
+    const intersects = raycaster.intersectObjects(this.scene.children);
+
+    const targetObjectPoint =
+      intersects.length > 0 ? intersects[0].point : new THREE.Vector3(0, 0, 0);
+    const cameraDirection = new THREE.Vector3();
+    this.camera.getWorldDirection(cameraDirection);
+    const cameraPosition = new THREE.Vector3();
+    this.camera.getWorldPosition(cameraPosition);
+    const target = cameraPosition
+      .clone()
+      .add(
+        cameraDirection
+          .clone()
+          .multiplyScalar(cameraPosition.distanceTo(targetObjectPoint)),
+      );
+
+    this.controls.target = target;
+    this.controls.update();
   };
 
-  private onMouseDown = () => {
-    return {
-      cameraPosition: this.camera.position.clone(),
-    };
-  };
-
-  private onMouseMove = (data: MouseTrackerData, drag: MouseDrag) => {
-    const deltaX = drag.x * 0.005;
-    const deltaY = drag.y * 0.005;
-
-    const spherical = new THREE.Spherical();
-    spherical.setFromVector3(data.cameraPosition);
-
-    spherical.theta -= deltaX;
-    spherical.phi -= deltaY;
-    spherical.phi = platform(0.2, spherical.phi, Math.PI - 0.2);
-
-    this.camera.position.setFromSpherical(spherical);
-    this.camera.lookAt(new THREE.Vector3(0, 0, 0));
-  };
-
-  private onScroll = (event: Event) => {
+  private onWheel = (event: Event) => {
+    // TODO: zoom to mouse position
     event.preventDefault();
     const delta = (event as WheelEvent).deltaY;
     const spherical = new THREE.Spherical();
     spherical.setFromVector3(this.camera.position);
 
-    spherical.radius *= 1 + delta * 0.001;
+    spherical.radius *= 1 + delta * 0.002;
     spherical.radius = platform(0.1, spherical.radius, 50);
 
     this.camera.position.setFromSpherical(spherical);

@@ -1,12 +1,14 @@
+export interface MouseMoveParams<T> {
+  data: T;
+  totalDrag: MouseDrag;
+  lastDrag: MouseDrag;
+  event: MouseEvent;
+}
+
 export interface MouseTrackerOptions<T> {
   elem: HTMLElement;
   onMouseDown: (event: MouseEvent) => T;
-  onMouseMove: (
-    data: T,
-    totalDrag: MouseDrag,
-    lastDrag: MouseDrag,
-    event: MouseEvent,
-  ) => void;
+  onMouseMove: (params: MouseMoveParams<T>) => void;
   onMouseUp?: (event: MouseEvent) => void;
   filter?: (event: MouseEvent) => boolean;
 }
@@ -86,12 +88,12 @@ export class MouseTracker<T> {
     };
     this.mouseDownData.mouseLast = { ...mousePosition };
 
-    this.options.onMouseMove(
-      this.mouseDownData.data,
+    this.options.onMouseMove({
+      data: this.mouseDownData.data,
       totalDrag,
       lastDrag,
       event,
-    );
+    });
   };
 
   private onMouseUp = (event: MouseEvent) => {
