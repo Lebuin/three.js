@@ -29,6 +29,8 @@ export default tseslint.config(
     },
     rules: {
       'no-constant-condition': 'off',
+      '@stylistic/arrow-parens': 'off',
+      '@stylistic/brace-style': ['error', '1tbs'],
       '@typescript-eslint/no-empty-interface': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unnecessary-condition': [

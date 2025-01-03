@@ -2,6 +2,7 @@ import { MouseDrag, MouseTracker } from '@/lib/mouse-tracker';
 import { platform } from '@/lib/util';
 import _ from 'lodash';
 import * as THREE from 'three';
+import { Axes } from './axes';
 
 interface MouseTrackerData {
   cameraPosition: THREE.Vector3;
@@ -12,6 +13,8 @@ export class Renderer {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private lightHolder: THREE.Group;
+  private groundPlane: THREE.Mesh;
+  private axes: Axes;
   private cube: THREE.Mesh;
   private onResizeThrottled = _.throttle(this.onResize.bind(this), 100);
   private mouseTracker: MouseTracker<MouseTrackerData>;
@@ -23,6 +26,12 @@ export class Renderer {
     this.scene = this.createScene();
     this.renderer = this.createRenderer();
     this.camera = this.createCamera();
+
+    this.axes = this.createAxes();
+    this.scene.add(this.axes);
+
+    this.groundPlane = this.createGroundPlane();
+    this.scene.add(this.groundPlane);
 
     this.lightHolder = this.createLights();
     this.scene.add(this.lightHolder);
@@ -68,12 +77,6 @@ export class Renderer {
   private createScene() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffffff);
-
-    const axes = this.createAxes();
-    scene.add(axes);
-
-    const groundPlane = this.createGroundPlane();
-    scene.add(groundPlane);
 
     return scene;
   }
@@ -140,8 +143,8 @@ export class Renderer {
   }
 
   private createAxes() {
-    const axesHelper = new THREE.AxesHelper(this.groundPlaneSize / 2);
-    return axesHelper;
+    const axes = new Axes(this.groundPlaneSize / 2);
+    return axes;
   }
 
   private createGroundPlane() {
@@ -189,8 +192,8 @@ export class Renderer {
   };
 
   private onMouseMove = (data: MouseTrackerData, drag: MouseDrag) => {
-    const deltaX = drag.x * 0.004;
-    const deltaY = drag.y * 0.004;
+    const deltaX = drag.x * 0.005;
+    const deltaY = drag.y * 0.005;
 
     const spherical = new THREE.Spherical();
     spherical.setFromVector3(data.cameraPosition);
