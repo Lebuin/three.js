@@ -1,4 +1,3 @@
-import { platform } from '@/lib/util';
 import _ from 'lodash';
 import * as THREE from 'three';
 import { Axes } from './axes';
@@ -13,9 +12,11 @@ export class Renderer {
   private controls: OrbitControls;
   private axes: Axes;
   private objects: THREE.Mesh[];
+  private debugSphere: THREE.Mesh;
   private onResizeThrottled = _.throttle(this.onResize.bind(this), 100);
 
   private showLightHelpers = false;
+  private showDebugSphere = false;
   private readonly groundPlaneSize = 100;
 
   constructor(private elem: HTMLElement) {
@@ -42,18 +43,14 @@ export class Renderer {
     this.objects = this.createObjects();
     this.scene.add(...this.objects);
 
+    this.debugSphere = this.createDebugSphere();
+    if (this.showDebugSphere) {
+      this.scene.add(this.debugSphere);
+    }
+
     window.addEventListener('resize', this.onResizeThrottled);
     window.addEventListener('mousedown', this.onMouseDown);
     this.elem.addEventListener('contextmenu', this.onContextMenu);
-    this.elem.addEventListener('wheel', this.onWheel);
-
-    // this.mouseTracker = new MouseTracker({
-    //   elem: this.renderer.domElement,
-    //   onMouseDown: this.onMouseDown,
-    //   onMouseMove: this.onMouseMove,
-    //   filter: this.filterMouseEvent,
-    // });
-    // this.mouseTracker.start();
   }
 
   destroy() {
@@ -61,8 +58,6 @@ export class Renderer {
     window.removeEventListener('resize', this.onResizeThrottled);
     window.removeEventListener('mousedown', this.onMouseDown);
     this.elem.removeEventListener('contextmenu', this.onContextMenu);
-    this.elem.removeEventListener('wheel', this.onWheel);
-    // this.mouseTracker.stop();
   }
 
   get domElement() {
@@ -172,6 +167,8 @@ export class Renderer {
     const objects = [0, 5].map((x) => {
       const geometry = new THREE.BoxGeometry();
       const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+      material.transparent = true;
+      material.opacity = 0.5;
 
       const cube = new THREE.Mesh(geometry, material);
       cube.position.set(x + 0.5, 1, 0.5);
@@ -182,6 +179,13 @@ export class Renderer {
     });
 
     return objects;
+  }
+
+  createDebugSphere() {
+    const sphere = new THREE.SphereGeometry(0.1);
+    const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const object = new THREE.Mesh(sphere, material);
+    return object;
   }
 
   onResize() {
@@ -197,7 +201,9 @@ export class Renderer {
     this.renderer.render(this.scene, this.camera);
   };
 
+  ///
   /// Controls
+
   private onContextMenu = (event: MouseEvent) => {
     event.preventDefault();
   };
@@ -213,7 +219,10 @@ export class Renderer {
     const intersects = raycaster.intersectObjects(this.scene.children);
 
     const targetObjectPoint =
-      intersects.length > 0 ? intersects[0].point : new THREE.Vector3(0, 0, 0);
+      intersects.length > 0 && intersects[0].object !== this.groundPlane
+        ? intersects[0].point
+        : new THREE.Vector3(0, 0, 0);
+
     const cameraDirection = new THREE.Vector3();
     this.camera.getWorldDirection(cameraDirection);
     const cameraPosition = new THREE.Vector3();
@@ -228,18 +237,5 @@ export class Renderer {
 
     this.controls.target = target;
     this.controls.update();
-  };
-
-  private onWheel = (event: Event) => {
-    // TODO: zoom to mouse position
-    event.preventDefault();
-    const delta = (event as WheelEvent).deltaY;
-    const spherical = new THREE.Spherical();
-    spherical.setFromVector3(this.camera.position);
-
-    spherical.radius *= 1 + delta * 0.002;
-    spherical.radius = platform(0.1, spherical.radius, 50);
-
-    this.camera.position.setFromSpherical(spherical);
   };
 }

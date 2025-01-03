@@ -7,4 +7,6 @@ export class OrbitControls extends DefaultOrbitControls {
     MIDDLE: null,
     RIGHT: THREE.MOUSE.ROTATE,
   };
+
+  zoomToCursor = true;
 }
