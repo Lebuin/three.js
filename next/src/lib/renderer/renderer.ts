@@ -11,7 +11,7 @@ interface MouseTrackerData {
 export class Renderer {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
-  private camera: THREE.PerspectiveCamera;
+  private camera: THREE.OrthographicCamera;
   private lightHolder: THREE.Group;
   private groundPlane: THREE.Mesh;
   private axes: Axes;
@@ -45,19 +45,22 @@ export class Renderer {
     this.scene.add(this.cube);
 
     window.addEventListener('resize', this.onResizeThrottled);
+    this.elem.addEventListener('contextmenu', this.onContextMenu);
     this.elem.addEventListener('wheel', this.onScroll);
 
-    this.mouseTracker = new MouseTracker(
-      this.renderer.domElement,
-      this.onMouseDown,
-      this.onMouseMove,
-    );
+    this.mouseTracker = new MouseTracker({
+      elem: this.renderer.domElement,
+      onMouseDown: this.onMouseDown,
+      onMouseMove: this.onMouseMove,
+      filter: this.filterMouseEvent,
+    });
     this.mouseTracker.start();
   }
 
   destroy() {
     this.pause();
     window.removeEventListener('resize', this.onResizeThrottled);
+    this.elem.removeEventListener('contextmenu', this.onContextMenu);
     this.elem.removeEventListener('wheel', this.onScroll);
     this.mouseTracker.stop();
   }
@@ -90,9 +93,13 @@ export class Renderer {
   }
 
   private createCamera() {
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
+    const frustrum = 2;
+    const aspect = window.innerWidth / window.innerHeight;
+    const camera = new THREE.OrthographicCamera(
+      -frustrum * aspect,
+      frustrum * aspect,
+      frustrum,
+      -frustrum,
       0.1,
       1000,
     );
@@ -174,7 +181,9 @@ export class Renderer {
 
   onResize() {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.camera.aspect = window.innerWidth / window.innerHeight;
+    const aspect = window.innerWidth / window.innerHeight;
+    this.camera.left = this.camera.bottom * aspect;
+    this.camera.right = this.camera.top * aspect;
     this.camera.updateProjectionMatrix();
   }
 
@@ -184,6 +193,14 @@ export class Renderer {
   };
 
   /// Mouse tracking
+
+  private onContextMenu = (event: MouseEvent) => {
+    event.preventDefault();
+  };
+
+  private filterMouseEvent = (event: MouseEvent) => {
+    return event.button === 2;
+  };
 
   private onMouseDown = () => {
     return {

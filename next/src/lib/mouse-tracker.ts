@@ -1,3 +1,16 @@
+export interface MouseTrackerOptions<T> {
+  elem: HTMLElement;
+  onMouseDown: (event: MouseEvent) => T;
+  onMouseMove: (
+    data: T,
+    totalDrag: MouseDrag,
+    lastDrag: MouseDrag,
+    event: MouseEvent,
+  ) => void;
+  onMouseUp?: (event: MouseEvent) => void;
+  filter?: (event: MouseEvent) => boolean;
+}
+
 interface MousePosition {
   x: number;
   y: number;
@@ -19,24 +32,14 @@ export interface DragEvent<T> {
 export class MouseTracker<T> {
   private mouseDownData?: MouseDownData<T>;
 
-  constructor(
-    private elem: HTMLElement,
-    private mouseDownCallback: (event: MouseEvent) => T,
-    private mouseMoveCallback: (
-      data: T,
-      totalDrag: MouseDrag,
-      lastDrag: MouseDrag,
-      event: MouseEvent,
-    ) => void,
-    private mouseUpCallback?: (event: MouseEvent) => void,
-  ) {}
+  constructor(private options: MouseTrackerOptions<T>) {}
 
   start() {
-    this.elem.addEventListener('mousedown', this.onMouseDown);
+    this.options.elem.addEventListener('mousedown', this.onMouseDown);
   }
 
   stop() {
-    this.elem.removeEventListener('mousedown', this.onMouseDown);
+    this.options.elem.removeEventListener('mousedown', this.onMouseDown);
   }
 
   private getMousePosition(event: MouseEvent): MousePosition {
@@ -51,8 +54,12 @@ export class MouseTracker<T> {
       this.onMouseUp(event);
     }
 
+    if (this.options.filter && !this.options.filter(event)) {
+      return;
+    }
+
     const mousePosition = this.getMousePosition(event);
-    const data = this.mouseDownCallback(event);
+    const data = this.options.onMouseDown(event);
     this.mouseDownData = {
       data: data,
       mouseStart: { ...mousePosition },
@@ -79,15 +86,20 @@ export class MouseTracker<T> {
     };
     this.mouseDownData.mouseLast = { ...mousePosition };
 
-    this.mouseMoveCallback(this.mouseDownData.data, totalDrag, lastDrag, event);
+    this.options.onMouseMove(
+      this.mouseDownData.data,
+      totalDrag,
+      lastDrag,
+      event,
+    );
   };
 
   private onMouseUp = (event: MouseEvent) => {
     if (!this.mouseDownData) {
       return;
     }
-    if (this.mouseUpCallback) {
-      this.mouseUpCallback(event);
+    if (this.options.onMouseUp) {
+      this.options.onMouseUp(event);
     }
     this.mouseDownData = undefined;
 
