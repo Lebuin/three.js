@@ -17,6 +17,7 @@ export class Renderer {
   private mouseTracker: MouseTracker<MouseTrackerData>;
 
   private showLightHelpers = false;
+  private readonly groundPlaneSize = 100;
 
   constructor(private elem: HTMLElement) {
     this.scene = this.createScene();
@@ -66,6 +67,14 @@ export class Renderer {
 
   private createScene() {
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+
+    const axes = this.createAxes();
+    scene.add(axes);
+
+    const groundPlane = this.createGroundPlane();
+    scene.add(groundPlane);
+
     return scene;
   }
 
@@ -84,25 +93,39 @@ export class Renderer {
       0.1,
       1000,
     );
-    camera.position.z = 5;
+    camera.position.set(3, 3, 5);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
     return camera;
   }
 
   private createLights() {
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1);
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 2);
     dirLight1.position.set(0, 1, 2);
-    dirLight1.castShadow = true;
     this.setLightShadow(dirLight1);
 
-    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.2);
+    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
     dirLight2.position.set(-2, 0, 0);
     this.setLightShadow(dirLight2);
 
-    const ambLight = new THREE.AmbientLight(0xffffff, 0.3);
+    const ambLight = new THREE.AmbientLight(0xffffff, 1);
 
     const holder = new THREE.Group();
     holder.add(dirLight1, dirLight2, ambLight);
     return holder;
+  }
+
+  private setLightShadow(light: THREE.DirectionalLight) {
+    light.castShadow = true;
+    light.shadow.mapSize.width = 256;
+    light.shadow.mapSize.height = 256;
+    light.shadow.camera.near = 0.1;
+    light.shadow.camera.far = 100;
+    light.shadow.camera.left = -10;
+    light.shadow.camera.right = 10;
+    light.shadow.camera.top = 10;
+    light.shadow.camera.bottom = -10;
+    light.shadow.radius = 3;
+    light.shadow.blurSamples = 16;
   }
 
   private createLightHelpers(lightHolder: THREE.Group) {
@@ -116,17 +139,23 @@ export class Renderer {
     return holder;
   }
 
-  private setLightShadow(light: THREE.DirectionalLight) {
-    light.shadow.mapSize.width = 256;
-    light.shadow.mapSize.height = 256;
-    light.shadow.camera.near = 0.1;
-    light.shadow.camera.far = 100;
-    light.shadow.camera.left = -10;
-    light.shadow.camera.right = 10;
-    light.shadow.camera.top = 10;
-    light.shadow.camera.bottom = -10;
-    light.shadow.radius = 3;
-    light.shadow.blurSamples = 16;
+  private createAxes() {
+    const axesHelper = new THREE.AxesHelper(this.groundPlaneSize / 2);
+    return axesHelper;
+  }
+
+  private createGroundPlane() {
+    const geometry = new THREE.PlaneGeometry(
+      this.groundPlaneSize,
+      this.groundPlaneSize,
+    );
+    const material = new THREE.MeshBasicMaterial({ color: 0xeeeeee });
+    const plane = new THREE.Mesh(geometry, material);
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.y = -0.01;
+    plane.receiveShadow = true;
+
+    return plane;
   }
 
   private createCube() {
@@ -134,6 +163,7 @@ export class Renderer {
     const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
 
     const cube = new THREE.Mesh(geometry, material);
+    cube.position.set(0.5, 1, 0.5);
     cube.castShadow = true;
     cube.receiveShadow = true;
     return cube;
@@ -159,8 +189,8 @@ export class Renderer {
   };
 
   private onMouseMove = (data: MouseTrackerData, drag: MouseDrag) => {
-    const deltaX = drag.x * 0.005;
-    const deltaY = drag.y * 0.005;
+    const deltaX = drag.x * 0.004;
+    const deltaY = drag.y * 0.004;
 
     const spherical = new THREE.Spherical();
     spherical.setFromVector3(data.cameraPosition);
