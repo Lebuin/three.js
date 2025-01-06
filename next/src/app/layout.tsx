@@ -27,10 +27,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} ${rubik.variable} antialiased`}>
-      <body className="font-sans">
-        {children}
-      </body>
+    <html
+      lang="en"
+      className={`${poppins.variable} ${rubik.variable} antialiased`}
+    >
+      <body className="font-sans">{children}</body>
     </html>
   );
 }
