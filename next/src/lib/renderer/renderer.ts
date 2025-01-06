@@ -1,51 +1,40 @@
 import _ from 'lodash';
 import * as THREE from 'three';
 import { Axes } from './axes';
+import { Lighting } from './lighting';
 import { OrbitControls } from './orbit-controls';
 
 export class Renderer {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
-  private lightHolder: THREE.Group;
+  private lighting: THREE.Group;
   private controls: OrbitControls;
   private axes: Axes;
-  private objects: THREE.Mesh[];
-  private debugSphere: THREE.Mesh;
+  private objects: THREE.Object3D[];
+
   private onResizeThrottled = _.throttle(this.onResize.bind(this), 100);
 
   private readonly groundPlaneSize = 200;
 
-  private showLightHelpers = false;
   private castShadows = false;
-  private showDebugSphere = false;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.scene = this.createScene();
     this.renderer = this.createRenderer(this.canvas);
     this.camera = this.createCamera();
 
-    this.axes = this.createAxes();
+    this.axes = new Axes(this.groundPlaneSize * 1.2);
     this.scene.add(this.axes);
 
-    this.lightHolder = this.createLights();
-    this.scene.add(this.lightHolder);
+    this.lighting = new Lighting(this.castShadows);
+    this.scene.add(this.lighting);
 
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls = new OrbitControls(this.camera, this.canvas);
     this.controls.addEventListener('change', this.render);
-
-    if (this.showLightHelpers) {
-      const lightHelperHolder = this.createLightHelpers(this.lightHolder);
-      this.scene.add(lightHelperHolder);
-    }
 
     this.objects = this.createObjects();
     this.scene.add(...this.objects);
-
-    this.debugSphere = this.createDebugSphere();
-    if (this.showDebugSphere) {
-      this.scene.add(this.debugSphere);
-    }
 
     window.addEventListener('resize', this.onResizeThrottled);
     window.addEventListener('mousedown', this.onMouseDown);
@@ -60,10 +49,6 @@ export class Renderer {
     this.canvas.removeEventListener('contextmenu', this.onContextMenu);
   }
 
-  get domElement() {
-    return this.renderer.domElement;
-  }
-
   private createScene() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf5f5f5);
@@ -71,14 +56,23 @@ export class Renderer {
     return scene;
   }
 
+  /**
+   * Create a WebGL renderer.
+   */
   private createRenderer(canvas: HTMLCanvasElement) {
-    const renderer = new THREE.WebGLRenderer({ canvas: canvas });
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: true,
+    });
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.VSMShadowMap;
     this.setRendererSize(renderer);
     return renderer;
   }
 
+  /**
+   * Set the size of the renderer to match the size of the canvas.
+   */
   private setRendererSize(renderer: THREE.WebGLRenderer) {
     const pixelRatio = window.devicePixelRatio;
     const width = Math.floor(this.canvas.clientWidth * pixelRatio);
@@ -87,6 +81,9 @@ export class Renderer {
     return renderer.getSize(new THREE.Vector2());
   }
 
+  /**
+   * Create an orthographic camera.
+   */
   private createCamera() {
     const frustrum = 2;
     const aspect = window.innerWidth / window.innerHeight;
@@ -107,79 +104,42 @@ export class Renderer {
     return camera;
   }
 
-  private createLights() {
-    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x888888, 1);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
-    directionalLight.position.set(5, 2, 10);
-    this.setLightShadow(directionalLight);
-
-    const holder = new THREE.Group();
-    holder.add(hemisphereLight, directionalLight);
-    return holder;
-  }
-
-  private setLightShadow(light: THREE.DirectionalLight) {
-    if (!this.castShadows) {
-      return;
-    }
-
-    light.castShadow = true;
-    light.shadow.mapSize.width = 256;
-    light.shadow.mapSize.height = 256;
-    light.shadow.camera.near = 0.1;
-    light.shadow.camera.far = 100;
-    light.shadow.camera.left = -10;
-    light.shadow.camera.right = 10;
-    light.shadow.camera.top = 10;
-    light.shadow.camera.bottom = -10;
-    light.shadow.radius = 3;
-    light.shadow.blurSamples = 16;
-  }
-
-  private createLightHelpers(lightHolder: THREE.Group) {
-    const holder = new THREE.Group();
-    for (const light of lightHolder.children) {
-      if (light instanceof THREE.DirectionalLight) {
-        const helper = new THREE.DirectionalLightHelper(light, 1, 0x555555);
-        holder.add(helper);
-      }
-    }
-    return holder;
-  }
-
-  private createAxes() {
-    const axes = new Axes(this.groundPlaneSize);
-    return axes;
-  }
-
   private createObjects() {
     const objects = [0, 5].map((x) => {
       const geometry = new THREE.BoxGeometry();
-      const material = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
+      const meshMaterial = new THREE.MeshStandardMaterial({
+        color: 'hsl(38, 86%, 78%)',
         roughness: 0.6,
-        metalness: 0.4,
+        metalness: 0.2,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
       });
 
-      const cube = new THREE.Mesh(geometry, material);
-      cube.position.set(x + 0.5, 1, 0.5);
-      cube.castShadow = true;
-      cube.receiveShadow = true;
+      const mesh = new THREE.Mesh(geometry, meshMaterial);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
 
-      return cube;
+      const edgesGeometry = new THREE.EdgesGeometry(geometry);
+      const edgesMaterial = new THREE.LineBasicMaterial({
+        color: 'hsl(38, 86%, 15%)',
+        linewidth: 1.5,
+      });
+      const wireframe = new THREE.LineSegments(edgesGeometry, edgesMaterial);
+
+      const group = new THREE.Group();
+      group.add(mesh, wireframe);
+      group.position.set(x + 0.5, 1, 0.5);
+
+      return group;
     });
 
     return objects;
   }
 
-  createDebugSphere() {
-    const sphere = new THREE.SphereGeometry(0.1);
-    const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-    const object = new THREE.Mesh(sphere, material);
-    return object;
-  }
-
+  /**
+   * Update the size of the renderer and the camera aspect ratio when the window is resized.
+   */
   onResize() {
     const size = this.setRendererSize(this.renderer);
     const aspect = size.width / size.height;
@@ -189,18 +149,27 @@ export class Renderer {
     this.render();
   }
 
+  /**
+   * Render the scene.
+   */
   render = () => {
-    this.lightHolder.quaternion.copy(this.camera.quaternion);
+    this.lighting.quaternion.copy(this.camera.quaternion);
     this.renderer.render(this.scene, this.camera);
   };
 
   ///
   /// Controls
 
+  /**
+   * Cancel the default browser context menu
+   */
   private onContextMenu = (event: MouseEvent) => {
     event.preventDefault();
   };
 
+  /**
+   * Update the target of the controls to the point where the user clicked.
+   */
   private onMouseDown = (event: MouseEvent) => {
     const size = this.renderer.getSize(new THREE.Vector2());
     const pointer = new THREE.Vector2();
