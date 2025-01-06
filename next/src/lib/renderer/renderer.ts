@@ -1,8 +1,12 @@
+import { Model } from '@/lib/model/model';
 import _ from 'lodash';
 import * as THREE from 'three';
+import { Part } from '../model/parts/part';
 import { Axes } from './axes';
 import { Lighting } from './lighting';
 import { OrbitControls } from './orbit-controls';
+import { createPartObject } from './part-objects';
+import { PartObject } from './part-objects/part-object';
 
 export class Renderer {
   private renderer: THREE.WebGLRenderer;
@@ -11,15 +15,15 @@ export class Renderer {
   private lighting: THREE.Group;
   private controls: OrbitControls;
   private axes: Axes;
-  private objects: THREE.Object3D[];
+  private partObjects: PartObject<Part>[] = [];
 
   private onResizeThrottled = _.throttle(this.onResize.bind(this), 100);
 
-  private readonly groundPlaneSize = 200;
+  private readonly groundPlaneSize = 20e3;
 
   private castShadows = false;
 
-  constructor(private canvas: HTMLCanvasElement) {
+  constructor(private canvas: HTMLCanvasElement, private model: Model) {
     this.scene = this.createScene();
     this.renderer = this.createRenderer(this.canvas);
     this.camera = this.createCamera();
@@ -31,19 +35,23 @@ export class Renderer {
     this.scene.add(this.lighting);
 
     this.controls = new OrbitControls(this.camera, this.canvas);
-    this.controls.addEventListener('change', this.render);
+    this.addPart(...model.parts);
 
-    this.objects = this.createObjects();
-    this.scene.add(...this.objects);
-
-    window.addEventListener('resize', this.onResizeThrottled);
-    window.addEventListener('mousedown', this.onMouseDown);
-    this.canvas.addEventListener('contextmenu', this.onContextMenu);
+    this.setupListeners();
 
     this.render();
   }
 
+  setupListeners() {
+    this.controls.addEventListener('change', this.render);
+    window.addEventListener('resize', this.onResizeThrottled);
+    window.addEventListener('mousedown', this.onMouseDown);
+    this.canvas.addEventListener('contextmenu', this.onContextMenu);
+  }
+
   destroy() {
+    this.removeAllParts();
+    this.controls.dispose();
     window.removeEventListener('resize', this.onResizeThrottled);
     window.removeEventListener('mousedown', this.onMouseDown);
     this.canvas.removeEventListener('contextmenu', this.onContextMenu);
@@ -85,7 +93,7 @@ export class Renderer {
    * Create an orthographic camera.
    */
   private createCamera() {
-    const frustrum = 2;
+    const frustrum = 1e3;
     const aspect = window.innerWidth / window.innerHeight;
     const camera = new THREE.OrthographicCamera(
       -frustrum * aspect,
@@ -104,37 +112,30 @@ export class Renderer {
     return camera;
   }
 
-  private createObjects() {
-    const objects = [0, 5].map((x) => {
-      const geometry = new THREE.BoxGeometry();
-      const meshMaterial = new THREE.MeshStandardMaterial({
-        color: 'hsl(38, 86%, 78%)',
-        roughness: 0.6,
-        metalness: 0.2,
-        polygonOffset: true,
-        polygonOffsetFactor: 1,
-        polygonOffsetUnits: 1,
-      });
-
-      const mesh = new THREE.Mesh(geometry, meshMaterial);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-
-      const edgesGeometry = new THREE.EdgesGeometry(geometry);
-      const edgesMaterial = new THREE.LineBasicMaterial({
-        color: 'hsl(38, 86%, 15%)',
-        linewidth: 1.5,
-      });
-      const wireframe = new THREE.LineSegments(edgesGeometry, edgesMaterial);
-
-      const group = new THREE.Group();
-      group.add(mesh, wireframe);
-      group.position.set(x + 0.5, 1, 0.5);
-
-      return group;
+  private addPart(...parts: Part[]) {
+    parts.forEach((part) => {
+      const partObject = createPartObject(part);
+      this.partObjects.push(partObject);
+      this.scene.add(partObject);
+      part.addEventListener('change', this.render);
     });
+  }
 
-    return objects;
+  private removePart(...parts: Part[]) {
+    parts.forEach((part) => {
+      const partObject = this.partObjects.find(
+        (partObject) => partObject.part === part,
+      );
+      if (partObject) {
+        this.scene.remove(partObject);
+        partObject.dispose();
+        part.removeEventListener('change', this.render);
+      }
+    });
+  }
+
+  private removeAllParts() {
+    this.removePart(...this.partObjects.map((partObject) => partObject.part));
   }
 
   /**

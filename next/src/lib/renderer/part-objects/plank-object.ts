@@ -1,0 +1,99 @@
+import { Plank } from '@/lib/model/parts/plank';
+import * as THREE from 'three';
+import { PartObject } from './part-object';
+
+export class PlankObject extends PartObject<Plank> {
+  private geometry: THREE.BoxGeometry;
+  private typedChildren: [THREE.Mesh, THREE.LineSegments];
+
+  constructor(part: Plank) {
+    super(part);
+
+    this.geometry = this.createGeometry();
+    this.typedChildren = this.createChildren();
+    this.add(...this.typedChildren);
+
+    this.part.addEventListener('change', this.updateFromPart);
+    this.updateFromPart();
+  }
+
+  dispose() {
+    this.typedChildren.forEach((child) => {
+      child.geometry.dispose();
+      if (Array.isArray(child.material)) {
+        child.material.forEach((material) => material.dispose());
+      } else {
+        child.material.dispose();
+      }
+    });
+  }
+
+  private createGeometry() {
+    const geometry = new THREE.BoxGeometry(
+      this.part.size.x,
+      this.part.size.y,
+      this.part.size.z,
+    );
+    return geometry;
+  }
+
+  private createChildren(): [THREE.Mesh, THREE.LineSegments] {
+    const meshMaterial = this.getMeshMaterial();
+
+    const mesh = new THREE.Mesh(undefined, meshMaterial);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    const edgesMaterial = this.getEdgesMaterial();
+    const wireframe = new THREE.LineSegments(undefined, edgesMaterial);
+
+    return [mesh, wireframe];
+  }
+
+  private getMeshMaterial() {
+    const meshMaterial = new THREE.MeshStandardMaterial({
+      color: 'hsl(38, 86%, 78%)',
+      roughness: 0.6,
+      metalness: 0.2,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
+    });
+    return meshMaterial;
+  }
+
+  private getEdgesMaterial() {
+    const edgesMaterial = new THREE.LineBasicMaterial({
+      color: 'hsl(38, 86%, 15%)',
+      linewidth: 1.5,
+    });
+    return edgesMaterial;
+  }
+
+  private updateFromPart = () => {
+    this.updateGeometry();
+    this.updateTransform();
+  };
+
+  private updateGeometry() {
+    this.typedChildren.forEach((child) => {
+      child.geometry.dispose();
+    });
+
+    this.geometry = this.createGeometry();
+    this.typedChildren[0].geometry = this.geometry;
+    const edgesGeometry = new THREE.EdgesGeometry(this.geometry);
+    this.typedChildren[1].geometry = edgesGeometry;
+
+    // Offset the box by half its size so that a corner is placed at `this.position`
+    const position = this.part.size.clone().multiplyScalar(0.5);
+    this.typedChildren.forEach((child) => {
+      child.position.copy(position);
+    });
+  }
+
+  private updateTransform() {
+    this.position.copy(this.part.position);
+    this.quaternion.copy(this.part.quaternion);
+  }
+}
