@@ -4,7 +4,7 @@ import { Renderer as SceneRenderer } from '@/lib/renderer/renderer';
 import React from 'react';
 
 const Renderer: React.FC = () => {
-  const mountRef = React.useRef<HTMLDivElement>(null);
+  const mountRef = React.useRef<HTMLCanvasElement>(null);
 
   React.useEffect(() => {
     const mount = mountRef.current;
@@ -13,17 +13,14 @@ const Renderer: React.FC = () => {
     }
 
     const renderer = new SceneRenderer(mount);
-    mount.appendChild(renderer.domElement);
-    renderer.start();
 
     return () => {
       renderer.destroy();
-      mount.removeChild(renderer.domElement);
     };
   }, []);
 
   return (
-    <div
+    <canvas
       ref={mountRef}
       className="w-full h-full"
     />

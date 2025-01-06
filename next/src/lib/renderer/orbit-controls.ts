@@ -9,4 +9,6 @@ export class OrbitControls extends DefaultOrbitControls {
   };
 
   zoomToCursor = true;
+  zoomSpeed = 2;
+  minZoom = 0.05;
 }
