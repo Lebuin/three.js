@@ -4,7 +4,7 @@ import { OrbitControls as DefaultOrbitControls } from 'three/examples/jsm/Addons
 export class OrbitControls extends DefaultOrbitControls {
   mouseButtons = {
     LEFT: null,
-    MIDDLE: null,
+    MIDDLE: THREE.MOUSE.PAN,
     RIGHT: THREE.MOUSE.ROTATE,
   };
 

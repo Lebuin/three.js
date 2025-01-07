@@ -9,7 +9,7 @@ export class PlankObject extends PartObject<Plank> {
   constructor(part: Plank) {
     super(part);
 
-    this.geometry = this.createGeometry();
+    this.geometry = new THREE.BoxGeometry();
     this.typedChildren = this.createChildren();
     this.add(...this.typedChildren);
 
@@ -35,6 +35,28 @@ export class PlankObject extends PartObject<Plank> {
       this.part.size.z,
     );
     return geometry;
+  }
+
+  private createEdgesGeometry(geometry: THREE.BoxGeometry) {
+    const size = new THREE.Vector3(
+      geometry.parameters.width,
+      geometry.parameters.height,
+      geometry.parameters.depth,
+    );
+    const numNonZero = [size.x, size.y, size.z].filter(
+      (value) => value !== 0,
+    ).length;
+
+    if (numNonZero <= 1) {
+      const edgesGeometry = new THREE.BufferGeometry().setFromPoints([
+        size.clone().multiplyScalar(-0.5),
+        size.clone().multiplyScalar(0.5),
+      ]);
+      return edgesGeometry;
+    } else {
+      const edgesGeometry = new THREE.EdgesGeometry(this.geometry);
+      return edgesGeometry;
+    }
   }
 
   private createChildren(): [THREE.Mesh, THREE.LineSegments] {
@@ -82,7 +104,7 @@ export class PlankObject extends PartObject<Plank> {
 
     this.geometry = this.createGeometry();
     this.typedChildren[0].geometry = this.geometry;
-    const edgesGeometry = new THREE.EdgesGeometry(this.geometry);
+    const edgesGeometry = this.createEdgesGeometry(this.geometry);
     this.typedChildren[1].geometry = edgesGeometry;
 
     // Offset the box by half its size so that a corner is placed at `this.position`

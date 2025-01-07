@@ -1,13 +1,17 @@
 'use client';
 
 import { Model } from '@/lib/model/model';
-import { Plank } from '@/lib/model/parts/plank';
 import { Renderer as SceneRenderer } from '@/lib/renderer/renderer';
 import React from 'react';
-import * as THREE from 'three';
+import { Tool, toolInfo } from './toolbar';
 
-const Renderer: React.FC = () => {
+export interface RendererProps {
+  tool: Tool;
+}
+
+export default function Renderer(props: RendererProps) {
   const mountRef = React.useRef<HTMLCanvasElement>(null);
+  const rendererRef = React.useRef<SceneRenderer | null>(null);
 
   React.useEffect(() => {
     const mount = mountRef.current;
@@ -16,41 +20,30 @@ const Renderer: React.FC = () => {
     }
 
     const model = new Model();
-    model.addPart(
-      new Plank(
-        new THREE.Vector3(600, 18, 400),
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
-      ),
-      new Plank(
-        new THREE.Vector3(600, 18, 400),
-        new THREE.Vector3(0, 600 - 18, 0),
-        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0)),
-      ),
-      new Plank(
-        new THREE.Vector3(600, 18, 400),
-        new THREE.Vector3(18, 0, 0),
-        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2)),
-      ),
-      new Plank(
-        new THREE.Vector3(600, 18, 400),
-        new THREE.Vector3(600, 0, 0),
-        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2)),
-      ),
-    );
     const renderer = new SceneRenderer(mount, model);
+    rendererRef.current = renderer;
 
     return () => {
-      renderer.destroy();
+      renderer.dispose();
     };
   }, []);
 
-  return (
-    <canvas
-      ref={mountRef}
-      className="w-full h-full"
-    />
-  );
-};
+  React.useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer) {
+      return;
+    }
 
-export default Renderer;
+    renderer.setTool(props.tool);
+  }, [props.tool]);
+
+  return (
+    <div className="relative flex-1">
+      <canvas
+        ref={mountRef}
+        className="absolute top-0 left-0 w-full h-full"
+        style={{ cursor: toolInfo[props.tool].cursor }}
+      />
+    </div>
+  );
+}

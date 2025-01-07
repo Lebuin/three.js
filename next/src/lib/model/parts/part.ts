@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 
-interface PartEventMap {
+interface PartEvents {
   change: object;
 }
 
-export abstract class Part extends THREE.EventDispatcher<PartEventMap> {
+export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   private _position: THREE.Vector3;
   private _quaternion: THREE.Quaternion;
 

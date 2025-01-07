@@ -5,12 +5,12 @@ export class Plank extends Part {
   private _size: THREE.Vector3;
 
   constructor(
-    size: THREE.Vector3,
+    size?: THREE.Vector3,
     position?: THREE.Vector3,
     quaternion?: THREE.Quaternion,
   ) {
     super(position, quaternion);
-    this._size = size;
+    this._size = size ?? new THREE.Vector3();
   }
 
   get size() {

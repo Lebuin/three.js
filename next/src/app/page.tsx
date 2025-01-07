@@ -26,7 +26,7 @@ export default function MainPage() {
         selected={state.selectedTool}
         onSelect={setSelectedTool}
       />
-      <Renderer />
+      <Renderer tool={state.selectedTool} />
     </div>
   );
 }
