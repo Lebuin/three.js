@@ -142,7 +142,10 @@ export class PlankToolHandler extends ToolHandler {
   ): PlankPoint | undefined {
     // TODO: make plane depend on camera direction
     const raycaster = this.renderer.getRaycaster(event);
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const plane = new THREE.Plane(
+      this.getDominantPlaneNormal(raycaster.ray.direction),
+      0,
+    );
     const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
     if (point == null) {
       return;
@@ -159,9 +162,9 @@ export class PlankToolHandler extends ToolHandler {
   ): PlankPoint | undefined {
     // TODO: make plane depend on camera direction
     const raycaster = this.renderer.getRaycaster(event);
-    const plane = new THREE.Plane(
-      new THREE.Vector3(0, 1, 0),
-      this.points[0].point.y,
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      this.getDominantPlaneNormal(raycaster.ray.direction),
+      this.points[0].point,
     );
     const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
     if (point == null) {
@@ -255,6 +258,25 @@ export class PlankToolHandler extends ToolHandler {
         point: point,
         centerAligned: false,
       };
+    }
+  }
+
+  private getDominantPlaneNormal(direction: THREE.Vector3): THREE.Vector3 {
+    const absDirection = new THREE.Vector3(
+      Math.abs(direction.x),
+      Math.abs(direction.y),
+      Math.abs(direction.z),
+    );
+    const yPreference = 4;
+    if (
+      absDirection.y * yPreference >
+      Math.max(absDirection.x, absDirection.z)
+    ) {
+      return new THREE.Vector3(0, 1, 0);
+    } else if (absDirection.x > absDirection.z) {
+      return new THREE.Vector3(1, 0, 0);
+    } else {
+      return new THREE.Vector3(0, 0, 1);
     }
   }
 
