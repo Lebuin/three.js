@@ -32,6 +32,7 @@ export default tseslint.config(
       '@stylistic/arrow-parens': 'off',
       '@stylistic/brace-style': ['error', '1tbs'],
       '@stylistic/lines-between-class-members': 'off',
+      '@stylistic/quotes': ['warn', 'single', { avoidEscape: true }],
       '@stylistic/operator-linebreak': 'off',
       '@typescript-eslint/no-empty-interface': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
@@ -68,6 +69,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['**/*.mjs'],
+    ignores: ['**/*.mjs', '**/*.mts'],
   },
 );

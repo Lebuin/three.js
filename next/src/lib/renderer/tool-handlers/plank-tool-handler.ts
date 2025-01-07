@@ -1,9 +1,9 @@
 import { Plank } from '@/lib/model/parts/plank';
-import { mouseButtonPressed } from '@/lib/util';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
 import * as THREE from 'three';
 import { Vector3 } from 'three';
 import { Renderer } from '../renderer';
+import { MouseHandler, MouseHandlerEvent } from './mouse-handler';
 import { ToolHandler } from './tool-handler';
 
 type Axis = 'x' | 'y' | 'z';
@@ -14,6 +14,7 @@ interface PlankPoint {
 }
 
 export class PlankToolHandler extends ToolHandler {
+  private mouseHandler: MouseHandler;
   private mouseEvent?: MouseEvent;
   private ctrlPressed = false;
 
@@ -25,198 +26,84 @@ export class PlankToolHandler extends ToolHandler {
   constructor(renderer: Renderer) {
     super(renderer);
 
+    this.mouseHandler = new MouseHandler(renderer);
+
     this.setupListeners();
   }
 
   dispose() {
     super.dispose();
+    this.mouseHandler.dispose();
     this.removeFleetingPlank();
     this.removeListeners();
   }
 
   private setupListeners() {
-    window.addEventListener('keydown', this.onKeyDown);
-    window.addEventListener('keyup', this.onKeyUp);
-    this.renderer.canvas.addEventListener('mousemove', this.onMouseMove);
-    this.renderer.canvas.addEventListener('click', this.onClick);
+    this.mouseHandler.addEventListener('mousemove', this.onMouseMove);
+    this.mouseHandler.addEventListener('click', this.onClick);
   }
 
   private removeListeners() {
-    window.removeEventListener('keydown', this.onKeyDown);
-    window.removeEventListener('keyup', this.onKeyUp);
-    this.renderer.canvas.removeEventListener('mousemove', this.onMouseMove);
-    this.renderer.canvas.removeEventListener('click', this.onClick);
+    this.mouseHandler.removeEventListener('mousemove', this.onMouseMove);
+    this.mouseHandler.removeEventListener('click', this.onClick);
   }
 
-  private onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Control') {
-      this.ctrlPressed = true;
-    } else if (event.key === 'ArrowRight') {
-      this.fixedAxis = this.fixedAxis === 'x' ? undefined : 'x';
-    } else if (event.key === 'ArrowUp') {
-      this.fixedAxis = this.fixedAxis === 'y' ? undefined : 'y';
-    } else if (event.key === 'ArrowLeft') {
-      this.fixedAxis = this.fixedAxis === 'z' ? undefined : 'z';
-    }
-
-    if (this.mouseEvent) {
-      this.updateFleetingPoint(this.mouseEvent);
-      this.updateFleetingPlank();
-    }
-  };
-
-  private onKeyUp = (event: KeyboardEvent) => {
-    if (event.key === 'Control') {
-      this.ctrlPressed = false;
-    }
-    if (this.mouseEvent) {
-      this.updateFleetingPoint(this.mouseEvent);
-      this.updateFleetingPlank();
-    }
-  };
-
-  private onMouseMove = (event: MouseEvent) => {
-    // Don't update the plank while the user is orbiting
-    if (
-      mouseButtonPressed(event, 'right') ||
-      mouseButtonPressed(event, 'middle')
-    ) {
-      return;
-    }
-
-    this.ctrlPressed = event.ctrlKey;
-    this.mouseEvent = event;
-
-    this.updateFleetingPoint(event);
+  private onMouseMove = (event: MouseHandlerEvent) => {
+    this.fleetingPoint = this.createPlankPoint(event);
     this.updateFleetingPlank();
   };
 
-  private onClick = (event: MouseEvent) => {
-    this.ctrlPressed = event.ctrlKey;
-    this.mouseEvent = event;
-
-    this.updateFleetingPoint(event);
-    if (!this.fleetingPoint) {
-      return;
-    }
-
-    this.points.push(this.fleetingPoint);
+  private onClick = (event: MouseHandlerEvent) => {
+    const plankPoint = this.createPlankPoint(event);
+    this.points.push(plankPoint);
     this.fleetingPoint = undefined;
 
     this.updateFleetingPlank();
-    if (this.points.length === 4) {
+    this.mouseHandler.setNeighborPoint(plankPoint.point);
+
+    if (this.points.length === 2) {
+      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+        this.points[1].point.clone().sub(this.points[0].point).normalize(),
+        this.points[1].point,
+      );
+      this.mouseHandler.setConstraintPlane(plane);
+    } else if (this.points.length === 3) {
+      const plankPlane = new THREE.Plane().setFromCoplanarPoints(
+        this.points[0].point,
+        this.points[1].point,
+        this.points[2].point,
+      );
+      const line = new THREE.Line3(
+        this.points[2].point,
+        this.points[2].point.clone().add(plankPlane.normal),
+      );
+      this.mouseHandler.setConstraintLine(line);
+    } else if (this.points.length === 4) {
+      this.mouseHandler.clearConstraints();
       this.confirmPlank();
     }
   };
 
-  private updateFleetingPoint(event: MouseEvent) {
-    const plankPoint = this.getPointFromMouseEvent(event);
-    if (plankPoint == null) {
-      return;
-    }
-    this.fleetingPoint = plankPoint;
-  }
-
-  private isCenterAligned(_event: MouseEvent) {
-    // We don't currently use _event, since we always copy event.ctrlKey into this.ctrlPressed. But
-    // we may change this implementation in the future.
-    return this.ctrlPressed;
-  }
-
-  private getPointFromMouseEvent(event: MouseEvent): PlankPoint | undefined {
-    if (this.points.length === 0) {
-      return this.getFirstPointFromMouseEvent(event);
-    } else if (this.points.length === 1) {
-      return this.getSecondPointFromMouseEvent(event);
-    } else if (this.points.length === 2) {
-      return this.getThirdPointFromMouseEvent(event);
-    } else if (this.points.length === 3) {
-      return this.getFourthPointFromMouseEvent(event);
+  private createPlankPoint(event: MouseHandlerEvent) {
+    if (this.points.length < 3) {
+      return {
+        point: event.point,
+        centerAligned: this.isCenterAligned(event),
+      };
     } else {
-      throw new Error('Too many points');
+      return this.getFourthPoint(event);
     }
   }
 
-  private getFirstPointFromMouseEvent(
-    event: MouseEvent,
-  ): PlankPoint | undefined {
-    // TODO: make plane depend on camera direction
-    const raycaster = this.renderer.getRaycaster(event);
-    const plane = new THREE.Plane(
-      this.getDominantPlaneNormal(raycaster.ray.direction),
-      0,
-    );
-    const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
-    if (point == null) {
-      return;
-    }
-
-    return {
-      point: point,
-      centerAligned: this.isCenterAligned(event),
-    };
-  }
-
-  private getSecondPointFromMouseEvent(
-    event: MouseEvent,
-  ): PlankPoint | undefined {
-    // TODO: make plane depend on camera direction
-    const raycaster = this.renderer.getRaycaster(event);
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      this.getDominantPlaneNormal(raycaster.ray.direction),
-      this.points[0].point,
-    );
-    const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
-    if (point == null) {
-      return;
-    }
-
-    return {
-      point: point,
-      centerAligned: this.isCenterAligned(event),
-    };
-  }
-
-  private getThirdPointFromMouseEvent(
-    event: MouseEvent,
-  ): PlankPoint | undefined {
-    const raycaster = this.renderer.getRaycaster(event);
-    const normal = this.points[1].point
-      .clone()
-      .sub(this.points[0].point)
-      .normalize();
-
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      normal,
-      this.points[1].point,
-    );
-    const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
-    if (point == null) {
-      return;
-    }
-
-    return {
-      point: point,
-      centerAligned: this.isCenterAligned(event),
-    };
-  }
-
-  private getFourthPointFromMouseEvent(
-    event: MouseEvent,
-  ): PlankPoint | undefined {
-    const raycaster = this.renderer.getRaycaster(event);
-    const materialThickness = 18;
-
-    const intersectionPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      this.points[1].point.clone().sub(this.points[0].point).normalize(),
-      this.points[1].point,
-    );
-    const intersection = raycaster.ray.intersectPlane(
-      intersectionPlane,
-      new THREE.Vector3(),
-    );
-    if (intersection == null) {
-      return;
+  /**
+   * Get the line on which the 3rd and 4th points of the plank must lie. This can only be
+   * calculated once the first 3 points are set.
+   */
+  private getZLine() {
+    if (this.points.length < 3) {
+      throw new Error(
+        "The plank's Z line is only defined when the first 3 points are set",
+      );
     }
 
     const plankPlane = new THREE.Plane().setFromCoplanarPoints(
@@ -224,14 +111,19 @@ export class PlankToolHandler extends ToolHandler {
       this.points[1].point,
       this.points[2].point,
     );
-    const plankZAxis = plankPlane.normal.clone().normalize();
-    const plankZLine = new THREE.Line3(
+    const zLine = new THREE.Line3(
       this.points[2].point,
-      this.points[2].point.clone().add(plankZAxis),
+      this.points[2].point.clone().add(plankPlane.normal),
     );
+    return zLine;
+  }
 
-    const signedDistance = plankZLine.closestPointToPointParameter(
-      intersection,
+  private getFourthPoint(event: MouseHandlerEvent) {
+    const materialThickness = 18;
+    const zLine = this.getZLine();
+    const zAxis = zLine.delta(new THREE.Vector3());
+    const signedDistance = zLine.closestPointToPointParameter(
+      event.point,
       false,
     );
 
@@ -241,7 +133,7 @@ export class PlankToolHandler extends ToolHandler {
     ) {
       const point = this.points[2].point
         .clone()
-        .add(plankZAxis.multiplyScalar(materialThickness / 2));
+        .add(zAxis.clone().multiplyScalar(materialThickness / 2));
       return {
         point: point,
         centerAligned: true,
@@ -250,9 +142,9 @@ export class PlankToolHandler extends ToolHandler {
       const point = this.points[2].point
         .clone()
         .add(
-          plankZAxis.multiplyScalar(
-            Math.sign(signedDistance) * materialThickness,
-          ),
+          zAxis
+            .clone()
+            .multiplyScalar(Math.sign(signedDistance) * materialThickness),
         );
       return {
         point: point,
@@ -261,23 +153,8 @@ export class PlankToolHandler extends ToolHandler {
     }
   }
 
-  private getDominantPlaneNormal(direction: THREE.Vector3): THREE.Vector3 {
-    const absDirection = new THREE.Vector3(
-      Math.abs(direction.x),
-      Math.abs(direction.y),
-      Math.abs(direction.z),
-    );
-    const yPreference = 4;
-    if (
-      absDirection.y * yPreference >
-      Math.max(absDirection.x, absDirection.z)
-    ) {
-      return new THREE.Vector3(0, 1, 0);
-    } else if (absDirection.x > absDirection.z) {
-      return new THREE.Vector3(1, 0, 0);
-    } else {
-      return new THREE.Vector3(0, 0, 1);
-    }
+  private isCenterAligned(event: MouseHandlerEvent) {
+    return event.ctrlPressed;
   }
 
   private createFleetingPlank() {

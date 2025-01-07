@@ -45,7 +45,7 @@ export class Renderer {
     this.lighting = new Lighting(this.castShadows);
     this.scene.add(this.lighting);
 
-    this.controls = new OrbitControls(this._camera, this.canvas);
+    this.controls = new OrbitControls(this.camera, this.canvas);
     this.addPart(...model.parts);
 
     this.setupListeners();
@@ -181,8 +181,8 @@ export class Renderer {
   };
 
   private renderFrame() {
-    this.lighting.quaternion.copy(this._camera.quaternion);
-    this.renderer.render(this.scene, this._camera);
+    this.lighting.quaternion.copy(this.camera.quaternion);
+    this.renderer.render(this.scene, this.camera);
   }
 
   ///
@@ -194,9 +194,9 @@ export class Renderer {
   private onResize() {
     const size = this.setRendererSize(this.renderer);
     const aspect = size.width / size.height;
-    this._camera.left = this._camera.bottom * aspect;
-    this._camera.right = this._camera.top * aspect;
-    this._camera.updateProjectionMatrix();
+    this.camera.left = this.camera.bottom * aspect;
+    this.camera.right = this.camera.top * aspect;
+    this.camera.updateProjectionMatrix();
     this.render();
   }
 
@@ -222,7 +222,7 @@ export class Renderer {
     );
 
     const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(pointer, this._camera);
+    raycaster.setFromCamera(pointer, this.camera);
 
     return raycaster;
   }
@@ -244,17 +244,12 @@ export class Renderer {
     const targetObjectPoint =
       intersects.length > 0 ? intersects[0].point : new THREE.Vector3(0, 0, 0);
 
-    const cameraDirection = new THREE.Vector3();
-    this._camera.getWorldDirection(cameraDirection);
-    const cameraPosition = new THREE.Vector3();
-    this._camera.getWorldPosition(cameraPosition);
+    const cameraDirection = this.camera.getWorldDirection(new THREE.Vector3());
+    const cameraPosition = this.camera.getWorldPosition(new THREE.Vector3());
+    const distance = cameraPosition.distanceTo(targetObjectPoint);
     const target = cameraPosition
       .clone()
-      .add(
-        cameraDirection
-          .clone()
-          .multiplyScalar(cameraPosition.distanceTo(targetObjectPoint)),
-      );
+      .add(cameraDirection.clone().multiplyScalar(distance));
 
     this.controls.target = target;
     this.controls.update();
