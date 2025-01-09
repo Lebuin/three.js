@@ -222,5 +222,6 @@ export class PlankToolHandler extends ToolHandler {
     this.points = [];
     this.fleetingPoint = undefined;
     this.fleetingPlank = undefined;
+    this.renderer.setTool('select');
   }
 }

@@ -7,6 +7,7 @@ import { Tool, toolInfo } from './toolbar';
 
 export interface RendererProps {
   tool: Tool;
+  onTool: (tool: Tool) => void;
 }
 
 export default function Renderer(props: RendererProps) {
@@ -21,12 +22,15 @@ export default function Renderer(props: RendererProps) {
 
     const model = new Model();
     const renderer = new SceneRenderer(mount, model);
+    renderer.addEventListener('tool', (event) => {
+      props.onTool.call(null, event.tool);
+    });
     rendererRef.current = renderer;
 
     return () => {
       renderer.dispose();
     };
-  }, []);
+  }, [props.onTool]);
 
   React.useEffect(() => {
     const renderer = rendererRef.current;

@@ -13,7 +13,11 @@ import * as settings from './settings';
 import { createToolHandler } from './tool-handlers';
 import { ToolHandler } from './tool-handlers/tool-handler';
 
-export class Renderer {
+interface RendererEvents {
+  tool: { tool: Tool };
+}
+
+export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private readonly _canvas: HTMLCanvasElement;
   private readonly _model: Model;
 
@@ -36,6 +40,8 @@ export class Renderer {
   private castShadows = false;
 
   constructor(canvas: HTMLCanvasElement, model: Model) {
+    super();
+
     this._canvas = canvas;
     this._model = model;
 
@@ -323,5 +329,6 @@ export class Renderer {
   setTool(tool: Tool) {
     this.toolHandler?.dispose();
     this.toolHandler = createToolHandler(tool, this, this.model);
+    this.dispatchEvent({ type: 'tool', tool });
   }
 }
