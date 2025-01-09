@@ -1,5 +1,9 @@
 import { mouseButtonPressed } from '@/lib/util';
-import { distanceToLine, intersectPlanes } from '@/lib/util/geometry';
+import {
+  distanceToLine,
+  intersectPlanes,
+  vectorsAreParallel,
+} from '@/lib/util/geometry';
 import * as THREE from 'three';
 import {
   PartialPlaneHelper,
@@ -38,7 +42,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   private _constraintLine?: THREE.Line3;
 
   private preferredLines: THREE.Line3[] = [];
-  private readonly snapThreshold: Pixels = 10;
+  private readonly snapThreshold: Pixels = 20;
 
   private planeHelper: PartialPlaneHelper;
 
@@ -137,7 +141,10 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
       }
     } else {
       this.preferredLines = Object.values(axisDirections).map((direction) => {
-        return new THREE.Line3(this.neighborPoint, direction);
+        return new THREE.Line3(
+          this.neighborPoint,
+          this.neighborPoint.clone().add(direction),
+        );
       });
     }
   }
@@ -245,7 +252,11 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   // Raycasting
 
   private dispatchMouseEvent(type: 'mousemove' | 'click' = 'mousemove') {
-    const [target, plane] = this.getTargetFromEvent(this.mouseEvent!);
+    if (!this.mouseEvent) {
+      return;
+    }
+
+    const [target, plane] = this.getTargetFromEvent(this.mouseEvent);
     if (target) {
       this.dispatchEvent({
         type,
@@ -287,7 +298,11 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     event: MouseEvent,
     plane: THREE.Plane,
   ): [THREE.Vector3 | undefined, THREE.Plane | undefined] {
-    // TODO: use this.preferredLines
+    const lineTarget = this.snapToLines(event, this.preferredLines);
+    if (lineTarget) {
+      return [lineTarget, plane];
+    }
+
     const raycaster = this.getRaycaster(event);
     const target =
       raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
@@ -298,10 +313,31 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     event: MouseEvent,
     point: THREE.Vector3,
   ): [THREE.Vector3 | undefined, THREE.Plane | undefined] {
-    // TODO: use this.preferredLines
     const raycaster = this.getRaycaster(event);
+
+    const lineTarget = this.snapToLines(event, this.preferredLines);
+    if (lineTarget) {
+      const targetDirection = lineTarget.clone().sub(point);
+      const candidatePlaneNormals = Object.values(axisDirections).filter(
+        (normal) => !vectorsAreParallel(normal, targetDirection),
+      );
+      if (candidatePlaneNormals.length === 0) {
+        candidatePlaneNormals.push(...Object.values(axisDirections));
+      }
+      const planeNormal = this.getDominantPlaneNormal(
+        raycaster.ray.direction,
+        candidatePlaneNormals,
+      );
+      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+        planeNormal,
+        point,
+      );
+      return [lineTarget, plane];
+    }
+
+    const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      this.getDominantPlaneNormal(raycaster.ray.direction),
+      planeNormal,
       point,
     );
     const target =
@@ -313,21 +349,68 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     return this.renderer.getRaycaster(event);
   }
 
-  private getDominantPlaneNormal(direction: THREE.Vector3): THREE.Vector3 {
+  private snapToLines(
+    event: MouseEvent,
+    lines: THREE.Line3[],
+  ): THREE.Vector3 | undefined {
+    for (const line of lines) {
+      const target = this.snapToLine(event, line);
+      if (target) {
+        return target;
+      }
+    }
+  }
+
+  private snapToLine(
+    event: MouseEvent,
+    line: THREE.Line3,
+  ): THREE.Vector3 | undefined {
+    const raycaster = this.getRaycaster(event);
+    const target = new THREE.Vector3();
+    const distance = distanceToLine(raycaster.ray, line, undefined, target);
+    const snapDistance = this.getSnapDistance();
+    if (distance < snapDistance) {
+      return target;
+    }
+  }
+
+  private getSnapDistance() {
+    // The size in pixels of 1 unit in the world
+    const pixelSize =
+      (this.renderer.camera.top - this.renderer.camera.bottom) /
+      this.renderer.canvas.clientHeight /
+      this.renderer.camera.zoom;
+    return this.snapThreshold * pixelSize;
+  }
+
+  private getDominantPlaneNormal(
+    direction: THREE.Vector3,
+    normals: THREE.Vector3[] = Object.values(axisDirections),
+  ): THREE.Vector3 {
+    if (normals.length === 0) {
+      throw new Error('No normals provided');
+    } else if (normals.length === 1) {
+      return normals[0];
+    }
+
     const absDirection = new THREE.Vector3(
       Math.abs(direction.x),
-      Math.abs(direction.y),
+      Math.abs(direction.y) * this.dominantPlaneYPreference,
       Math.abs(direction.z),
     );
-    if (
-      absDirection.y * this.dominantPlaneYPreference >
-      Math.max(absDirection.x, absDirection.z)
-    ) {
-      return new THREE.Vector3(0, 1, 0);
-    } else if (absDirection.x > absDirection.z) {
-      return new THREE.Vector3(1, 0, 0);
-    } else {
-      return new THREE.Vector3(0, 0, 1);
-    }
+    const absNormals = normals.map((normal) => {
+      return new THREE.Vector3(
+        Math.abs(normal.x),
+        Math.abs(normal.y),
+        Math.abs(normal.z),
+      );
+    });
+
+    const angles = absNormals.map((normal) => {
+      return normal.angleTo(absDirection);
+    });
+
+    const minAngle = Math.min(...angles);
+    return normals[angles.indexOf(minAngle)];
   }
 }

@@ -64,7 +64,7 @@ export function intersectPlanes(
 }
 
 /**
- * Calculate the distance between two lines.
+ * Calculate the distance between a ray and a line.
  *
  * Inspiration: https://math.stackexchange.com/a/2217845
  */

@@ -4,7 +4,6 @@ import _ from 'lodash';
 import * as THREE from 'three';
 import { Part } from '../model/parts/part';
 import { AxesHelper } from './helpers/axes-helper';
-import { PartialPlaneHelper } from './helpers/partial-plane-helper';
 import { PlaneHelper } from './helpers/plane-helper';
 import { Lighting } from './lighting';
 import { OrbitControls } from './orbit-controls';
@@ -52,11 +51,6 @@ export class Renderer {
 
     this.controls = new OrbitControls(this.camera, this.canvas);
     this.addPart(...model.parts);
-
-    const partialPlaneHelper = new PartialPlaneHelper();
-    partialPlaneHelper.setNormal(new THREE.Vector3(0, 1, 0));
-    partialPlaneHelper.setPoint(new THREE.Vector3(100, 0, 100));
-    this.add(partialPlaneHelper);
 
     this.setupListeners();
   }

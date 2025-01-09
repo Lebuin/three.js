@@ -31,9 +31,10 @@ export default tseslint.config(
       'no-constant-condition': 'off',
       '@stylistic/arrow-parens': 'off',
       '@stylistic/brace-style': ['error', '1tbs'],
+      '@stylistic/indent-binary-ops': 'off',
       '@stylistic/lines-between-class-members': 'off',
-      '@stylistic/quotes': ['warn', 'single', { avoidEscape: true }],
       '@stylistic/operator-linebreak': 'off',
+      '@stylistic/quotes': ['warn', 'single', { avoidEscape: true }],
       '@typescript-eslint/no-empty-interface': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unnecessary-condition': [
