@@ -64,6 +64,35 @@ export function intersectPlanes(
 }
 
 /**
+ * Calculate the intersection of a plane and a line, or null if the line is parallel to the plane.
+ * Contrary to THREE.Plane.intersectLine, this also works when the intersection point is outside the
+ * line segment.
+ *
+ * Based on THREE.Plane.intersectLine.
+ */
+export function intersectPlaneAndLine(
+  plane: THREE.Plane,
+  line: THREE.Line3,
+  target: THREE.Vector3,
+) {
+  const direction = line.delta(new THREE.Vector3());
+  const denominator = plane.normal.dot(direction);
+
+  if (denominator === 0) {
+    // line is coplanar, return origin
+    if (plane.distanceToPoint(line.start) === 0) {
+      return target.copy(line.start);
+    }
+
+    // Unsure if this is the correct method to handle this case.
+    return null;
+  }
+
+  const t = -(line.start.dot(plane.normal) + plane.constant) / denominator;
+  return target.copy(line.start).addScaledVector(direction, t);
+}
+
+/**
  * Calculate the distance between a ray and a line.
  *
  * Inspiration: https://math.stackexchange.com/a/2217845

@@ -73,6 +73,10 @@ describe('intersectPlanes', () => {
   });
 });
 
+describe('intersectPlaneAndLine', () => {
+  throw new Error('Not implemented');
+});
+
 describe('distanceToLine', () => {
   test('should return the distance to a non-parallel line', () => {
     const ray = new THREE.Ray(

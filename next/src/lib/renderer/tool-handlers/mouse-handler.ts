@@ -2,6 +2,7 @@ import { mouseButtonPressed } from '@/lib/util';
 import {
   distanceBetweenLines,
   distanceToLine,
+  intersectPlaneAndLine,
   intersectPlanes,
 } from '@/lib/util/geometry';
 import * as THREE from 'three';
@@ -178,23 +179,31 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
 
     const origin = new THREE.Vector3();
     if (this.constraintLine) {
-      const closestPoint = this.constraintLine.closestPointToPoint(
-        origin,
-        true,
-        new THREE.Vector3(),
-      );
-      const distance = closestPoint.distanceTo(origin);
-      if (distance < 1e-6) {
-        this.addPreferredPoint(origin);
+      for (const axisDirection of Object.values(axisDirections)) {
+        const line = new THREE.Line3(origin, axisDirection);
+        const intersection = new THREE.Vector3();
+        const distance = distanceBetweenLines(
+          this.constraintLine,
+          line,
+          intersection,
+        );
+        if (distance < 1e-6) {
+          this.addPreferredPoint(intersection);
+        }
       }
     } else if (this.constraintPlane) {
-      // Check if the origin lies on the plane
-      const distance = this.constraintPlane.distanceToPoint(origin);
-      if (distance < 1e-6) {
-        this.addPreferredPoint(origin);
+      for (const axisDirection of Object.values(axisDirections)) {
+        // TODO: check if line and plane are coplanar
+        const line = new THREE.Line3(origin, axisDirection);
+        const intersection = intersectPlaneAndLine(
+          this.constraintPlane,
+          line,
+          new THREE.Vector3(),
+        );
+        if (intersection) {
+          this.addPreferredPoint(intersection);
+        }
       }
-    } else {
-      this.addPreferredPoint(origin);
     }
 
     for (let i = 0; i < this.preferredLines.length; i++) {
@@ -388,6 +397,11 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     event: MouseEvent,
     plane: THREE.Plane,
   ): [THREE.Vector3 | undefined, THREE.Plane | undefined] {
+    const pointTarget = this.snapToPoints(event, this.preferredPoints);
+    if (pointTarget) {
+      return [pointTarget, plane];
+    }
+
     const lineTarget = this.snapToLines(event, this.preferredLines);
     if (lineTarget) {
       return [lineTarget, plane];
