@@ -1,9 +1,5 @@
 import { mouseButtonPressed } from '@/lib/util';
-import {
-  distanceToLine,
-  intersectPlanes,
-  vectorsAreParallel,
-} from '@/lib/util/geometry';
+import { distanceToLine, intersectPlanes } from '@/lib/util/geometry';
 import * as THREE from 'three';
 import {
   PartialPlaneHelper,
@@ -179,11 +175,16 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   private getPlaneHelperColors(plane: THREE.Plane): PartialPlaneHelperColors {
     let colorSettings = settings.axesColors.default;
     const normal = plane.normal;
-    if (normal.angleTo(new THREE.Vector3(1, 0, 0)) === 0) {
+    const absNormal = new THREE.Vector3(
+      Math.abs(normal.x),
+      Math.abs(normal.y),
+      Math.abs(normal.z),
+    );
+    if (absNormal.angleTo(new THREE.Vector3(1, 0, 0)) < 1e-6) {
       colorSettings = settings.axesColors.x;
-    } else if (normal.angleTo(new THREE.Vector3(0, 1, 0)) === 0) {
+    } else if (absNormal.angleTo(new THREE.Vector3(0, 1, 0)) < 1e-6) {
       colorSettings = settings.axesColors.y;
-    } else if (normal.angleTo(new THREE.Vector3(0, 0, 1)) === 0) {
+    } else if (absNormal.angleTo(new THREE.Vector3(0, 0, 1)) < 1e-6) {
       colorSettings = settings.axesColors.z;
     }
 
@@ -317,22 +318,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
 
     const lineTarget = this.snapToLines(event, this.preferredLines);
     if (lineTarget) {
-      const targetDirection = lineTarget.clone().sub(point);
-      const candidatePlaneNormals = Object.values(axisDirections).filter(
-        (normal) => !vectorsAreParallel(normal, targetDirection),
-      );
-      if (candidatePlaneNormals.length === 0) {
-        candidatePlaneNormals.push(...Object.values(axisDirections));
-      }
-      const planeNormal = this.getDominantPlaneNormal(
-        raycaster.ray.direction,
-        candidatePlaneNormals,
-      );
-      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-        planeNormal,
-        point,
-      );
-      return [lineTarget, plane];
+      return [lineTarget, undefined];
     }
 
     const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
