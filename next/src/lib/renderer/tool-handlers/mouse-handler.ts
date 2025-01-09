@@ -141,6 +141,19 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
         throw new Error('Neighbor point is not set');
       }
 
+      // Add the lines that are parallel the axis planes
+      for (const axisDirection of Object.values(axisDirections)) {
+        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+          axisDirection,
+          this.neighborPoint,
+        );
+        const intersection = intersectPlanes(this.constraintPlane, plane);
+        if (intersection) {
+          this.preferredLines.push(intersection);
+        }
+      }
+
+      // Add the line that points mostly upwards
       const YPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
         new THREE.Vector3(0, 1, 0),
         this.neighborPoint,
@@ -154,7 +167,18 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
           this.neighborPoint,
           this.neighborPoint.clone().add(upDirection),
         );
-        this.preferredLines.push(intersection, upLine);
+        this.preferredLines.push(upLine);
+      }
+
+      // Check if there are any axes that are coplanar with the constraint plane
+      for (const axisDirection of Object.values(axisDirections)) {
+        const line = new THREE.Line3(new THREE.Vector3(), axisDirection);
+        if (
+          Math.abs(this.constraintPlane.distanceToPoint(line.start)) < 1e-6 &&
+          Math.abs(this.constraintPlane.distanceToPoint(line.end)) < 1e-6
+        ) {
+          this.preferredLines.push(line);
+        }
       }
     } else {
       for (const axisDirection of Object.values(axisDirections)) {
