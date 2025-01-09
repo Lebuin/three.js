@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import * as THREE from 'three';
-import { Color } from '../util/color';
+import { Color } from '../../util/color';
 
 interface AxisColors {
   primary: Color;

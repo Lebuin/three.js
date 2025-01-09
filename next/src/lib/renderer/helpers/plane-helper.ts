@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import * as THREE from 'three';
-import { Color } from '../util/color';
-import { disposeMaterial } from '../util/three';
+import { Color } from '../../util/color';
+import { disposeMaterial } from '../../util/three';
 
 interface GridColors {
   primary: Color;

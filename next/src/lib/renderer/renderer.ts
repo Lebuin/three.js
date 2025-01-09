@@ -3,13 +3,14 @@ import { Model } from '@/lib/model/model';
 import _ from 'lodash';
 import * as THREE from 'three';
 import { Part } from '../model/parts/part';
-import { Color } from '../util/color';
-import { AxesHelper } from './axes-helper';
+import { AxesHelper } from './helpers/axes-helper';
+import { PartialPlaneHelper } from './helpers/partial-plane-helper';
+import { PlaneHelper } from './helpers/plane-helper';
 import { Lighting } from './lighting';
 import { OrbitControls } from './orbit-controls';
 import { createPartObject } from './part-objects';
 import { PartObject } from './part-objects/part-object';
-import { PlaneHelper } from './plane-helper';
+import * as settings from './settings';
 import { createToolHandler } from './tool-handlers';
 import { ToolHandler } from './tool-handlers/tool-handler';
 
@@ -33,28 +34,6 @@ export class Renderer {
   private needsRender = true;
 
   private readonly groundPlaneSize = 20e3;
-  private readonly axesColors = {
-    x: {
-      primary: new Color().setHSL(0, 1, 0.5),
-      secondary: new Color().setHSL(0, 1, 0.75),
-      plane: new Color().setHSL(0, 1, 0.75),
-    },
-    y: {
-      primary: new Color().setHSL(120 / 360, 1, 0.5),
-      secondary: new Color().setHSL(120 / 360, 1, 0.75),
-      plane: new Color().setHSL(120 / 360, 1, 0.75),
-    },
-    z: {
-      primary: new Color().setHSL(240 / 360, 1, 0.5),
-      secondary: new Color().setHSL(240 / 360, 1, 0.75),
-      plane: new Color().setHSL(240 / 360, 1, 0.75),
-    },
-    default: {
-      primary: new Color().setHSL(0, 0, 0.3),
-      secondary: new Color().setHSL(0, 0, 0.5),
-      plane: new Color().setHSL(0, 0, 0.5),
-    },
-  } as const;
   private castShadows = false;
 
   constructor(canvas: HTMLCanvasElement, model: Model) {
@@ -65,14 +44,19 @@ export class Renderer {
     this.renderer = this.createRenderer(this.canvas);
     this._camera = this.createCamera();
 
-    this.axes = new AxesHelper(this.groundPlaneSize, this.axesColors);
-    this.scene.add(this.axes);
+    this.axes = new AxesHelper(this.groundPlaneSize, settings.axesColors);
+    this.add(this.axes);
 
     this.lighting = new Lighting(this.castShadows);
-    this.scene.add(this.lighting);
+    this.add(this.lighting);
 
     this.controls = new OrbitControls(this.camera, this.canvas);
     this.addPart(...model.parts);
+
+    const partialPlaneHelper = new PartialPlaneHelper();
+    partialPlaneHelper.setNormal(new THREE.Vector3(0, 1, 0));
+    partialPlaneHelper.setPoint(new THREE.Vector3(100, 0, 100));
+    this.add(partialPlaneHelper);
 
     this.setupListeners();
   }
@@ -164,14 +148,23 @@ export class Renderer {
     return camera;
   }
 
+  public add(object: THREE.Object3D) {
+    this.scene.add(object);
+    this.render();
+  }
+
+  public remove(object: THREE.Object3D) {
+    this.scene.remove(object);
+    this.render();
+  }
+
   private addPart(...parts: Part[]) {
     parts.forEach((part) => {
       const partObject = createPartObject(part);
       this.partObjects.push(partObject);
-      this.scene.add(partObject);
+      this.add(partObject);
       part.addEventListener('change', this.render);
     });
-    this.render();
   }
 
   private removePart(...parts: Part[]) {
@@ -185,7 +178,6 @@ export class Renderer {
         part.removeEventListener('change', this.render);
       }
     });
-    this.render();
   }
 
   private removeAllParts() {
@@ -231,7 +223,7 @@ export class Renderer {
         plane: colors.plane,
       },
     );
-    this.scene.add(this.planeHelper);
+    this.add(this.planeHelper);
   }
 
   public hidePlaneHelper() {
@@ -244,13 +236,13 @@ export class Renderer {
   }
 
   private getPlaneHelperColors(normal: THREE.Vector3) {
-    let axesColors = this.axesColors.default;
+    let axesColors = settings.axesColors.default;
     if (normal.angleTo(new THREE.Vector3(1, 0, 0)) === 0) {
-      axesColors = this.axesColors.x;
+      axesColors = settings.axesColors.x;
     } else if (normal.angleTo(new THREE.Vector3(0, 1, 0)) === 0) {
-      axesColors = this.axesColors.y;
+      axesColors = settings.axesColors.y;
     } else if (normal.angleTo(new THREE.Vector3(0, 0, 1)) === 0) {
-      axesColors = this.axesColors.z;
+      axesColors = settings.axesColors.z;
     }
 
     axesColors = {
@@ -315,7 +307,7 @@ export class Renderer {
    */
   private onMouseDown = (event: MouseEvent) => {
     const raycaster = this.getRaycaster(event);
-    const intersects = raycaster.intersectObjects(this.scene.children);
+    const intersects = raycaster.intersectObjects(this.partObjects);
 
     const targetObjectPoint =
       intersects.length > 0 ? intersects[0].point : new THREE.Vector3(0, 0, 0);

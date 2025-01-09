@@ -6,8 +6,6 @@ import { Renderer } from '../renderer';
 import { MouseHandler, MouseHandlerEvent } from './mouse-handler';
 import { ToolHandler } from './tool-handler';
 
-type Axis = 'x' | 'y' | 'z';
-
 interface PlankPoint {
   point: Vector3;
   centerAligned: boolean;
@@ -15,10 +13,7 @@ interface PlankPoint {
 
 export class PlankToolHandler extends ToolHandler {
   private mouseHandler: MouseHandler;
-  private mouseEvent?: MouseEvent;
-  private ctrlPressed = false;
 
-  private fixedAxis?: Axis;
   private points: PlankPoint[] = [];
   private fleetingPoint?: PlankPoint;
   private fleetingPlank?: Plank;

@@ -109,3 +109,12 @@ export function distanceToLine(
   const distance = closestPointOnRay.distanceTo(closestPointOnLine);
   return distance;
 }
+
+export function vectorsAreParallel(
+  vector1: THREE.Vector3,
+  vector2: THREE.Vector3,
+  tolerance = 1e-6,
+): boolean {
+  const cross = new THREE.Vector3().crossVectors(vector1, vector2);
+  return cross.lengthSq() < tolerance;
+}

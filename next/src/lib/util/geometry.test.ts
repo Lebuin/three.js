@@ -128,3 +128,7 @@ describe('distanceToLine', () => {
     expect(distance).toBeCloseTo(0);
   });
 });
+
+describe('vectorsAreParallel', () => {
+  throw new Error('Not implemented');
+});

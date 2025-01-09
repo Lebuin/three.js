@@ -1,9 +1,18 @@
 import * as THREE from 'three';
 
-export function disposeMaterial(material: THREE.Material | THREE.Material[]) {
+export function forMaterial(
+  material: THREE.Material | THREE.Material[],
+  callback: (material: THREE.Material) => void,
+) {
   if (Array.isArray(material)) {
-    material.forEach((material) => material.dispose());
+    material.forEach(callback);
   } else {
-    material.dispose();
+    callback(material);
   }
+}
+
+export function disposeMaterial(material: THREE.Material | THREE.Material[]) {
+  forMaterial(material, (material) => {
+    material.dispose();
+  });
 }

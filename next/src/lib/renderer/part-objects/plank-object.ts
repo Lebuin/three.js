@@ -4,13 +4,11 @@ import * as THREE from 'three';
 import { PartObject } from './part-object';
 
 export class PlankObject extends PartObject<Plank> {
-  private geometry: THREE.BoxGeometry;
   private typedChildren: [THREE.Mesh, THREE.LineSegments];
 
   constructor(part: Plank) {
     super(part);
 
-    this.geometry = new THREE.BoxGeometry();
     this.typedChildren = this.createChildren();
     this.add(...this.typedChildren);
 
@@ -51,7 +49,7 @@ export class PlankObject extends PartObject<Plank> {
       ]);
       return edgesGeometry;
     } else {
-      const edgesGeometry = new THREE.EdgesGeometry(this.geometry);
+      const edgesGeometry = new THREE.EdgesGeometry(geometry);
       return edgesGeometry;
     }
   }
@@ -99,9 +97,9 @@ export class PlankObject extends PartObject<Plank> {
       child.geometry.dispose();
     });
 
-    this.geometry = this.createGeometry();
-    this.typedChildren[0].geometry = this.geometry;
-    const edgesGeometry = this.createEdgesGeometry(this.geometry);
+    const geometry = this.createGeometry();
+    this.typedChildren[0].geometry = geometry;
+    const edgesGeometry = this.createEdgesGeometry(geometry);
     this.typedChildren[1].geometry = edgesGeometry;
 
     // Offset the box by half its size so that a corner is placed at `this.position`

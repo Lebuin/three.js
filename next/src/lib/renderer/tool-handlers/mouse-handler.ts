@@ -1,7 +1,12 @@
 import { mouseButtonPressed } from '@/lib/util';
 import { distanceToLine, intersectPlanes } from '@/lib/util/geometry';
 import * as THREE from 'three';
+import {
+  PartialPlaneHelper,
+  PartialPlaneHelperColors,
+} from '../helpers/partial-plane-helper';
 import { Renderer } from '../renderer';
+import * as settings from '../settings';
 
 type Pixels = number;
 
@@ -35,21 +40,27 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   private preferredLines: THREE.Line3[] = [];
   private readonly snapThreshold: Pixels = 10;
 
+  private planeHelper: PartialPlaneHelper;
+
   // When determining the plane to constrain to, the XZ plane is given a preference, meaning that
   // if the camera is rotated equally towards all planes, the XZ plane will be chosen. This number
   // determines how significant this preference is. 1 = no preference, higher number = higher
   // preference.
-  private readonly dominantPlaneYPreference = 4;
+  private readonly dominantPlaneYPreference = 2.5;
 
   constructor(renderer: Renderer) {
     super();
 
     this.renderer = renderer;
+    this.planeHelper = new PartialPlaneHelper();
 
     this.setupListeners();
+    this.updatePreferredAxes();
   }
 
   dispose() {
+    this.hidePlaneHelper();
+    this.planeHelper.dispose();
     this.removeListeners();
   }
 
@@ -57,6 +68,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     this.renderer.canvas.addEventListener('mousemove', this.onMouseMove);
+    this.renderer.canvas.addEventListener('mouseleave', this.onMouseLeave);
     this.renderer.canvas.addEventListener('click', this.onClick);
   }
 
@@ -64,6 +76,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     this.renderer.canvas.removeEventListener('mousemove', this.onMouseMove);
+    this.renderer.canvas.addEventListener('mouseleave', this.onMouseLeave);
     this.renderer.canvas.removeEventListener('click', this.onClick);
   }
 
@@ -130,6 +143,50 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   }
 
   ///
+  // Plane helper
+
+  private get planeHelperIsVisible() {
+    return this.planeHelper.parent !== null;
+  }
+
+  private showPlaneHelper() {
+    if (!this.planeHelperIsVisible) {
+      this.renderer.add(this.planeHelper);
+    }
+  }
+
+  private hidePlaneHelper() {
+    if (this.planeHelperIsVisible) {
+      this.renderer.remove(this.planeHelper);
+    }
+  }
+
+  private setPlaneHelperTarget(target: THREE.Vector3, plane: THREE.Plane) {
+    this.planeHelper.setOrigin(this.neighborPoint);
+    this.planeHelper.setNormal(plane.normal);
+    this.planeHelper.setPoint(target);
+    const colors = this.getPlaneHelperColors(plane);
+    this.planeHelper.setColors(colors);
+  }
+
+  private getPlaneHelperColors(plane: THREE.Plane): PartialPlaneHelperColors {
+    let colorSettings = settings.axesColors.default;
+    const normal = plane.normal;
+    if (normal.angleTo(new THREE.Vector3(1, 0, 0)) === 0) {
+      colorSettings = settings.axesColors.x;
+    } else if (normal.angleTo(new THREE.Vector3(0, 1, 0)) === 0) {
+      colorSettings = settings.axesColors.y;
+    } else if (normal.angleTo(new THREE.Vector3(0, 0, 1)) === 0) {
+      colorSettings = settings.axesColors.z;
+    }
+
+    return {
+      edge: colorSettings.primary.setA(0.5),
+      plane: colorSettings.plane.setA(0.15),
+    };
+  }
+
+  ///
   // Handle events
 
   private onKeyDown = (event: KeyboardEvent) => {
@@ -180,52 +237,76 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     this.dispatchMouseEvent('click');
   };
 
+  private onMouseLeave = () => {
+    this.hidePlaneHelper();
+  };
+
   ///
   // Raycasting
 
   private dispatchMouseEvent(type: 'mousemove' | 'click' = 'mousemove') {
-    const point = this.getPointFromEvent(this.mouseEvent!);
-    if (point) {
-      this.dispatchEvent({ type, point, ctrlPressed: this.ctrlPressed });
+    const [target, plane] = this.getTargetFromEvent(this.mouseEvent!);
+    if (target) {
+      this.dispatchEvent({
+        type,
+        point: target,
+        ctrlPressed: this.ctrlPressed,
+      });
     }
-  }
-
-  getPointFromEvent(event: MouseEvent) {
-    if (this.constraintLine) {
-      return this.getPointOnLine(event, this.constraintLine);
-    } else if (this.constraintPlane) {
-      return this.getPointOnPlane(event, this.constraintPlane);
+    if (target && plane) {
+      this.showPlaneHelper();
+      this.setPlaneHelperTarget(target, plane);
     } else {
-      return this.getPointNearPoint(event, this.neighborPoint);
+      this.hidePlaneHelper();
     }
   }
 
-  getPointOnLine(event: MouseEvent, line: THREE.Line3) {
-    const raycaster = this.getRaycaster(event);
-    const pointOnLine = new THREE.Vector3();
-    distanceToLine(raycaster.ray, line, undefined, pointOnLine);
-    return pointOnLine;
+  getTargetFromEvent(
+    event: MouseEvent,
+  ): [THREE.Vector3 | undefined, THREE.Plane | undefined] {
+    if (this.constraintLine) {
+      return this.getTargetOnLine(event, this.constraintLine);
+    } else if (this.constraintPlane) {
+      return this.getTargetOnPlane(event, this.constraintPlane);
+    } else {
+      return this.getTargetNearPoint(event, this.neighborPoint);
+    }
   }
 
-  getPointOnPlane(event: MouseEvent, plane: THREE.Plane) {
+  getTargetOnLine(
+    event: MouseEvent,
+    line: THREE.Line3,
+  ): [THREE.Vector3 | undefined, THREE.Plane | undefined] {
+    const raycaster = this.getRaycaster(event);
+    const target = new THREE.Vector3();
+    distanceToLine(raycaster.ray, line, undefined, target);
+    return [target, undefined];
+  }
+
+  getTargetOnPlane(
+    event: MouseEvent,
+    plane: THREE.Plane,
+  ): [THREE.Vector3 | undefined, THREE.Plane | undefined] {
     // TODO: use this.preferredLines
     const raycaster = this.getRaycaster(event);
-    const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
-    return point;
+    const target =
+      raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
+    return [target, plane];
   }
 
-  getPointNearPoint(event: MouseEvent, point: THREE.Vector3) {
+  getTargetNearPoint(
+    event: MouseEvent,
+    point: THREE.Vector3,
+  ): [THREE.Vector3 | undefined, THREE.Plane | undefined] {
     // TODO: use this.preferredLines
     const raycaster = this.getRaycaster(event);
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
       this.getDominantPlaneNormal(raycaster.ray.direction),
       point,
     );
-    const pointOnPlane = raycaster.ray.intersectPlane(
-      plane,
-      new THREE.Vector3(),
-    );
-    return pointOnPlane;
+    const target =
+      raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
+    return [target, plane];
   }
 
   private getRaycaster(event: MouseEvent) {
