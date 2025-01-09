@@ -131,25 +131,31 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   }
 
   private updatePreferredLines() {
+    this.preferredLines = [];
+
     if (this.constraintLine) {
-      this.preferredLines = [];
+      // Do nothing
     } else if (this.constraintPlane) {
       if (!this.neighborPoint) {
         throw new Error('Neighbor point is not set');
       }
-      this.preferredLines = [];
-      for (const axisDirection of Object.values(axisDirections)) {
-        const axisPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-          axisDirection,
+
+      const YPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+        new THREE.Vector3(0, 1, 0),
+        this.neighborPoint,
+      );
+      const intersection = intersectPlanes(this.constraintPlane, YPlane);
+      if (intersection) {
+        const upDirection = intersection
+          .delta(new THREE.Vector3())
+          .cross(this.constraintPlane.normal);
+        const upLine = new THREE.Line3(
           this.neighborPoint,
+          this.neighborPoint.clone().add(upDirection),
         );
-        const intersection = intersectPlanes(this.constraintPlane, axisPlane);
-        if (intersection) {
-          this.preferredLines.push(intersection);
-        }
+        this.preferredLines.push(intersection, upLine);
       }
     } else {
-      this.preferredLines = [];
       for (const axisDirection of Object.values(axisDirections)) {
         this.preferredLines.push(
           new THREE.Line3(new THREE.Vector3(), axisDirection.clone()),
