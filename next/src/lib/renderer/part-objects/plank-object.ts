@@ -1,4 +1,5 @@
 import { Plank } from '@/lib/model/parts/plank';
+import { disposeMaterial } from '@/lib/util/three';
 import * as THREE from 'three';
 import { PartObject } from './part-object';
 
@@ -20,11 +21,7 @@ export class PlankObject extends PartObject<Plank> {
   dispose() {
     this.typedChildren.forEach((child) => {
       child.geometry.dispose();
-      if (Array.isArray(child.material)) {
-        child.material.forEach((material) => material.dispose());
-      } else {
-        child.material.dispose();
-      }
+      disposeMaterial(child.material);
     });
   }
 
