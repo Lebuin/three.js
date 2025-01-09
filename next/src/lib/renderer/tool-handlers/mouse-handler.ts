@@ -1,5 +1,9 @@
 import { mouseButtonPressed } from '@/lib/util';
-import { distanceToLine, intersectPlanes } from '@/lib/util/geometry';
+import {
+  distanceBetweenLines,
+  distanceToLine,
+  intersectPlanes,
+} from '@/lib/util/geometry';
 import * as THREE from 'three';
 import {
   PartialPlaneHelper,
@@ -33,11 +37,12 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   private ctrlPressed = false;
   private fixedAxis?: Axis;
 
-  private _neighborPoint = new THREE.Vector3();
+  private _neighborPoint?: THREE.Vector3;
   private _constraintPlane?: THREE.Plane;
   private _constraintLine?: THREE.Line3;
 
   private preferredLines: THREE.Line3[] = [];
+  private preferredPoints: THREE.Vector3[] = [];
   private readonly snapThreshold: Pixels = 20;
 
   private planeHelper: PartialPlaneHelper;
@@ -55,7 +60,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     this.planeHelper = new PartialPlaneHelper();
 
     this.setupListeners();
-    this.updatePreferredAxes();
+    this.updatePreferredLines();
   }
 
   dispose() {
@@ -97,33 +102,41 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   // Set constraints
 
   clearConstraints() {
-    this._neighborPoint = new THREE.Vector3();
+    this._neighborPoint = undefined;
     this._constraintPlane = undefined;
     this._constraintLine = undefined;
-    this.updatePreferredAxes();
+    this.updatePreferredLines();
   }
 
   setNeighborPoint(point: THREE.Vector3) {
     this._neighborPoint = point;
-    this.updatePreferredAxes();
+    this.updatePreferredLines();
   }
 
-  setConstraintPlane(plane: THREE.Plane) {
-    this._constraintPlane = plane;
+  setConstraintPlane(normal: THREE.Vector3, point: THREE.Vector3) {
+    this._neighborPoint = point;
+    this._constraintPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      normal,
+      point,
+    );
     this._constraintLine = undefined;
-    this.updatePreferredAxes();
+    this.updatePreferredLines();
   }
 
-  setConstraintLine(line: THREE.Line3) {
-    this._constraintLine = line;
+  setConstraintLine(direction: THREE.Vector3, point: THREE.Vector3) {
+    this._neighborPoint = point;
+    this._constraintLine = new THREE.Line3(point, point.clone().add(direction));
     this._constraintPlane = undefined;
-    this.updatePreferredAxes();
+    this.updatePreferredLines();
   }
 
-  private updatePreferredAxes() {
+  private updatePreferredLines() {
     if (this.constraintLine) {
       this.preferredLines = [];
     } else if (this.constraintPlane) {
+      if (!this.neighborPoint) {
+        throw new Error('Neighbor point is not set');
+      }
       this.preferredLines = [];
       for (const axisDirection of Object.values(axisDirections)) {
         const axisPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
@@ -136,12 +149,66 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
         }
       }
     } else {
-      this.preferredLines = Object.values(axisDirections).map((direction) => {
-        return new THREE.Line3(
-          this.neighborPoint,
-          this.neighborPoint.clone().add(direction),
+      this.preferredLines = [];
+      for (const axisDirection of Object.values(axisDirections)) {
+        this.preferredLines.push(
+          new THREE.Line3(new THREE.Vector3(), axisDirection.clone()),
         );
-      });
+        if (this.neighborPoint) {
+          this.preferredLines.push(
+            new THREE.Line3(
+              this.neighborPoint.clone(),
+              this.neighborPoint.clone().add(axisDirection),
+            ),
+          );
+        }
+      }
+    }
+    this.updatePreferredPoints();
+  }
+
+  private updatePreferredPoints() {
+    this.preferredPoints = [];
+
+    const origin = new THREE.Vector3();
+    if (this.constraintLine) {
+      const closestPoint = this.constraintLine.closestPointToPoint(
+        origin,
+        true,
+        new THREE.Vector3(),
+      );
+      const distance = closestPoint.distanceTo(origin);
+      if (distance < 1e-6) {
+        this.addPreferredPoint(origin);
+      }
+    } else if (this.constraintPlane) {
+      // Check if the origin lies on the plane
+      const distance = this.constraintPlane.distanceToPoint(origin);
+      if (distance < 1e-6) {
+        this.addPreferredPoint(origin);
+      }
+    } else {
+      this.addPreferredPoint(origin);
+    }
+
+    for (let i = 0; i < this.preferredLines.length; i++) {
+      for (let j = i + 1; j < this.preferredLines.length; j++) {
+        const point = new THREE.Vector3();
+        const distance = distanceBetweenLines(
+          this.preferredLines[i],
+          this.preferredLines[j],
+          point,
+        );
+        if (distance < 1e-6) {
+          this.addPreferredPoint(point);
+        }
+      }
+    }
+  }
+
+  private addPreferredPoint(point: THREE.Vector3) {
+    if (!(this.neighborPoint && point.distanceTo(this.neighborPoint) < 1e-6)) {
+      this.preferredPoints.push(point);
     }
   }
 
@@ -165,7 +232,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   }
 
   private setPlaneHelperTarget(target: THREE.Vector3, plane: THREE.Plane) {
-    this.planeHelper.setOrigin(this.neighborPoint);
+    this.planeHelper.setOrigin(this.neighborPoint ?? new THREE.Vector3());
     this.planeHelper.setNormal(plane.normal);
     this.planeHelper.setPoint(target);
     const colors = this.getPlaneHelperColors(plane);
@@ -285,14 +352,30 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     }
   }
 
-  getTargetOnLine(
+  getTargetNearPoint(
     event: MouseEvent,
-    line: THREE.Line3,
+    point = new THREE.Vector3(),
   ): [THREE.Vector3 | undefined, THREE.Plane | undefined] {
     const raycaster = this.getRaycaster(event);
-    const target = new THREE.Vector3();
-    distanceToLine(raycaster.ray, line, undefined, target);
-    return [target, undefined];
+
+    const pointTarget = this.snapToPoints(event, this.preferredPoints);
+    if (pointTarget) {
+      return [pointTarget, undefined];
+    }
+
+    const lineTarget = this.snapToLines(event, this.preferredLines);
+    if (lineTarget) {
+      return [lineTarget, undefined];
+    }
+
+    const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      planeNormal,
+      point,
+    );
+    const target =
+      raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
+    return [target, plane];
   }
 
   getTargetOnPlane(
@@ -310,29 +393,42 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     return [target, plane];
   }
 
-  getTargetNearPoint(
+  getTargetOnLine(
     event: MouseEvent,
-    point: THREE.Vector3,
+    line: THREE.Line3,
   ): [THREE.Vector3 | undefined, THREE.Plane | undefined] {
     const raycaster = this.getRaycaster(event);
-
-    const lineTarget = this.snapToLines(event, this.preferredLines);
-    if (lineTarget) {
-      return [lineTarget, undefined];
-    }
-
-    const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      planeNormal,
-      point,
-    );
-    const target =
-      raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
-    return [target, plane];
+    const target = new THREE.Vector3();
+    distanceToLine(raycaster.ray, line, undefined, target);
+    return [target, undefined];
   }
 
   private getRaycaster(event: MouseEvent) {
     return this.renderer.getRaycaster(event);
+  }
+
+  private snapToPoints(
+    event: MouseEvent,
+    points: THREE.Vector3[],
+  ): THREE.Vector3 | undefined {
+    for (const point of points) {
+      const target = this.snapToPoint(event, point);
+      if (target) {
+        return target;
+      }
+    }
+  }
+
+  private snapToPoint(
+    event: MouseEvent,
+    point: THREE.Vector3,
+  ): THREE.Vector3 | undefined {
+    const raycaster = this.getRaycaster(event);
+    const distance = raycaster.ray.distanceToPoint(point);
+    const snapDistance = this.getSnapDistance();
+    if (distance < snapDistance) {
+      return point;
+    }
   }
 
   private snapToLines(

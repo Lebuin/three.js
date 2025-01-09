@@ -110,6 +110,16 @@ export function distanceToLine(
   return distance;
 }
 
+export function distanceBetweenLines(
+  line1: THREE.Line3,
+  line2: THREE.Line3,
+  closestPointOnLine1 = new THREE.Vector3(),
+  closestPointOnLine2 = new THREE.Vector3(),
+) {
+  const ray = new THREE.Ray(line1.start, line1.delta(new THREE.Vector3()));
+  return distanceToLine(ray, line2, closestPointOnLine1, closestPointOnLine2);
+}
+
 export function vectorsAreParallel(
   vector1: THREE.Vector3,
   vector2: THREE.Vector3,

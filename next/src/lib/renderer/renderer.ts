@@ -173,7 +173,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
         (partObject) => partObject.part === part,
       );
       if (partObject) {
-        this.scene.remove(partObject);
+        this.remove(partObject);
         partObject.dispose();
         part.removeEventListener('change', this.render);
       }
@@ -231,7 +231,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
       return;
     }
 
-    this.scene.remove(this.planeHelper);
+    this.remove(this.planeHelper);
     this.planeHelper.dispose();
   }
 
