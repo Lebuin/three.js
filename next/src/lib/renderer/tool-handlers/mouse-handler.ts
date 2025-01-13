@@ -32,9 +32,14 @@ export interface MouseHandlerEvents {
 
 interface Target {
   target?: THREE.Vector3;
-  snappedPoint?: THREE.Vector3;
+  snappedPoint?: PreferredPoint;
   snappedLine?: THREE.Line3;
   plane?: THREE.Plane;
+}
+
+interface PreferredPoint {
+  point: THREE.Vector3;
+  lines?: THREE.Line3[];
 }
 
 export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
@@ -49,10 +54,10 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   private _constraintLine?: THREE.Line3;
 
   private preferredLines: THREE.Line3[] = [];
-  private preferredPoints: THREE.Vector3[] = [];
+  private preferredPoints: PreferredPoint[] = [];
 
   private planeHelper: PartialPlaneHelper;
-  private lineHelper: LineHelper;
+  private lineHelpers: LineHelper[] = [];
   private pointHelper: PointHelper;
 
   // When determining the plane to constrain to, the XZ plane is given a preference, meaning that
@@ -67,7 +72,6 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
 
     this.renderer = renderer;
     this.planeHelper = new PartialPlaneHelper();
-    this.lineHelper = new LineHelper(3);
     this.pointHelper = new PointHelper(12, 2, new Color(0.01, 0.01, 0.01));
 
     this.setupListeners();
@@ -77,10 +81,9 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   dispose() {
     this.hidePlaneHelper();
     this.planeHelper.dispose();
-    this.hideLineHelper();
-    this.lineHelper.dispose();
     this.hidePointHelper();
     this.pointHelper.dispose();
+    this.updateLineHelpers([], new THREE.Vector3());
     this.removeListeners();
   }
 
@@ -155,7 +158,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
         throw new Error('Neighbor point is not set');
       }
 
-      // Add the lines that are parallel the axis planes
+      // Add the lines that are parallel to the axis planes
       for (const axisDirection of Object.values(axisDirections)) {
         const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
           axisDirection,
@@ -163,7 +166,13 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
         );
         const intersection = intersectPlanes(this.constraintPlane, plane);
         if (intersection) {
-          this.preferredLines.push(intersection);
+          const line = new THREE.Line3(
+            this.neighborPoint,
+            this.neighborPoint
+              .clone()
+              .add(intersection.delta(new THREE.Vector3())),
+          );
+          this.preferredLines.push(line);
         }
       }
 
@@ -226,7 +235,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
           intersection,
         );
         if (distance < 1e-6) {
-          this.addPreferredPoint(intersection);
+          this.addPreferredPoint(intersection, [this.constraintLine, line]);
         }
       }
     } else if (this.constraintPlane) {
@@ -239,7 +248,8 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
           new THREE.Vector3(),
         );
         if (intersection) {
-          this.addPreferredPoint(intersection);
+          const secondLine = new THREE.Line3(this.neighborPoint, intersection);
+          this.addPreferredPoint(intersection, [line, secondLine]);
         }
       }
     }
@@ -253,33 +263,36 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
           point,
         );
         if (distance < 1e-6) {
-          this.addPreferredPoint(point);
+          this.addPreferredPoint(point, [
+            this.preferredLines[i],
+            this.preferredLines[j],
+          ]);
         }
       }
     }
   }
 
-  private addPreferredPoint(point: THREE.Vector3) {
+  private addPreferredPoint(point: THREE.Vector3, lines?: THREE.Line3[]) {
     if (!(this.neighborPoint && point.distanceTo(this.neighborPoint) < 1e-6)) {
-      this.preferredPoints.push(point);
+      this.preferredPoints.push({ point, lines });
     }
   }
 
   ///
   // Plane helper
 
-  private get planeHelperIsVisible() {
-    return this.planeHelper.parent !== null;
+  private helperIsVisible(helper: THREE.Object3D) {
+    return helper.parent !== null;
   }
 
   private showPlaneHelper() {
-    if (!this.planeHelperIsVisible) {
+    if (!this.helperIsVisible(this.planeHelper)) {
       this.renderer.add(this.planeHelper);
     }
   }
 
   private hidePlaneHelper() {
-    if (this.planeHelperIsVisible) {
+    if (this.helperIsVisible(this.planeHelper)) {
       this.renderer.remove(this.planeHelper);
     }
   }
@@ -339,53 +352,56 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   ///
   // Line helper
 
-  private get lineHelperIsVisible() {
-    return this.lineHelper.parent !== null;
-  }
+  private updateLineHelpers(lines: THREE.Line3[], target: THREE.Vector3) {
+    while (lines.length > this.lineHelpers.length) {
+      const lineHelper = new LineHelper(3);
+      this.lineHelpers.push(lineHelper);
+      this.renderer.add(lineHelper);
+    }
+    while (this.lineHelpers.length > lines.length) {
+      const lineHelper = this.lineHelpers.pop();
+      if (lineHelper) {
+        this.renderer.remove(lineHelper);
+        lineHelper.dispose();
+      }
+    }
 
-  private showLineHelper() {
-    if (!this.lineHelperIsVisible) {
-      this.renderer.add(this.lineHelper);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineHelper = this.lineHelpers[i];
+      lineHelper.setPoints(line.start, target);
+      const color = this.getLineHelperColor(line);
+      lineHelper.setColor(color);
     }
   }
 
-  private hideLineHelper() {
-    if (this.lineHelperIsVisible) {
-      this.renderer.remove(this.lineHelper);
-    }
-  }
-
-  private setLineHelperPosition(start: THREE.Vector3, end: THREE.Vector3) {
-    const direction = end.clone().sub(start);
+  private getLineHelperColor(line: THREE.Line3) {
+    const direction = line.end.clone().sub(line.start);
     const axis = isAxis(direction);
+    console.log(direction, axis);
     if (axis == null) {
-      this.lineHelper.setColor(new Color(0, 0, 0));
+      return new Color(0, 0, 0);
     } else {
-      this.lineHelper.setColor(settings.axesColors[axis].primary);
+      return settings.axesColors[axis].primary;
     }
-    this.lineHelper.setPoints(start, end);
   }
 
   ///
   // Point helper
 
-  private get pointHelperIsVisible() {
-    return this.pointHelper.parent !== null;
-  }
-
-  showPointHelper() {
-    if (!this.pointHelperIsVisible) {
+  private showPointHelper() {
+    if (!this.helperIsVisible(this.pointHelper)) {
       this.renderer.addUpdating(this.pointHelper);
     }
   }
 
-  hidePointHelper() {
-    if (this.pointHelperIsVisible) {
+  private hidePointHelper() {
+    if (this.helperIsVisible(this.pointHelper)) {
       this.renderer.removeUpdating(this.pointHelper);
     }
   }
 
-  setPointHelperPosition(position: THREE.Vector3) {
+  private setPointHelperPosition(position: THREE.Vector3) {
     this.pointHelper.position.copy(position);
   }
 
@@ -469,19 +485,22 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
       this.hidePlaneHelper();
     }
 
-    if (target && snappedLine) {
-      this.showLineHelper();
-      this.setLineHelperPosition(snappedLine.start, target);
-    } else {
-      this.hideLineHelper();
+    const lines: THREE.Line3[] = [];
+    if (snappedLine) {
+      lines.push(snappedLine);
     }
 
     if (target && snappedPoint) {
       this.showPointHelper();
-      this.setPointHelperPosition(snappedPoint);
+      this.setPointHelperPosition(snappedPoint.point);
+      if (snappedPoint.lines) {
+        lines.push(...snappedPoint.lines);
+      }
     } else {
       this.hidePointHelper();
     }
+
+    this.updateLineHelpers(lines, target ?? new THREE.Vector3());
   }
 
   getTargetFromEvent(event: MouseEvent): Target {
@@ -501,7 +520,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     if (pointTarget) {
       // TODO: try to match to an axis plane?
       return {
-        target: pointTarget,
+        target: pointTarget.point,
         snappedPoint: pointTarget,
       };
     }
@@ -534,7 +553,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     const pointTarget = this.snapToPoints(event, this.preferredPoints);
     if (pointTarget) {
       return {
-        target: pointTarget,
+        target: pointTarget.point,
         snappedPoint: pointTarget,
         plane,
       };
@@ -565,7 +584,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     const pointTarget = this.snapToPoints(event, this.preferredPoints);
     if (pointTarget) {
       return {
-        target: pointTarget,
+        target: pointTarget.point,
         snappedPoint: pointTarget,
       };
     }
@@ -585,8 +604,8 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
 
   private snapToPoints(
     event: MouseEvent,
-    points: THREE.Vector3[],
-  ): THREE.Vector3 | undefined {
+    points: PreferredPoint[],
+  ): PreferredPoint | undefined {
     for (const point of points) {
       const target = this.snapToPoint(event, point);
       if (target) {
@@ -597,10 +616,10 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
 
   private snapToPoint(
     event: MouseEvent,
-    point: THREE.Vector3,
-  ): THREE.Vector3 | undefined {
+    point: PreferredPoint,
+  ): PreferredPoint | undefined {
     const raycaster = this.getRaycaster(event);
-    const distance = raycaster.ray.distanceToPoint(point);
+    const distance = raycaster.ray.distanceToPoint(point.point);
     const snapDistance = this.getSnapDistance();
     if (distance < snapDistance) {
       return point;

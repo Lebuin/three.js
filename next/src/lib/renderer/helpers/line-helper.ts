@@ -18,6 +18,9 @@ export class LineHelper extends THREE.Group {
     this.material = new LineMaterial({
       color: color,
       linewidth: lineWidth,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     });
     this.line = new Line2(geometry, this.material);
     this.add(this.line);
