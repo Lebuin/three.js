@@ -68,6 +68,13 @@ export class PartialPlaneHelper extends THREE.Group {
     this.setPoint(point);
   }
 
+  dispose() {
+    this.mesh.geometry.dispose();
+    disposeMaterial(this.mesh.material);
+    this.lineSegments.geometry.dispose();
+    disposeMaterial(this.lineSegments.material);
+  }
+
   setOrigin(origin: THREE.Vector3) {
     this.position.copy(origin);
     this.setPoint(this.point);
@@ -118,12 +125,5 @@ export class PartialPlaneHelper extends THREE.Group {
       'color',
       new THREE.Float32BufferAttribute(edgeColors, 4),
     );
-  }
-
-  dispose() {
-    this.mesh.geometry.dispose();
-    disposeMaterial(this.mesh.material);
-    this.lineSegments.geometry.dispose();
-    disposeMaterial(this.lineSegments.material);
   }
 }

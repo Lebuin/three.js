@@ -10,6 +10,7 @@ import {
   isAxis,
 } from '@/lib/util/geometry';
 import * as THREE from 'three';
+import { LineHelper } from '../helpers/line-helper';
 import {
   PartialPlaneHelper,
   PartialPlaneHelperColors,
@@ -51,6 +52,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   private preferredPoints: THREE.Vector3[] = [];
 
   private planeHelper: PartialPlaneHelper;
+  private lineHelper: LineHelper;
   private pointHelper: PointHelper;
 
   // When determining the plane to constrain to, the XZ plane is given a preference, meaning that
@@ -65,6 +67,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
 
     this.renderer = renderer;
     this.planeHelper = new PartialPlaneHelper();
+    this.lineHelper = new LineHelper(2);
     this.pointHelper = new PointHelper(12, 2, new Color(0.01, 0.01, 0.01));
 
     this.setupListeners();
@@ -74,6 +77,8 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   dispose() {
     this.hidePlaneHelper();
     this.planeHelper.dispose();
+    this.lineHelper.dispose();
+    this.pointHelper.dispose();
     this.removeListeners();
   }
 
@@ -330,6 +335,36 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   }
 
   ///
+  // Line helper
+
+  private get lineHelperIsVisible() {
+    return this.lineHelper.parent !== null;
+  }
+
+  private showLineHelper() {
+    if (!this.lineHelperIsVisible) {
+      this.renderer.add(this.lineHelper);
+    }
+  }
+
+  private hideLineHelper() {
+    if (this.lineHelperIsVisible) {
+      this.renderer.remove(this.lineHelper);
+    }
+  }
+
+  private setLineHelperPosition(start: THREE.Vector3, end: THREE.Vector3) {
+    const direction = end.clone().sub(start);
+    const axis = isAxis(direction);
+    if (axis == null) {
+      this.lineHelper.setColor(new Color(0, 0, 0));
+    } else {
+      this.lineHelper.setColor(settings.axesColors[axis].primary);
+    }
+    this.lineHelper.setPoints(start, end);
+  }
+
+  ///
   // Point helper
 
   private get pointHelperIsVisible() {
@@ -415,9 +450,8 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
       return;
     }
 
-    const { target, plane, snappedPoint } = this.getTargetFromEvent(
-      this.mouseEvent,
-    );
+    const { target, plane, snappedPoint, snappedLine } =
+      this.getTargetFromEvent(this.mouseEvent);
     if (target) {
       this.dispatchEvent({
         type,
@@ -426,18 +460,25 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
       });
     }
 
-    if (target && snappedPoint) {
-      this.showPointHelper();
-      this.setPointHelperPosition(snappedPoint);
-    } else {
-      this.hidePointHelper();
-    }
-
     if (target && plane) {
       this.showPlaneHelper();
       this.setPlaneHelperTarget(target, plane);
     } else {
       this.hidePlaneHelper();
+    }
+
+    if (target && snappedLine) {
+      this.showLineHelper();
+      this.setLineHelperPosition(snappedLine.start, target);
+    } else {
+      this.hideLineHelper();
+    }
+
+    if (target && snappedPoint) {
+      this.showPointHelper();
+      this.setPointHelperPosition(snappedPoint);
+    } else {
+      this.hidePointHelper();
     }
   }
 

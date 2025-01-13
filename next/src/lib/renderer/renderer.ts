@@ -60,9 +60,6 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.controls = new OrbitControls(this.camera, this.canvas);
     this.addPart(...model.parts);
 
-    // const pointHelper = new PointHelper(10, 2, new Color(0, 0, 0));
-    // this.addUpdating(pointHelper);
-
     this.setupListeners();
   }
 

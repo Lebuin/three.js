@@ -1,10 +1,12 @@
 import { Color } from '@/lib/util/color';
+import { disposeMaterial } from '@/lib/util/three';
 import * as THREE from 'three';
 import { Renderer } from '../renderer';
 import { UpdatingObjectMixin } from './updating-object-mixin';
 
 export class PointHelper extends UpdatingObjectMixin(THREE.Group) {
   private size: number;
+  private sprite: THREE.Sprite;
 
   constructor(size: number, lineWidth: number, color: Color = new Color()) {
     super();
@@ -14,8 +16,13 @@ export class PointHelper extends UpdatingObjectMixin(THREE.Group) {
       map: texture,
       depthTest: false,
     });
-    const sprite = new THREE.Sprite(material);
-    this.add(sprite);
+    this.sprite = new THREE.Sprite(material);
+    this.add(this.sprite);
+  }
+
+  dispose() {
+    this.sprite.geometry.dispose();
+    disposeMaterial(this.sprite.material);
   }
 
   private createTexture(size: number, lineWidth: number, color: Color) {
