@@ -40,7 +40,6 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
 
   private preferredLines: THREE.Line3[] = [];
   private preferredPoints: THREE.Vector3[] = [];
-  private readonly snapThreshold: Pixels = 20;
 
   private planeHelper: PartialPlaneHelper;
 
@@ -49,6 +48,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   // determines how significant this preference is. 1 = no preference, higher number = higher
   // preference.
   private readonly dominantPlaneYPreference = 2.5;
+  private readonly snapThreshold: Pixels = 15;
 
   constructor(renderer: Renderer) {
     super();
