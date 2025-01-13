@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { Part } from '../model/parts/part';
 import { AxesHelper } from './helpers/axes-helper';
 import { PlaneHelper } from './helpers/plane-helper';
+import { UpdatingObject } from './helpers/updating-object-mixin';
 import { Lighting } from './lighting';
 import { OrbitControls } from './orbit-controls';
 import { createPartObject } from './part-objects';
@@ -24,12 +25,13 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private _camera: THREE.OrthographicCamera;
-  private lighting: THREE.Group;
+  private lighting: Lighting;
   private controls: OrbitControls;
   private axes: AxesHelper;
   private planeHelper?: PlaneHelper;
 
   private partObjects: PartObject<Part>[] = [];
+  private updatingObjects: UpdatingObject[] = [];
   private toolHandler?: ToolHandler;
 
   private onResizeThrottled = _.throttle(this.onResize.bind(this), 100);
@@ -53,10 +55,13 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.add(this.axes);
 
     this.lighting = new Lighting(this.castShadows);
-    this.add(this.lighting);
+    this.addUpdating(this.lighting);
 
     this.controls = new OrbitControls(this.camera, this.canvas);
     this.addPart(...model.parts);
+
+    // const pointHelper = new PointHelper(10, 2, new Color(0, 0, 0));
+    // this.addUpdating(pointHelper);
 
     this.setupListeners();
   }
@@ -158,6 +163,16 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.render();
   }
 
+  public addUpdating(object: UpdatingObject) {
+    this.updatingObjects.push(object);
+    this.add(object);
+  }
+
+  public removeUpdating(object: UpdatingObject) {
+    this.updatingObjects = _.remove(this.updatingObjects, object);
+    this.remove(object);
+  }
+
   private addPart(...parts: Part[]) {
     parts.forEach((part) => {
       const partObject = createPartObject(part);
@@ -199,8 +214,19 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   };
 
   private renderFrame() {
-    this.lighting.quaternion.copy(this.camera.quaternion);
+    this.updatingObjects.forEach((object) => object.update(this));
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * Get the size in screen pixels of 1 unit in the world.
+   */
+  public getPixelSize() {
+    const pixelSize =
+      (this.camera.top - this.camera.bottom) /
+      this.canvas.clientHeight /
+      this.camera.zoom;
+    return pixelSize;
   }
 
   ///

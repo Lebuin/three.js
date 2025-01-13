@@ -82,7 +82,7 @@ export class Color extends THREE.Color {
     return this;
   }
 
-  setHex(hex: number, colorSpace = THREE.SRGBColorSpace) {
+  setHex(hex: number, colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace) {
     let intHex = Math.floor(hex);
 
     if (intHex > 0xffffff) {
@@ -101,7 +101,7 @@ export class Color extends THREE.Color {
     return this;
   }
 
-  setStyle(style: string, colorSpace = THREE.SRGBColorSpace) {
+  setStyle(style: string, colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace) {
     let m;
 
     if ((m = /^(\w+)\(([^)]*)\)/.exec(style))) {
@@ -285,5 +285,31 @@ export class Color extends THREE.Color {
     array[offset + 3] = this.a;
 
     return array;
+  }
+
+  getHex(colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace) {
+    return super.getHex(colorSpace) << (8 + Math.floor(this.a * 255));
+  }
+
+  getHexString(colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace) {
+    return ('000000' + this.getHex(colorSpace).toString(16)).slice(-8);
+  }
+
+  getStyle(colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace) {
+    const color = new Color().copy(this);
+    THREE.ColorManagement.fromWorkingColorSpace(color, colorSpace);
+
+    const r = color.r;
+    const g = color.g;
+    const b = color.b;
+
+    if (colorSpace !== THREE.SRGBColorSpace) {
+      // Requires CSS Color Module Level 4 (https://www.w3.org/TR/css-color-4/).
+      // prettier-ignore
+      return `color(${colorSpace} ${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)} / ${this.a})`;
+    }
+
+    // prettier-ignore
+    return `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${this.a})`;
   }
 }

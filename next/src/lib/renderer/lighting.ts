@@ -1,6 +1,8 @@
 import * as THREE from 'three';
+import { UpdatingObjectMixin } from './helpers/updating-object-mixin';
+import { Renderer } from './renderer';
 
-export class Lighting extends THREE.Group {
+export class Lighting extends UpdatingObjectMixin(THREE.Group) {
   constructor(private castShadows = false) {
     super();
 
@@ -29,5 +31,9 @@ export class Lighting extends THREE.Group {
     light.shadow.camera.bottom = -10;
     light.shadow.radius = 3;
     light.shadow.blurSamples = 16;
+  }
+
+  public update(renderer: Renderer) {
+    this.quaternion.copy(renderer.camera.quaternion);
   }
 }
