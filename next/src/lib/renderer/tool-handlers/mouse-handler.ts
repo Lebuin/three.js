@@ -1,9 +1,12 @@
 import { mouseButtonPressed } from '@/lib/util';
 import {
+  Axis,
+  axisDirections,
   distanceBetweenLines,
   distanceToLine,
   intersectPlaneAndLine,
   intersectPlanes,
+  isAxis,
 } from '@/lib/util/geometry';
 import * as THREE from 'three';
 import {
@@ -14,13 +17,6 @@ import { Renderer } from '../renderer';
 import * as settings from '../settings';
 
 type Pixels = number;
-
-const axisDirections = {
-  x: new THREE.Vector3(1, 0, 0),
-  y: new THREE.Vector3(0, 1, 0),
-  z: new THREE.Vector3(0, 0, 1),
-} as const;
-type Axis = keyof typeof axisDirections;
 
 export interface MouseHandlerEvent {
   point: THREE.Vector3;
@@ -274,30 +270,52 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     this.planeHelper.setOrigin(this.neighborPoint ?? new THREE.Vector3());
     this.planeHelper.setNormal(plane.normal);
     this.planeHelper.setPoint(target);
-    const colors = this.getPlaneHelperColors(plane);
+
+    const colors = this.getPlaneHelperColors(this.planeHelper.quaternion);
     this.planeHelper.setColors(colors);
   }
 
-  private getPlaneHelperColors(plane: THREE.Plane): PartialPlaneHelperColors {
-    let colorSettings = settings.axesColors.default;
-    const normal = plane.normal;
-    const absNormal = new THREE.Vector3(
-      Math.abs(normal.x),
-      Math.abs(normal.y),
-      Math.abs(normal.z),
-    );
-    if (absNormal.angleTo(new THREE.Vector3(1, 0, 0)) < 1e-6) {
-      colorSettings = settings.axesColors.x;
-    } else if (absNormal.angleTo(new THREE.Vector3(0, 1, 0)) < 1e-6) {
-      colorSettings = settings.axesColors.y;
-    } else if (absNormal.angleTo(new THREE.Vector3(0, 0, 1)) < 1e-6) {
-      colorSettings = settings.axesColors.z;
-    }
-
-    return {
-      edge: colorSettings.primary.setA(0.5),
-      plane: colorSettings.plane.setA(0.15),
+  private getPlaneHelperColors(
+    quaternion: THREE.Quaternion,
+  ): PartialPlaneHelperColors {
+    const planeAxesWorldDirection = {
+      x: new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion),
+      z: new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion),
     };
+
+    const planeAxesToWorldAxes = {
+      x: isAxis(planeAxesWorldDirection.x),
+      z: isAxis(planeAxesWorldDirection.z),
+    };
+
+    const colors: PartialPlaneHelperColors = {
+      edgeX: this.getPlaneHelperEdgeColor(planeAxesToWorldAxes.x),
+      edgeZ: this.getPlaneHelperEdgeColor(planeAxesToWorldAxes.z),
+      plane: this.getPlaneHelperPlaneColor(
+        planeAxesToWorldAxes.x,
+        planeAxesToWorldAxes.z,
+      ),
+    };
+    return colors;
+  }
+
+  private getPlaneHelperEdgeColor(axis: Axis | null) {
+    if (axis == null) {
+      return settings.axesColors.default.primary.clone().setA(0.5);
+    } else {
+      return settings.axesColors[axis].primary.clone().setA(0.5);
+    }
+  }
+
+  private getPlaneHelperPlaneColor(axisX: Axis | null, axisZ: Axis | null) {
+    if (axisX == null || axisZ == null) {
+      return settings.axesColors.default.plane.clone().setA(0.15);
+    } else {
+      return settings.axesColors[axisX].plane
+        .clone()
+        .lerp(settings.axesColors[axisZ].plane, 0.5)
+        .setA(0.15);
+    }
   }
 
   ///

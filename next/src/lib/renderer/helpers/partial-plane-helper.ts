@@ -6,13 +6,15 @@ import { disposeMaterial } from '../../util/three';
 import * as settings from '../settings';
 
 export interface PartialPlaneHelperColors {
-  edge: Color;
   plane: Color;
+  edgeX: Color;
+  edgeZ: Color;
 }
 
 const defaultColorRepresentations: PartialPlaneHelperColors = {
   plane: settings.axesColors.default.plane.clone().setA(0.15),
-  edge: settings.axesColors.default.primary.clone().setA(0.5),
+  edgeX: settings.axesColors.default.primary.clone().setA(0.5),
+  edgeZ: settings.axesColors.default.primary.clone().setA(0.5),
 } as const;
 
 export class PartialPlaneHelper extends THREE.Group {
@@ -52,6 +54,7 @@ export class PartialPlaneHelper extends THREE.Group {
     const edgesGeometry = new THREE.EdgesGeometry(planeGeometry);
     this.lineSegmentsMaterial = new THREE.LineBasicMaterial({
       transparent: true,
+      vertexColors: true,
     });
     this.lineSegments = new THREE.LineSegments(
       edgesGeometry,
@@ -96,12 +99,25 @@ export class PartialPlaneHelper extends THREE.Group {
 
   setColors(colors: Partial<PartialPlaneHelperColors>) {
     this.colors = _.merge({}, this.colors, colors);
+
     this.meshMaterial.color = this.colors.plane;
     this.meshMaterial.opacity = this.colors.plane.a;
     this.meshMaterial.needsUpdate = true;
-    this.lineSegmentsMaterial.color = this.colors.edge;
-    this.lineSegmentsMaterial.opacity = this.colors.edge.a;
-    this.lineSegmentsMaterial.needsUpdate = true;
+
+    const edgeColors = [
+      ...this.colors.edgeZ.toArray4(),
+      ...this.colors.edgeZ.toArray4(),
+      ...this.colors.edgeX.toArray4(),
+      ...this.colors.edgeX.toArray4(),
+      ...this.colors.edgeX.toArray4(),
+      ...this.colors.edgeX.toArray4(),
+      ...this.colors.edgeZ.toArray4(),
+      ...this.colors.edgeZ.toArray4(),
+    ];
+    this.lineSegments.geometry.setAttribute(
+      'color',
+      new THREE.Float32BufferAttribute(edgeColors, 4),
+    );
   }
 
   dispose() {

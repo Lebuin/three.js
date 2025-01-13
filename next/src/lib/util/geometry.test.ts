@@ -136,3 +136,7 @@ describe('distanceToLine', () => {
 describe('vectorsAreParallel', () => {
   throw new Error('Not implemented');
 });
+
+describe('isAxis', () => {
+  throw new Error('Not implemented');
+});

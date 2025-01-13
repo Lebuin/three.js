@@ -157,3 +157,19 @@ export function vectorsAreParallel(
   const cross = new THREE.Vector3().crossVectors(vector1, vector2);
   return cross.lengthSq() < tolerance;
 }
+
+export const axisDirections = {
+  x: new THREE.Vector3(1, 0, 0),
+  y: new THREE.Vector3(0, 1, 0),
+  z: new THREE.Vector3(0, 0, 1),
+} as const;
+export type Axis = keyof typeof axisDirections;
+
+export function isAxis(vector: THREE.Vector3, tolerance = 1e-6): Axis | null {
+  for (const [axis, direction] of Object.entries(axisDirections)) {
+    if (vectorsAreParallel(vector, direction, tolerance)) {
+      return axis as Axis;
+    }
+  }
+  return null;
+}
