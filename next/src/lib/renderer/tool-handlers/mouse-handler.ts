@@ -67,7 +67,7 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
 
     this.renderer = renderer;
     this.planeHelper = new PartialPlaneHelper();
-    this.lineHelper = new LineHelper(2);
+    this.lineHelper = new LineHelper(3);
     this.pointHelper = new PointHelper(12, 2, new Color(0.01, 0.01, 0.01));
 
     this.setupListeners();
@@ -77,7 +77,9 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
   dispose() {
     this.hidePlaneHelper();
     this.planeHelper.dispose();
+    this.hideLineHelper();
     this.lineHelper.dispose();
+    this.hidePointHelper();
     this.pointHelper.dispose();
     this.removeListeners();
   }
