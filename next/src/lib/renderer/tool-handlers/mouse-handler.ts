@@ -594,7 +594,6 @@ export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
     distanceToLine(raycaster.ray, line, undefined, target);
     return {
       target,
-      snappedLine: line,
     };
   }
 
