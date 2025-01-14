@@ -36,9 +36,9 @@ export default function Toolbar(props: ToolbarProps) {
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        props.onSelect('select');
+        props.onSelect.call(null, 'select');
       } else if (event.key === 'p') {
-        props.onSelect('plank');
+        props.onSelect.call(null, 'plank');
       }
     }
 
@@ -46,7 +46,7 @@ export default function Toolbar(props: ToolbarProps) {
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, []);
+  }, [props.onSelect]);
 
   return (
     <div className="flex flex-col gap-2 p-2 bg-gray-800">
