@@ -13,7 +13,7 @@ const compat = new FlatCompat({
 });
 
 export default tseslint.config(
-  ...compat.extends('next/core-web-vitals', 'next/typescript', 'prettier'),
+  ...compat.extends('prettier', 'next/core-web-vitals', 'next/typescript'),
   eslint.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
   tseslint.configs.stylisticTypeChecked,
@@ -68,8 +68,5 @@ export default tseslint.config(
       ],
       curly: ['error', 'all'],
     },
-  },
-  {
-    ignores: ['**/*.mjs', '**/*.mts'],
   },
 );
