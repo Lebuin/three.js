@@ -1,134 +1,129 @@
+import { getQuaternionFromAxes, vectorsAreParallel } from '@/lib/util/geometry';
 import _ from 'lodash';
 import * as THREE from 'three';
 import { Color } from '../../util/color';
 import { disposeMaterial } from '../../util/three';
+import * as settings from '../settings';
 
-interface GridColors {
-  primary: Color;
-  secondary: Color;
-}
-
-interface Colors {
-  grid: GridColors;
+export interface PlaneHelperColors {
   plane: Color;
+  edgeX: Color;
+  edgeZ: Color;
 }
 
-const defaultColorRepresentations: Colors = {
-  grid: {
-    primary: new Color().setHSLA(0, 0, 0.3, 0.2),
-    secondary: new Color().setHSLA(0, 0, 0.5, 0.2),
-  },
-  plane: new Color().setHSLA(0, 0, 0, 0.1),
+const defaultColorRepresentations: PlaneHelperColors = {
+  plane: settings.axesColors.default.plane.clone().setA(0.15),
+  edgeX: settings.axesColors.default.primary.clone().setA(0.5),
+  edgeZ: settings.axesColors.default.primary.clone().setA(0.5),
 } as const;
 
-class GridHelper extends THREE.LineSegments {
-  type = 'GridHelper';
-
-  constructor(size = 10, divisions = 10, colors: GridColors) {
-    const allColors = _.merge({}, defaultColorRepresentations.grid, colors);
-    const threeColors = {
-      primary: new Color(allColors.primary),
-      secondary: new Color(allColors.secondary),
-    };
-
-    const center = divisions / 2;
-    const step = size / divisions;
-    const halfSize = size / 2;
-
-    const vertices: number[] = [];
-    const colorsArray: number[] = [];
-
-    for (let i = 0, j = 0, k = -halfSize; i <= divisions; i++, k += step) {
-      // Avoid drawing over the main axes
-      if (k === 0) {
-        continue;
-      }
-
-      vertices.push(-halfSize, 0, k, halfSize, 0, k);
-      vertices.push(k, 0, -halfSize, k, 0, halfSize);
-
-      const color = i === center ? threeColors.primary : threeColors.secondary;
-
-      color.toArray4(colorsArray, j);
-      j += 4;
-      color.toArray4(colorsArray, j);
-      j += 4;
-      color.toArray4(colorsArray, j);
-      j += 4;
-      color.toArray4(colorsArray, j);
-      j += 4;
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(vertices, 3),
-    );
-    geometry.setAttribute(
-      'color',
-      new THREE.Float32BufferAttribute(colorsArray, 4),
-    );
-
-    const material = new THREE.LineBasicMaterial({
-      vertexColors: true,
-      toneMapped: false,
-      transparent: true,
-    });
-
-    super(geometry, material);
-  }
-
-  dispose() {
-    this.geometry.dispose();
-    disposeMaterial(this.material);
-  }
-}
-
 export class PlaneHelper extends THREE.Group {
-  private gridHelper: GridHelper;
+  private meshMaterial: THREE.MeshBasicMaterial;
   private mesh: THREE.Mesh;
+  private lineSegmentsMaterial: THREE.LineBasicMaterial;
+  private lineSegments: THREE.LineSegments;
+
+  private point = new THREE.Vector3(0, 0, 0);
+  private colors: PlaneHelperColors = defaultColorRepresentations;
 
   constructor(
-    normal: THREE.Vector3,
-    point: THREE.Vector3,
-    size: number,
-    divisions: number,
-    colors: Partial<Colors> = {},
+    quaternion: THREE.Quaternion = new THREE.Quaternion(),
+    origin: THREE.Vector3 = new THREE.Vector3(),
+    point: THREE.Vector3 = new THREE.Vector3(),
+    colors: Partial<PlaneHelperColors> = {},
   ) {
     super();
 
-    const allColors = _.merge({}, defaultColorRepresentations, colors);
-    this.gridHelper = new GridHelper(size, divisions, allColors.grid);
-    this.add(this.gridHelper);
+    const group = new THREE.Group();
+    group.rotation.x = Math.PI / 2;
+    group.position.set(0.5, 0, 0.5);
+    this.add(group);
 
-    const planeGeometry = new THREE.PlaneGeometry(
-      size,
-      size,
-      divisions,
-      divisions,
-    );
-    const planeMaterial = new THREE.MeshBasicMaterial({
-      color: allColors.plane,
+    const planeGeometry = new THREE.PlaneGeometry();
+
+    this.meshMaterial = new THREE.MeshBasicMaterial({
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: allColors.plane.a,
       polygonOffset: true,
       polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1,
+      polygonOffsetUnits: 2,
     });
-    this.mesh = new THREE.Mesh(planeGeometry, planeMaterial);
-    this.mesh.rotation.x = Math.PI / 2;
-    this.add(this.mesh);
+    this.mesh = new THREE.Mesh(planeGeometry, this.meshMaterial);
+    group.add(this.mesh);
 
-    this.position.copy(point);
-    const quaternion = new THREE.Quaternion();
-    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-    this.quaternion.copy(quaternion);
+    const edgesGeometry = new THREE.EdgesGeometry(planeGeometry);
+    this.lineSegmentsMaterial = new THREE.LineBasicMaterial({
+      transparent: true,
+      vertexColors: true,
+    });
+    this.lineSegments = new THREE.LineSegments(
+      edgesGeometry,
+      this.lineSegmentsMaterial,
+    );
+    group.add(this.lineSegments);
+
+    this.setColors(colors);
+    this.setOrigin(origin);
+    this.setQuaternion(quaternion);
+    this.setPoint(point);
   }
 
   dispose() {
-    this.gridHelper.dispose();
     this.mesh.geometry.dispose();
     disposeMaterial(this.mesh.material);
+    this.lineSegments.geometry.dispose();
+    disposeMaterial(this.lineSegments.material);
+  }
+
+  setOrigin(origin: THREE.Vector3) {
+    this.position.copy(origin);
+    this.setPoint(this.point);
+  }
+
+  setQuaternion(quaternion: THREE.Quaternion) {
+    this.quaternion.copy(quaternion);
+    this.setPoint(this.point);
+  }
+
+  setNormal(normal: THREE.Vector3) {
+    const axisToConstructX = vectorsAreParallel(
+      normal,
+      new THREE.Vector3(0, 1, 0),
+    )
+      ? new THREE.Vector3(0, 0, 1)
+      : new THREE.Vector3(0, 1, 0);
+
+    const axisX = new THREE.Vector3().crossVectors(normal, axisToConstructX);
+    const quaternion = getQuaternionFromAxes(axisX, normal, undefined);
+    this.setQuaternion(quaternion);
+  }
+
+  setPoint(point: THREE.Vector3) {
+    this.scale.set(1, 1, 1);
+    const projectedPoint = this.worldToLocal(point.clone());
+    this.scale.set(projectedPoint.x, 1, projectedPoint.z);
+  }
+
+  setColors(colors: Partial<PlaneHelperColors>) {
+    this.colors = _.merge({}, this.colors, colors);
+
+    this.meshMaterial.color = this.colors.plane;
+    this.meshMaterial.opacity = this.colors.plane.a;
+    this.meshMaterial.needsUpdate = true;
+
+    const edgeColors = [
+      ...this.colors.edgeZ.toArray4(),
+      ...this.colors.edgeZ.toArray4(),
+      ...this.colors.edgeX.toArray4(),
+      ...this.colors.edgeX.toArray4(),
+      ...this.colors.edgeX.toArray4(),
+      ...this.colors.edgeX.toArray4(),
+      ...this.colors.edgeZ.toArray4(),
+      ...this.colors.edgeZ.toArray4(),
+    ];
+    this.lineSegments.geometry.setAttribute(
+      'color',
+      new THREE.Float32BufferAttribute(edgeColors, 4),
+    );
   }
 }

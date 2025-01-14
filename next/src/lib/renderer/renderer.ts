@@ -1,10 +1,10 @@
 import { Tool } from '@/components/toolbar';
 import { Model } from '@/lib/model/model';
+import { Part } from '@/lib/model/parts/part';
+import { Pixels } from '@/lib/util/geometry';
 import _ from 'lodash';
 import * as THREE from 'three';
-import { Part } from '../model/parts/part';
 import { AxesHelper } from './helpers/axes-helper';
-import { PlaneHelper } from './helpers/plane-helper';
 import { UpdatingObject } from './helpers/updating-object-mixin';
 import { Lighting } from './lighting';
 import { OrbitControls } from './orbit-controls';
@@ -28,7 +28,6 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private lighting: Lighting;
   private controls: OrbitControls;
   private axes: AxesHelper;
-  private planeHelper?: PlaneHelper;
 
   private partObjects: PartObject<Part>[] = [];
   private updatingObjects: UpdatingObject[] = [];
@@ -218,62 +217,12 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   /**
    * Get the size in screen pixels of 1 unit in the world.
    */
-  public getPixelSize() {
+  public getPixelSize(): Pixels {
     const pixelSize =
       (this.camera.top - this.camera.bottom) /
       this.canvas.clientHeight /
       this.camera.zoom;
     return pixelSize;
-  }
-
-  ///
-  // Show a plane helper to aid drawing
-
-  public showPlaneHelper(normal: THREE.Vector3, point: THREE.Vector3) {
-    this.hidePlaneHelper();
-
-    const colors = this.getPlaneHelperColors(normal);
-    this.planeHelper = new PlaneHelper(
-      normal,
-      point,
-      this.groundPlaneSize * 2,
-      80,
-      {
-        grid: {
-          primary: colors.primary,
-          secondary: colors.secondary,
-        },
-        plane: colors.plane,
-      },
-    );
-    this.add(this.planeHelper);
-  }
-
-  public hidePlaneHelper() {
-    if (!this.planeHelper) {
-      return;
-    }
-
-    this.remove(this.planeHelper);
-    this.planeHelper.dispose();
-  }
-
-  private getPlaneHelperColors(normal: THREE.Vector3) {
-    let axesColors = settings.axesColors.default;
-    if (normal.angleTo(new THREE.Vector3(1, 0, 0)) === 0) {
-      axesColors = settings.axesColors.x;
-    } else if (normal.angleTo(new THREE.Vector3(0, 1, 0)) === 0) {
-      axesColors = settings.axesColors.y;
-    } else if (normal.angleTo(new THREE.Vector3(0, 0, 1)) === 0) {
-      axesColors = settings.axesColors.z;
-    }
-
-    axesColors = {
-      primary: axesColors.primary.clone().setA(0.5),
-      secondary: axesColors.secondary.clone().setA(0.5),
-      plane: axesColors.plane.clone().setA(0.15),
-    };
-    return axesColors;
   }
 
   ///

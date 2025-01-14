@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+export type Pixels = number;
+
 export function getQuaternionFromAxes(
   xAxis?: THREE.Vector3,
   yAxis?: THREE.Vector3,

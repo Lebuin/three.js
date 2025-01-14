@@ -56,22 +56,28 @@ export class PlankToolHandler extends ToolHandler {
     this.updateFleetingPlank();
 
     if (this.points.length === 1) {
-      this.mouseHandler.setNeighborPoint(plankPoint.point);
+      this.mouseHandler.targetFinder.setNeighborPoint(plankPoint.point);
     } else if (this.points.length === 2) {
       const planeNormal = this.points[1].point
         .clone()
         .sub(this.points[0].point)
         .normalize();
-      this.mouseHandler.setConstraintPlane(planeNormal, plankPoint.point);
+      this.mouseHandler.targetFinder.setConstraintPlane(
+        planeNormal,
+        plankPoint.point,
+      );
     } else if (this.points.length === 3) {
       const plankPlane = new THREE.Plane().setFromCoplanarPoints(
         this.points[0].point,
         this.points[1].point,
         this.points[2].point,
       );
-      this.mouseHandler.setConstraintLine(plankPlane.normal, plankPoint.point);
+      this.mouseHandler.targetFinder.setConstraintLine(
+        plankPlane.normal,
+        plankPoint.point,
+      );
     } else if (this.points.length === 4) {
-      this.mouseHandler.clearConstraints();
+      this.mouseHandler.targetFinder.clearConstraints();
       this.confirmPlank();
     }
   };
