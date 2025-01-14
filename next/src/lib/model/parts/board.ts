@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Part } from './part';
 
-export class Plank extends Part {
+export class Board extends Part {
   private _size: THREE.Vector3;
 
   constructor(

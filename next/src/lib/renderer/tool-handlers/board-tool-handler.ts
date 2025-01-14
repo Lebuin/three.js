@@ -1,4 +1,4 @@
-import { Plank } from '@/lib/model/parts/plank';
+import { Board } from '@/lib/model/parts/board';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
 import * as THREE from 'three';
 import { Vector3 } from 'three';
@@ -6,17 +6,17 @@ import { Renderer } from '../renderer';
 import { MouseHandler, MouseHandlerEvent } from './mouse-handler';
 import { ToolHandler } from './tool-handler';
 
-interface PlankPoint {
+interface BoardPoint {
   point: Vector3;
   centerAligned: boolean;
 }
 
-export class PlankToolHandler extends ToolHandler {
+export class BoardToolHandler extends ToolHandler {
   private mouseHandler: MouseHandler;
 
-  private points: PlankPoint[] = [];
-  private fleetingPoint?: PlankPoint;
-  private fleetingPlank?: Plank;
+  private points: BoardPoint[] = [];
+  private fleetingPoint?: BoardPoint;
+  private fleetingBoard?: Board;
 
   constructor(renderer: Renderer) {
     super(renderer);
@@ -29,7 +29,7 @@ export class PlankToolHandler extends ToolHandler {
   dispose() {
     super.dispose();
     this.mouseHandler.dispose();
-    this.removeFleetingPlank();
+    this.removeFleetingBoard();
     this.removeListeners();
   }
 
@@ -44,19 +44,19 @@ export class PlankToolHandler extends ToolHandler {
   }
 
   private onMouseMove = (event: MouseHandlerEvent) => {
-    this.fleetingPoint = this.createPlankPoint(event);
-    this.updateFleetingPlank();
+    this.fleetingPoint = this.createBoardPoint(event);
+    this.updateFleetingBoard();
   };
 
   private onClick = (event: MouseHandlerEvent) => {
-    const plankPoint = this.createPlankPoint(event);
-    this.points.push(plankPoint);
+    const boardPoint = this.createBoardPoint(event);
+    this.points.push(boardPoint);
     this.fleetingPoint = undefined;
 
-    this.updateFleetingPlank();
+    this.updateFleetingBoard();
 
     if (this.points.length === 1) {
-      this.mouseHandler.targetFinder.setNeighborPoint(plankPoint.point);
+      this.mouseHandler.targetFinder.setNeighborPoint(boardPoint.point);
     } else if (this.points.length === 2) {
       const planeNormal = this.points[1].point
         .clone()
@@ -64,25 +64,25 @@ export class PlankToolHandler extends ToolHandler {
         .normalize();
       this.mouseHandler.targetFinder.setConstraintPlane(
         planeNormal,
-        plankPoint.point,
+        boardPoint.point,
       );
     } else if (this.points.length === 3) {
-      const plankPlane = new THREE.Plane().setFromCoplanarPoints(
+      const boardPlane = new THREE.Plane().setFromCoplanarPoints(
         this.points[0].point,
         this.points[1].point,
         this.points[2].point,
       );
       this.mouseHandler.targetFinder.setConstraintLine(
-        plankPlane.normal,
-        plankPoint.point,
+        boardPlane.normal,
+        boardPoint.point,
       );
     } else if (this.points.length === 4) {
       this.mouseHandler.targetFinder.clearConstraints();
-      this.confirmPlank();
+      this.confirmBoard();
     }
   };
 
-  private createPlankPoint(event: MouseHandlerEvent) {
+  private createBoardPoint(event: MouseHandlerEvent) {
     if (this.points.length < 3) {
       return {
         point: event.point,
@@ -94,24 +94,24 @@ export class PlankToolHandler extends ToolHandler {
   }
 
   /**
-   * Get the line on which the 3rd and 4th points of the plank must lie. This can only be
+   * Get the line on which the 3rd and 4th points of the board must lie. This can only be
    * calculated once the first 3 points are set.
    */
   private getZLine() {
     if (this.points.length < 3) {
       throw new Error(
-        "The plank's Z line is only defined when the first 3 points are set",
+        "The board's Z line is only defined when the first 3 points are set",
       );
     }
 
-    const plankPlane = new THREE.Plane().setFromCoplanarPoints(
+    const boardPlane = new THREE.Plane().setFromCoplanarPoints(
       this.points[0].point,
       this.points[1].point,
       this.points[2].point,
     );
     const zLine = new THREE.Line3(
       this.points[2].point,
-      this.points[2].point.clone().add(plankPlane.normal),
+      this.points[2].point.clone().add(boardPlane.normal),
     );
     return zLine;
   }
@@ -155,22 +155,22 @@ export class PlankToolHandler extends ToolHandler {
     return event.ctrlPressed;
   }
 
-  private createFleetingPlank() {
-    if (!this.fleetingPlank) {
-      this.fleetingPlank = new Plank();
-      this.model.addPart(this.fleetingPlank);
+  private createFleetingBoard() {
+    if (!this.fleetingBoard) {
+      this.fleetingBoard = new Board();
+      this.model.addPart(this.fleetingBoard);
     }
-    return this.fleetingPlank;
+    return this.fleetingBoard;
   }
 
-  private removeFleetingPlank() {
-    if (this.fleetingPlank) {
-      this.model.removePart(this.fleetingPlank);
-      this.fleetingPlank = undefined;
+  private removeFleetingBoard() {
+    if (this.fleetingBoard) {
+      this.model.removePart(this.fleetingBoard);
+      this.fleetingBoard = undefined;
     }
   }
 
-  private updateFleetingPlank() {
+  private updateFleetingBoard() {
     const points = [...this.points];
     if (this.fleetingPoint) {
       points.push(this.fleetingPoint);
@@ -186,7 +186,7 @@ export class PlankToolHandler extends ToolHandler {
       });
     }
 
-    const plankSides = {
+    const boardSides = {
       x: points[1].point.clone().sub(points[0].point),
       y: points[2].point.clone().sub(points[1].point),
       z: points[3].point.clone().sub(points[2].point),
@@ -198,7 +198,7 @@ export class PlankToolHandler extends ToolHandler {
       points[1].point.distanceTo(points[2].point),
       points[2].point.distanceTo(points[3].point),
     );
-    const quaternion = getQuaternionFromAxes(plankSides.x, plankSides.y);
+    const quaternion = getQuaternionFromAxes(boardSides.x, boardSides.y);
 
     for (let i = 0; i < 3; i++) {
       const centerAligned = points[i + 1].centerAligned;
@@ -209,22 +209,22 @@ export class PlankToolHandler extends ToolHandler {
       }
     }
 
-    const plankZAxis = plankSides.x.clone().cross(plankSides.y).normalize();
-    const zIsInverted = plankZAxis.dot(plankSides.z) < 0;
+    const boardZAxis = boardSides.x.clone().cross(boardSides.y).normalize();
+    const zIsInverted = boardZAxis.dot(boardSides.z) < 0;
     if (zIsInverted) {
       position.add(points[3].point.clone().sub(points[2].point));
     }
 
-    const fleetingPlank = this.createFleetingPlank();
-    fleetingPlank.position = position;
-    fleetingPlank.size = size;
-    fleetingPlank.quaternion = quaternion;
+    const fleetingBoard = this.createFleetingBoard();
+    fleetingBoard.position = position;
+    fleetingBoard.size = size;
+    fleetingBoard.quaternion = quaternion;
   }
 
-  private confirmPlank() {
+  private confirmBoard() {
     this.points = [];
     this.fleetingPoint = undefined;
-    this.fleetingPlank = undefined;
+    this.fleetingBoard = undefined;
     this.renderer.setTool('select');
   }
 }

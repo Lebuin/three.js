@@ -300,7 +300,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
 
   setTool(tool: Tool) {
     this.toolHandler?.dispose();
-    this.toolHandler = createToolHandler(tool, this, this.model);
+    this.toolHandler = createToolHandler(tool, this);
     this.dispatchEvent({ type: 'tool', tool });
   }
 }

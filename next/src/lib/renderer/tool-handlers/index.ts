@@ -1,20 +1,15 @@
 import { Tool } from '@/components/toolbar';
-import { Model } from '@/lib/model/model';
 import { Renderer } from '../renderer';
-import { PlankToolHandler } from './plank-tool-handler';
+import { BoardToolHandler } from './board-tool-handler';
 import { SelectToolHandler } from './select-tool-handler';
 import { ToolHandler } from './tool-handler';
 
-export function createToolHandler(
-  tool: Tool,
-  renderer: Renderer,
-  model: Model,
-): ToolHandler {
+export function createToolHandler(tool: Tool, renderer: Renderer): ToolHandler {
   switch (tool) {
     case 'select':
-      return new SelectToolHandler(renderer, model);
-    case 'plank':
-      return new PlankToolHandler(renderer, model);
+      return new SelectToolHandler(renderer);
+    case 'board':
+      return new BoardToolHandler(renderer);
     default:
       throw new Error(`Unknown tool: ${tool}`);
   }

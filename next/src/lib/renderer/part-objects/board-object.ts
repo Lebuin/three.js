@@ -1,12 +1,12 @@
-import { Plank } from '@/lib/model/parts/plank';
+import { Board } from '@/lib/model/parts/board';
 import { disposeMaterial } from '@/lib/util/three';
 import * as THREE from 'three';
 import { PartObject } from './part-object';
 
-export class PlankObject extends PartObject<Plank> {
+export class BoardObject extends PartObject<Board> {
   private typedChildren: [THREE.Mesh, THREE.LineSegments];
 
-  constructor(part: Plank) {
+  constructor(part: Board) {
     super(part);
 
     this.typedChildren = this.createChildren();

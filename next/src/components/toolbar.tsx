@@ -11,7 +11,7 @@ export interface ToolInfo {
   cursor: 'default' | 'crosshair';
 }
 
-export const tools = ['select', 'plank'] as const;
+export const tools = ['select', 'board'] as const;
 export type Tool = (typeof tools)[number];
 
 export const toolInfo: Record<Tool, ToolInfo> = {
@@ -20,8 +20,8 @@ export const toolInfo: Record<Tool, ToolInfo> = {
     icon: LiaMousePointerSolid,
     cursor: 'default',
   },
-  plank: {
-    name: 'Plank',
+  board: {
+    name: 'Board',
     icon: MdOutlineRectangle,
     cursor: 'crosshair',
   },
@@ -37,8 +37,8 @@ export default function Toolbar(props: ToolbarProps) {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         props.onSelect.call(null, 'select');
-      } else if (event.key === 'p') {
-        props.onSelect.call(null, 'plank');
+      } else if (event.key === 'b') {
+        props.onSelect.call(null, 'board');
       }
     }
 
