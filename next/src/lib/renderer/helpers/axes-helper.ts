@@ -1,10 +1,10 @@
 import _ from 'lodash';
 import * as THREE from 'three';
-import { Color } from '../../util/color';
+import { Color4 } from '../../util/color4';
 
 interface AxisColors {
-  primary: Color;
-  secondary: Color;
+  primary: Color4;
+  secondary: Color4;
 }
 interface AxesColors {
   x: AxisColors;
@@ -14,16 +14,16 @@ interface AxesColors {
 
 const defaultColors: AxesColors = {
   x: {
-    primary: new Color().setHSL(0, 1, 0.5),
-    secondary: new Color().setHSL(0, 1, 0.75),
+    primary: new Color4().setHSL(0, 1, 0.5),
+    secondary: new Color4().setHSL(0, 1, 0.75),
   },
   y: {
-    primary: new Color().setHSL(120 / 360, 1, 0.5),
-    secondary: new Color().setHSL(120 / 360, 1, 0.75),
+    primary: new Color4().setHSL(120 / 360, 1, 0.5),
+    secondary: new Color4().setHSL(120 / 360, 1, 0.75),
   },
   z: {
-    primary: new Color().setHSL(240 / 360, 1, 0.5),
-    secondary: new Color().setHSL(240 / 360, 1, 0.75),
+    primary: new Color4().setHSL(240 / 360, 1, 0.5),
+    secondary: new Color4().setHSL(240 / 360, 1, 0.75),
   },
 };
 

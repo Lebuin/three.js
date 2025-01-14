@@ -1,4 +1,4 @@
-import { Color } from '@/lib/util/color';
+import { Color4 } from '@/lib/util/color4';
 import { disposeMaterial } from '@/lib/util/three';
 import * as THREE from 'three';
 import { Renderer } from '../renderer';
@@ -8,7 +8,7 @@ export class PointHelper extends UpdatingObjectMixin(THREE.Group) {
   private size: number;
   private sprite: THREE.Sprite;
 
-  constructor(size: number, lineWidth: number, color: Color = new Color()) {
+  constructor(size: number, lineWidth: number, color: Color4 = new Color4()) {
     super();
     this.size = size;
     const texture = this.createTexture(size, lineWidth, color);
@@ -25,7 +25,7 @@ export class PointHelper extends UpdatingObjectMixin(THREE.Group) {
     disposeMaterial(this.sprite.material);
   }
 
-  private createTexture(size: number, lineWidth: number, color: Color) {
+  private createTexture(size: number, lineWidth: number, color: Color4) {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;

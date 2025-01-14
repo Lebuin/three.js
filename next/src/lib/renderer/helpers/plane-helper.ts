@@ -1,14 +1,14 @@
 import { getQuaternionFromAxes, vectorsAreParallel } from '@/lib/util/geometry';
 import _ from 'lodash';
 import * as THREE from 'three';
-import { Color } from '../../util/color';
+import { Color4 } from '../../util/color4';
 import { disposeMaterial } from '../../util/three';
 import * as settings from '../settings';
 
 export interface PlaneHelperColors {
-  plane: Color;
-  edgeX: Color;
-  edgeZ: Color;
+  plane: Color4;
+  edgeX: Color4;
+  edgeZ: Color4;
 }
 
 const defaultColorRepresentations: PlaneHelperColors = {

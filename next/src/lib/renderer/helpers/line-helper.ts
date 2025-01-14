@@ -1,4 +1,4 @@
-import { Color } from '@/lib/util/color';
+import { Color4 } from '@/lib/util/color4';
 import { disposeMaterial } from '@/lib/util/three';
 import * as THREE from 'three';
 import {
@@ -11,7 +11,7 @@ export class LineHelper extends THREE.Group {
   private material: LineMaterial;
   private line: Line2;
 
-  constructor(lineWidth: number, color = new Color()) {
+  constructor(lineWidth: number, color = new Color4()) {
     super();
     const geometry = new LineGeometry();
     geometry.setPositions([0, 0, 0, 0, 0, 1]);
@@ -37,7 +37,7 @@ export class LineHelper extends THREE.Group {
     this.lookAt(end);
   }
 
-  public setColor(color: Color) {
+  public setColor(color: Color4) {
     this.material.color = color;
     this.material.opacity = color.a;
     this.material.needsUpdate = true;

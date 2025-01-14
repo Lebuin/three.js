@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import { clamp } from 'three/src/math/MathUtils.js';
 
-export type ColorRepresentation = string | number | Color;
+export type ColorRepresentation = string | number | Color4;
 
-export class Color extends THREE.Color {
+export class Color4 extends THREE.Color {
   public r = 1;
   public g = 1;
   public b = 1;
@@ -50,7 +51,7 @@ export class Color extends THREE.Color {
       // Do nothing, the default values are already set.
     } else if (args.length === 1) {
       const value = args[0];
-      if (value instanceof Color) {
+      if (value instanceof Color4) {
         this.copy(value);
       } else if (typeof value === 'number') {
         this.setHex(value);
@@ -68,7 +69,7 @@ export class Color extends THREE.Color {
 
   clone(): this {
     // Ugly type casting here to make Typescript happy, there is probably a better way.
-    return new (this.constructor as typeof Color)(
+    return new (this.constructor as typeof Color4)(
       this.r,
       this.g,
       this.b,
@@ -76,7 +77,7 @@ export class Color extends THREE.Color {
     ) as this;
   }
 
-  copy(color: Color) {
+  copy(color: Color4) {
     super.copy(color);
     this.a = color.a;
     return this;
@@ -256,13 +257,13 @@ export class Color extends THREE.Color {
     return this;
   }
 
-  copySRGBToLinear(color: Color) {
+  copySRGBToLinear(color: Color4) {
     super.copySRGBToLinear(color);
     this.a = color.a;
     return this;
   }
 
-  copyLinearToSRGB(color: Color) {
+  copyLinearToSRGB(color: Color4) {
     super.copyLinearToSRGB(color);
     this.a = color.a;
     return this;
@@ -288,7 +289,9 @@ export class Color extends THREE.Color {
   }
 
   getHex(colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace) {
-    return super.getHex(colorSpace) << (8 + Math.floor(this.a * 255));
+    return (
+      super.getHex(colorSpace) * 256 + Math.floor(clamp(this.a * 255, 0, 255))
+    );
   }
 
   getHexString(colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace) {
@@ -296,7 +299,7 @@ export class Color extends THREE.Color {
   }
 
   getStyle(colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace) {
-    const color = new Color().copy(this);
+    const color = new Color4().copy(this);
     THREE.ColorManagement.fromWorkingColorSpace(color, colorSpace);
 
     const r = color.r;

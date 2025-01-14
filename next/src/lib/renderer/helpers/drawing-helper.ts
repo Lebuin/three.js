@@ -7,7 +7,7 @@ import { PointHelper } from '@/lib/renderer/helpers/point-helper';
 import { UpdatingObjectMixin } from '@/lib/renderer/helpers/updating-object-mixin';
 import { Renderer } from '@/lib/renderer/renderer';
 import * as settings from '@/lib/renderer/settings';
-import { Color } from '@/lib/util/color';
+import { Color4 } from '@/lib/util/color4';
 import { Axis, isAxis } from '@/lib/util/geometry';
 import * as THREE from 'three';
 
@@ -24,7 +24,7 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
   constructor() {
     super();
     this.planeHelper = new PlaneHelper();
-    this.pointHelper = new PointHelper(12, 2, new Color(0.01, 0.01, 0.01));
+    this.pointHelper = new PointHelper(12, 2, new Color4(0.01, 0.01, 0.01));
     this.add(this.planeHelper, this.pointHelper);
   }
 
@@ -152,7 +152,7 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     const axis = isAxis(direction);
     console.log(direction, axis);
     if (axis == null) {
-      return new Color(0, 0, 0);
+      return new Color4(0, 0, 0);
     } else {
       return settings.axesColors[axis].primary;
     }
