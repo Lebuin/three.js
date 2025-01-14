@@ -1,5 +1,6 @@
 import { mouseButtonPressed } from '@/lib/util';
 import { Color } from '@/lib/util/color';
+import { EventDispatcher } from '@/lib/util/event-dispatcher';
 import {
   Axis,
   axisDirections,
@@ -42,7 +43,21 @@ interface PreferredPoint {
   lines?: THREE.Line3[];
 }
 
-export class MouseHandler extends THREE.EventDispatcher<MouseHandlerEvents> {
+/**
+ * Handle mouse events, and derive from them a target point in the scene. Draw helpers to indicate
+ * to the user where the target point is.
+ *
+ * - When no constraints are set, the target point will lie on one of the primary planes. It will
+ *   snap to the axes, and to points and lines in the scene (TODO).
+ * - When a neighbour point is set, the target point will lie in a plane that is parallel to the
+ *   primary planes and that goes through the neighbour point, unless the target point is snapping
+ *   to another point or line.
+ * - When a plane constraint is set, the target point is guaranteed to lie in that plane. It will
+ *   still snap to lines and points in the scene that intersect this plane.
+ * - When a line constraint is set, the target point is guaranteed to lie on that line. It will
+ *   still snap to points and lines in the scene that intersect this line.
+ */
+export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
   private renderer: Renderer;
 
   private mouseEvent?: MouseEvent;
