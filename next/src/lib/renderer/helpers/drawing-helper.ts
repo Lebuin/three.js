@@ -150,7 +150,6 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
   private getLineColor(line: THREE.Line3) {
     const direction = line.end.clone().sub(line.start);
     const axis = isAxis(direction);
-    console.log(direction, axis);
     if (axis == null) {
       return new Color4(0, 0, 0);
     } else {
