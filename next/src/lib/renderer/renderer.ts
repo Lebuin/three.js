@@ -73,9 +73,9 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   }
 
   setupListeners() {
-    this.controls.addEventListener('change', this.render);
+    this.controls.addEventListener('change', this.onControlsChange);
     window.addEventListener('resize', this.onResizeThrottled);
-    window.addEventListener('mousedown', this.onMouseDown);
+    window.addEventListener('pointerdown', this.onPointerDown);
     this.canvas.addEventListener('contextmenu', this.onContextMenu);
     this.model.addEventListener('addPart', this.onAddPart);
     this.model.addEventListener('removePart', this.onRemovePart);
@@ -85,9 +85,10 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.removeAllParts();
     this.toolHandler?.dispose();
 
+    this.controls.removeEventListener('change', this.onControlsChange);
     this.controls.dispose();
     window.removeEventListener('resize', this.onResizeThrottled);
-    window.removeEventListener('mousedown', this.onMouseDown);
+    window.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('contextmenu', this.onContextMenu);
     this.model.removeEventListener('addPart', this.onAddPart);
     this.model.removeEventListener('removePart', this.onRemovePart);
@@ -228,6 +229,10 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   ///
   // Events
 
+  private onControlsChange = () => {
+    this.render();
+  };
+
   /**
    * Update the size of the renderer and the camera aspect ratio when the window is resized.
    */
@@ -277,23 +282,49 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   /**
    * Update the target of the controls to the point where the user clicked.
    */
-  private onMouseDown = (event: MouseEvent) => {
+  private onPointerDown = (event: PointerEvent) => {
+    this.controls.target = this.getControlsTarget(event);
+  };
+
+  private getControlsTarget(event: PointerEvent) {
+    if (this.partObjects.length === 0) {
+      return new THREE.Vector3();
+    }
+
+    // TODO: make sure we intersect the corner of a part that we are currently drawing.
     const raycaster = this.getRaycaster(event);
     const intersects = raycaster.intersectObjects(this.partObjects);
+    if (intersects.length > 0) {
+      return intersects[0].point;
+    }
 
-    const targetObjectPoint =
-      intersects.length > 0 ? intersects[0].point : new THREE.Vector3(0, 0, 0);
+    return this.getSceneCenter();
+  }
 
-    const cameraDirection = this.camera.getWorldDirection(new THREE.Vector3());
-    const cameraPosition = this.camera.getWorldPosition(new THREE.Vector3());
-    const distance = cameraPosition.distanceTo(targetObjectPoint);
-    const target = cameraPosition
-      .clone()
-      .add(cameraDirection.clone().multiplyScalar(distance));
+  /**
+   * Get the center of the objects in the scene that are at least partly visible in the camera
+   * frustrum.
+   */
+  private getSceneCenter() {
+    const projectionMatrix = new THREE.Matrix4().multiplyMatrices(
+      this.camera.projectionMatrix,
+      this.camera.matrixWorldInverse,
+    );
+    const frustrum = new THREE.Frustum().setFromProjectionMatrix(
+      projectionMatrix,
+    );
 
-    this.controls.target = target;
-    this.controls.update();
-  };
+    const objectsInViewBB = new THREE.Box3();
+    for (const partObject of this.partObjects) {
+      const objectBB = new THREE.Box3().setFromObject(partObject);
+      if (frustrum.intersectsBox(objectBB)) {
+        objectsInViewBB.union(objectBB);
+      }
+    }
+
+    const center = objectsInViewBB.getCenter(new THREE.Vector3());
+    return center;
+  }
 
   ///
   /// Tools
