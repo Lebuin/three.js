@@ -32,6 +32,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private partObjects: PartObject<Part>[] = [];
   private updatingObjects: UpdatingObject[] = [];
   private toolHandler?: ToolHandler;
+  private mouseTarget?: THREE.Vector3;
 
   private onResizeThrottled = _.throttle(this.onResize.bind(this), 100);
 
@@ -245,6 +246,13 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.render();
   }
 
+  /**
+   * Cancel the default browser context menu
+   */
+  private onContextMenu = (event: MouseEvent) => {
+    event.preventDefault();
+  };
+
   private onAddPart = ({ part }: { part: Part }) => {
     this.addPart(part);
   };
@@ -273,11 +281,12 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   }
 
   /**
-   * Cancel the default browser context menu
+   * Set the target of the currently ongoing mouse interaction (e.g. drawing a new part). This
+   * point will be used as the target of the controls.
    */
-  private onContextMenu = (event: MouseEvent) => {
-    event.preventDefault();
-  };
+  public setMouseTarget(target?: THREE.Vector3) {
+    this.mouseTarget = target;
+  }
 
   /**
    * Update the target of the controls to the point where the user clicked.
@@ -287,11 +296,13 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   };
 
   private getControlsTarget(event: PointerEvent) {
+    if (this.mouseTarget) {
+      return this.mouseTarget;
+    }
     if (this.partObjects.length === 0) {
       return new THREE.Vector3();
     }
 
-    // TODO: make sure we intersect the corner of a part that we are currently drawing.
     const raycaster = this.getRaycaster(event);
     const intersects = raycaster.intersectObjects(this.partObjects);
     if (intersects.length > 0) {

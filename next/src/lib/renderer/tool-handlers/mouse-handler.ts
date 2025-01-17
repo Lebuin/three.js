@@ -42,6 +42,7 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
 
   dispose() {
     this.renderer.removeUpdating(this.drawingHelper);
+    this.renderer.setMouseTarget();
     this.drawingHelper.dispose();
     this.removeListeners();
   }
@@ -172,5 +173,7 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
     } else {
       this.drawingHelper.hideLines();
     }
+
+    this.renderer.setMouseTarget(target);
   }
 }
