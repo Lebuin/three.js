@@ -104,133 +104,203 @@ export class TargetFinder {
   }
 
   private updatePreferredLines() {
-    this.preferredLines = [];
-
     if (this.constraintLine) {
-      // Do nothing
+      this.preferredLines = this.getPreferredLinesOnLine(
+        this.constraintLine,
+        this.neighborPoint!,
+      );
     } else if (this.constraintPlane) {
-      if (!this.neighborPoint) {
-        throw new Error('Neighbor point is not set');
-      }
-
-      // Add the lines that are parallel to the axis planes
-      for (const axisDirection of Object.values(axisDirections)) {
-        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-          axisDirection,
-          this.neighborPoint,
-        );
-        const intersection = intersectPlanes(this.constraintPlane, plane);
-        if (intersection) {
-          const line = new THREE.Line3(
-            this.neighborPoint,
-            this.neighborPoint
-              .clone()
-              .add(intersection.delta(new THREE.Vector3())),
-          );
-          this.preferredLines.push(line);
-        }
-      }
-
-      // Add the line that points mostly upwards
-      const YPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-        new THREE.Vector3(0, 1, 0),
+      this.preferredLines = this.getPreferredLinesOnPlane(
+        this.constraintPlane,
+        this.neighborPoint!,
+      );
+    } else {
+      this.preferredLines = this.getPreferredLinesUnconstrained(
         this.neighborPoint,
       );
-      const intersection = intersectPlanes(this.constraintPlane, YPlane);
-      if (intersection) {
-        const upDirection = intersection
-          .delta(new THREE.Vector3())
-          .cross(this.constraintPlane.normal);
-        const upLine = new THREE.Line3(
-          this.neighborPoint,
-          this.neighborPoint.clone().add(upDirection),
-        );
-        this.preferredLines.push(upLine);
-      }
-
-      // Check if there are any axes that are coplanar with the constraint plane
-      for (const axisDirection of Object.values(axisDirections)) {
-        const line = new THREE.Line3(new THREE.Vector3(), axisDirection);
-        if (
-          Math.abs(this.constraintPlane.distanceToPoint(line.start)) < 1e-6 &&
-          Math.abs(this.constraintPlane.distanceToPoint(line.end)) < 1e-6
-        ) {
-          this.preferredLines.push(line);
-        }
-      }
-    } else {
-      for (const axisDirection of Object.values(axisDirections)) {
-        this.preferredLines.push(
-          new THREE.Line3(new THREE.Vector3(), axisDirection.clone()),
-        );
-        if (this.neighborPoint) {
-          this.preferredLines.push(
-            new THREE.Line3(
-              this.neighborPoint.clone(),
-              this.neighborPoint.clone().add(axisDirection),
-            ),
-          );
-        }
-      }
     }
     this.updatePreferredPoints();
   }
 
   private updatePreferredPoints() {
-    this.preferredPoints = [];
-
-    const origin = new THREE.Vector3();
     if (this.constraintLine) {
-      for (const axisDirection of Object.values(axisDirections)) {
-        const line = new THREE.Line3(origin, axisDirection);
-        const intersection = new THREE.Vector3();
-        const distance = distanceBetweenLines(
-          this.constraintLine,
-          line,
-          intersection,
-        );
-        if (distance < 1e-6) {
-          this.addPreferredPoint(intersection, [this.constraintLine, line]);
-        }
-      }
+      this.preferredPoints = this.getPreferredPointsOnLine(
+        this.constraintLine,
+        this.neighborPoint!,
+      );
     } else if (this.constraintPlane) {
-      for (const axisDirection of Object.values(axisDirections)) {
-        // TODO: check if line and plane are coplanar
-        const line = new THREE.Line3(origin, axisDirection);
-        const intersection = intersectPlaneAndLine(
-          this.constraintPlane,
-          line,
-          new THREE.Vector3(),
-        );
-        if (intersection) {
-          const secondLine = new THREE.Line3(this.neighborPoint, intersection);
-          this.addPreferredPoint(intersection, [line, secondLine]);
-        }
-      }
+      this.preferredPoints = this.getPreferredPointsOnPlane(
+        this.constraintPlane,
+        this.neighborPoint!,
+      );
+    } else {
+      this.preferredPoints = this.getPreferredPointsUnconstrained(
+        this.neighborPoint,
+      );
     }
 
-    for (let i = 0; i < this.preferredLines.length; i++) {
-      for (let j = i + 1; j < this.preferredLines.length; j++) {
-        const point = new THREE.Vector3();
-        const distance = distanceBetweenLines(
-          this.preferredLines[i],
-          this.preferredLines[j],
-          point,
-        );
-        if (distance < 1e-6) {
-          this.addPreferredPoint(point, [
-            this.preferredLines[i],
-            this.preferredLines[j],
-          ]);
-        }
-      }
+    this.preferredPoints.push(
+      ...this.getPreferredPointsShared(this.preferredLines),
+    );
+
+    const neighborPoint = this.neighborPoint;
+    if (neighborPoint) {
+      this.preferredPoints = this.preferredPoints.filter((point) => {
+        return point.point.distanceTo(neighborPoint) > 1e-6;
+      });
     }
   }
 
-  private addPreferredPoint(point: THREE.Vector3, lines?: THREE.Line3[]) {
-    if (!(this.neighborPoint && point.distanceTo(this.neighborPoint) < 1e-6)) {
-      this.preferredPoints.push({ point, lines });
+  private getPreferredLinesOnLine(
+    _constraintLine: THREE.Line3,
+    _neighborPoint: THREE.Vector3,
+  ) {
+    return [];
+  }
+
+  private getPreferredPointsOnLine(
+    constraintLine: THREE.Line3,
+    _neighborPoint: THREE.Vector3,
+  ) {
+    const origin = new THREE.Vector3();
+    const preferredPoints: PreferredPoint[] = [];
+
+    for (const axisDirection of Object.values(axisDirections)) {
+      const line = new THREE.Line3(origin, axisDirection);
+      const intersection = new THREE.Vector3();
+      const distance = distanceBetweenLines(constraintLine, line, intersection);
+      if (distance < 1e-6) {
+        preferredPoints.push({
+          point: intersection,
+          lines: [constraintLine, line],
+        });
+      }
     }
+
+    return preferredPoints;
+  }
+
+  private getPreferredLinesOnPlane(
+    constraintPlane: THREE.Plane,
+    neighborPoint: THREE.Vector3,
+  ) {
+    const preferredLines: THREE.Line3[] = [];
+
+    // Add the lines that are parallel to the axis planes
+    for (const axisDirection of Object.values(axisDirections)) {
+      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+        axisDirection,
+        neighborPoint,
+      );
+      const intersection = intersectPlanes(constraintPlane, plane);
+      if (intersection) {
+        const line = new THREE.Line3(
+          neighborPoint,
+          neighborPoint.clone().add(intersection.delta(new THREE.Vector3())),
+        );
+        preferredLines.push(line);
+      }
+    }
+
+    // Add the line that points mostly upwards
+    const YPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      new THREE.Vector3(0, 1, 0),
+      neighborPoint,
+    );
+    const intersection = intersectPlanes(constraintPlane, YPlane);
+    if (intersection) {
+      const upDirection = intersection
+        .delta(new THREE.Vector3())
+        .cross(constraintPlane.normal);
+      const upLine = new THREE.Line3(
+        neighborPoint,
+        neighborPoint.clone().add(upDirection),
+      );
+      preferredLines.push(upLine);
+    }
+
+    // Check if there are any axes that are coplanar with the constraint plane
+    for (const axisDirection of Object.values(axisDirections)) {
+      const line = new THREE.Line3(new THREE.Vector3(), axisDirection);
+      if (
+        Math.abs(constraintPlane.distanceToPoint(line.start)) < 1e-6 &&
+        Math.abs(constraintPlane.distanceToPoint(line.end)) < 1e-6
+      ) {
+        preferredLines.push(line);
+      }
+    }
+
+    return preferredLines;
+  }
+
+  private getPreferredPointsOnPlane(
+    constraintPlane: THREE.Plane,
+    neighborPoint: THREE.Vector3,
+  ) {
+    const origin = new THREE.Vector3();
+    const preferredPoints: PreferredPoint[] = [];
+
+    for (const axisDirection of Object.values(axisDirections)) {
+      // TODO: check if line and plane are coplanar
+      const line = new THREE.Line3(origin, axisDirection);
+      const intersection = intersectPlaneAndLine(
+        constraintPlane,
+        line,
+        new THREE.Vector3(),
+      );
+      if (intersection) {
+        const secondLine = new THREE.Line3(neighborPoint, intersection);
+        preferredPoints.push({
+          point: intersection,
+          lines: [line, secondLine],
+        });
+      }
+    }
+
+    return preferredPoints;
+  }
+
+  private getPreferredLinesUnconstrained(neighborPoint?: THREE.Vector3) {
+    const preferredLines: THREE.Line3[] = [];
+
+    for (const axisDirection of Object.values(axisDirections)) {
+      preferredLines.push(
+        new THREE.Line3(new THREE.Vector3(), axisDirection.clone()),
+      );
+      if (neighborPoint) {
+        preferredLines.push(
+          new THREE.Line3(
+            neighborPoint.clone(),
+            neighborPoint.clone().add(axisDirection),
+          ),
+        );
+      }
+    }
+
+    return preferredLines;
+  }
+
+  private getPreferredPointsUnconstrained(_neighborPoint?: THREE.Vector3) {
+    return [];
+  }
+
+  private getPreferredPointsShared(preferredLines: THREE.Line3[]) {
+    const preferredPoints: PreferredPoint[] = [];
+
+    for (const [i, line1] of preferredLines.entries()) {
+      for (const line2 of preferredLines.slice(i + 1)) {
+        const point = new THREE.Vector3();
+        const distance = distanceBetweenLines(line1, line2, point);
+        if (distance < 1e-6) {
+          preferredPoints.push({
+            point,
+            lines: [line1, line2],
+          });
+        }
+      }
+    }
+
+    return preferredPoints;
   }
 
   ///
