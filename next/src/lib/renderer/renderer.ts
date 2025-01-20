@@ -10,6 +10,7 @@ import { Lighting } from './lighting';
 import { OrbitControls } from './orbit-controls';
 import { createPartObject } from './part-objects';
 import { PartObject } from './part-objects/part-object';
+import Raycaster from './raycaster';
 import * as settings from './settings';
 import { createToolHandler } from './tool-handlers';
 import { ToolHandler } from './tool-handlers/tool-handler';
@@ -29,7 +30,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private controls: OrbitControls;
   private axes: AxesHelper;
 
-  private partObjects: PartObject<Part>[] = [];
+  private _partObjects: PartObject<Part>[] = [];
   private updatingObjects: UpdatingObject[] = [];
   private toolHandler?: ToolHandler;
   private mouseTarget?: THREE.Vector3;
@@ -38,7 +39,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
 
   private needsRender = true;
 
-  private readonly groundPlaneSize = 20e3;
+  public readonly groundPlaneSize = 20e3;
   private castShadows = false;
 
   constructor(canvas: HTMLCanvasElement, model: Model) {
@@ -71,6 +72,9 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   }
   get camera() {
     return this._camera;
+  }
+  get partObjects() {
+    return this._partObjects;
   }
 
   setupListeners() {
@@ -221,9 +225,8 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
    */
   public getPixelSize(): Pixels {
     const pixelSize =
-      (this.camera.top - this.camera.bottom) /
-      this.canvas.clientHeight /
-      this.camera.zoom;
+      (this.camera.zoom * this.canvas.clientHeight) /
+      (this.camera.top - this.camera.bottom);
     return pixelSize;
   }
 
@@ -265,19 +268,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   /// Controls
 
   public getRaycaster(event: MouseEvent) {
-    const boundingRect = this.canvas.getBoundingClientRect();
-    const pointer = new THREE.Vector2();
-    pointer.x =
-      ((event.clientX - boundingRect.left) / boundingRect.width) * 2 - 1;
-    pointer.y = -(
-      ((event.clientY - boundingRect.top) / boundingRect.height) * 2 -
-      1
-    );
-
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(pointer, this.camera);
-
-    return raycaster;
+    return new Raycaster(this, event);
   }
 
   /**

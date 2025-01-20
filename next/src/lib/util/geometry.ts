@@ -67,8 +67,8 @@ export function intersectPlanes(
 
 /**
  * Calculate the intersection of a plane and a line, or null if the line is parallel to the plane.
- * Contrary to THREE.Plane.intersectLine, this also works when the intersection point is outside the
- * line segment.
+ * Contrary to THREE.Plane.intersectLine, this allows for rouding errors, and can return a point
+ * that is not clamped to the line segment.
  *
  * Based on THREE.Plane.intersectLine.
  */
@@ -76,22 +76,25 @@ export function intersectPlaneAndLine(
   plane: THREE.Plane,
   line: THREE.Line3,
   target: THREE.Vector3,
+  clampStart = true,
+  clampEnd = true,
 ) {
   const direction = line.delta(new THREE.Vector3());
   const denominator = plane.normal.dot(direction);
 
-  if (denominator === 0) {
-    // line is coplanar, return origin
-    if (plane.distanceToPoint(line.start) === 0) {
+  if (Math.abs(denominator) < 1e-6) {
+    // line is coplanar, return origin or null
+    if (Math.abs(plane.distanceToPoint(line.start)) < 1e-6) {
       return target.copy(line.start);
     }
 
-    // Unsure if this is the correct method to handle this case.
     return null;
   }
 
   const t = -(line.start.dot(plane.normal) + plane.constant) / denominator;
-  return target.copy(line.start).addScaledVector(direction, t);
+  if ((clampStart && t < 0) || (clampEnd && t > 1)) {
+    return target.copy(line.start).addScaledVector(direction, t);
+  }
 }
 
 /**

@@ -158,6 +158,7 @@ export class BoardToolHandler extends ToolHandler {
   private createFleetingBoard() {
     if (!this.fleetingBoard) {
       this.fleetingBoard = new Board();
+      this.fleetingBoard.temporary = true;
       this.model.addPart(this.fleetingBoard);
     }
     return this.fleetingBoard;
@@ -224,7 +225,10 @@ export class BoardToolHandler extends ToolHandler {
   private confirmBoard() {
     this.points = [];
     this.fleetingPoint = undefined;
-    this.fleetingBoard = undefined;
+    if (this.fleetingBoard) {
+      this.fleetingBoard.temporary = false;
+      this.fleetingBoard = undefined;
+    }
     this.renderer.setTool('select');
   }
 }

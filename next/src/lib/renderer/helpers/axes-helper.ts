@@ -1,3 +1,4 @@
+import { disposeMaterial } from '@/lib/util/three';
 import _ from 'lodash';
 import * as THREE from 'three';
 import { Color4 } from '../../util/color4';
@@ -74,10 +75,6 @@ export class AxesHelper extends THREE.LineSegments {
 
   dispose() {
     this.geometry.dispose();
-    if (Array.isArray(this.material)) {
-      this.material.forEach((m) => m.dispose());
-    } else {
-      this.material.dispose();
-    }
+    disposeMaterial(this.material);
   }
 }

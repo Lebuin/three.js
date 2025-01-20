@@ -7,6 +7,7 @@ interface PartEvents {
 export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   private _position: THREE.Vector3;
   private _quaternion: THREE.Quaternion;
+  public temporary = false;
 
   constructor(position?: THREE.Vector3, quaternion?: THREE.Quaternion) {
     super();

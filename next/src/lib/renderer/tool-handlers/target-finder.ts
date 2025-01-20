@@ -4,18 +4,20 @@ import {
   distanceToLine,
   intersectPlaneAndLine,
   intersectPlanes,
-  Pixels,
 } from '@/lib/util/geometry';
+import { disposeObject } from '@/lib/util/three';
 import * as THREE from 'three';
+import Raycaster from '../raycaster';
+import { Renderer } from '../renderer';
 
-interface PreferredPoint {
+interface SnapPoint {
   point: THREE.Vector3;
   lines?: THREE.Line3[];
 }
 
 export interface Target {
   target?: THREE.Vector3;
-  snappedPoint?: PreferredPoint;
+  snapPoint?: SnapPoint;
   snappedLine?: THREE.Line3;
   plane?: THREE.Plane;
 }
@@ -35,22 +37,35 @@ export interface Target {
  *   still snap to points and lines in the scene that intersect this line.
  */
 export class TargetFinder {
+  private renderer: Renderer;
+
   private _neighborPoint?: THREE.Vector3;
   private _constraintPlane?: THREE.Plane;
   private _constraintLine?: THREE.Line3;
 
-  private preferredLines: THREE.Line3[] = [];
-  private preferredPoints: PreferredPoint[] = [];
+  private snapObjects: THREE.Object3D[] = [];
+  private snapGroup: THREE.Group;
+  private snapLines: THREE.Line[] = [];
+  private snapPoints: THREE.Points[] = [];
 
   // When determining the plane to constrain to, the XZ plane is given a preference, meaning that
   // if the camera is rotated equally towards all planes, the XZ plane will be chosen. This number
   // determines how significant this preference is. 1 = no preference, higher number = higher
   // preference.
   private readonly dominantPlaneYPreference = 2.5;
-  private readonly snapThreshold: Pixels = 15;
 
-  constructor() {
-    this.updatePreferred();
+  constructor(renderer: Renderer) {
+    this.renderer = renderer;
+
+    this.snapGroup = new THREE.Group();
+    this.snapGroup.visible = false;
+    this.renderer.add(this.snapGroup);
+
+    this.updateSnapObjects();
+  }
+
+  dispose() {
+    this.renderer.remove(this.snapGroup);
   }
 
   ///
@@ -73,12 +88,12 @@ export class TargetFinder {
     this._neighborPoint = undefined;
     this._constraintPlane = undefined;
     this._constraintLine = undefined;
-    this.updatePreferred();
+    this.updateSnapObjects();
   }
 
   setNeighborPoint(point: THREE.Vector3) {
     this._neighborPoint = point;
-    this.updatePreferred();
+    this.updateSnapObjects();
   }
 
   setConstraintPlane(normal: THREE.Vector3, point: THREE.Vector3) {
@@ -88,384 +103,355 @@ export class TargetFinder {
       point,
     );
     this._constraintLine = undefined;
-    this.updatePreferred();
+    this.updateSnapObjects();
   }
 
   setConstraintLine(direction: THREE.Vector3, point: THREE.Vector3) {
     this._neighborPoint = point;
     this._constraintLine = new THREE.Line3(point, point.clone().add(direction));
     this._constraintPlane = undefined;
-    this.updatePreferred();
+    this.updateSnapObjects();
   }
 
-  private updatePreferred() {
-    this.updatePreferredLines();
-    this.updatePreferredPoints();
-  }
-
-  private updatePreferredLines() {
-    if (this.constraintLine) {
-      this.preferredLines = this.getPreferredLinesOnLine(
-        this.constraintLine,
-        this.neighborPoint!,
-      );
-    } else if (this.constraintPlane) {
-      this.preferredLines = this.getPreferredLinesOnPlane(
-        this.constraintPlane,
-        this.neighborPoint!,
-      );
-    } else {
-      this.preferredLines = this.getPreferredLinesUnconstrained(
-        this.neighborPoint,
-      );
-    }
-    this.updatePreferredPoints();
-  }
-
-  private updatePreferredPoints() {
-    if (this.constraintLine) {
-      this.preferredPoints = this.getPreferredPointsOnLine(
-        this.constraintLine,
-        this.neighborPoint!,
-      );
-    } else if (this.constraintPlane) {
-      this.preferredPoints = this.getPreferredPointsOnPlane(
-        this.constraintPlane,
-        this.neighborPoint!,
-      );
-    } else {
-      this.preferredPoints = this.getPreferredPointsUnconstrained(
-        this.neighborPoint,
-      );
-    }
-
-    this.preferredPoints.push(
-      ...this.getPreferredPointsShared(this.preferredLines),
+  private updateSnapObjects() {
+    this.snapObjects = this.renderer.partObjects.filter(
+      (object) => !object.part.temporary,
     );
 
-    const neighborPoint = this.neighborPoint;
-    if (neighborPoint) {
-      this.preferredPoints = this.preferredPoints.filter((point) => {
-        return point.point.distanceTo(neighborPoint) > 1e-6;
-      });
+    for (const child of this.snapGroup.children) {
+      disposeObject(child);
     }
+
+    let snapPlanes = this.getSnapPlanes();
+    let snapLines = this.getSnapLines();
+    let snapPoints: SnapPoint[] = [];
+
+    if (this.constraintPlane) {
+      [snapPlanes, snapLines, snapPoints] = this.constrainToPlane(
+        this.constraintPlane,
+        snapPlanes,
+        snapLines,
+        this.neighborPoint!,
+      );
+    } else if (this.constraintLine) {
+      [snapPlanes, snapLines, snapPoints] = this.constrainToLine(
+        this.constraintLine,
+        snapPlanes,
+        snapLines,
+      );
+    }
+
+    this.snapLines = snapLines.map((line) => this.getSnapLineObject(line));
+    this.snapPoints = snapPoints.map((point) => this.getSnapPointObject(point));
+
+    this.snapGroup.children = [];
+    if (this.snapLines.length > 0) {
+      this.snapGroup.add(...this.snapLines);
+    }
+    if (this.snapPoints.length > 0) {
+      this.snapGroup.add(...this.snapPoints);
+    }
+    this.snapGroup.updateMatrixWorld();
   }
 
-  private getPreferredLinesOnLine(
-    _constraintLine: THREE.Line3,
-    _neighborPoint: THREE.Vector3,
-  ) {
-    return [];
+  private getSnapPlanes(): THREE.Plane[] {
+    const snapPlanes: THREE.Plane[] = [
+      ...this.getAxesSnapPlanes(),
+      ...this.getAxesSnapPlanes(this.neighborPoint),
+    ];
+
+    if (this.constraintPlane) {
+      snapPlanes.push(
+        ...this.getSnapPlanesForPlane(
+          this.constraintPlane,
+          this.neighborPoint!,
+        ),
+      );
+    }
+
+    return snapPlanes;
   }
 
-  private getPreferredPointsOnLine(
+  getAxesSnapPlanes(origin = new THREE.Vector3()): THREE.Plane[] {
+    const snapPlanes = Object.values(axisDirections).map((direction) => {
+      return new THREE.Plane().setFromNormalAndCoplanarPoint(direction, origin);
+    });
+    return snapPlanes;
+  }
+
+  private getSnapPlanesForPlane(
+    constraintPlane: THREE.Plane,
+    neighborPoint: THREE.Vector3,
+  ): THREE.Plane[] {
+    // Add the plan that has a normal which is orthogonal to the Y axis. When intersected with the
+    // constraint plane in a later step, this will give a constraint line that points upwards.
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const sideways = yAxis.clone().cross(constraintPlane.normal);
+    if (sideways.lengthSq() < 1e-6) {
+      return [];
+    }
+
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      sideways,
+      neighborPoint,
+    );
+    return [plane];
+  }
+
+  private getSnapLines(): THREE.Line3[] {
+    const snapLines = this.getAxesSnapLines();
+    if (this.neighborPoint) {
+      snapLines.push(...this.getAxesSnapLines(this.neighborPoint));
+    }
+    return snapLines;
+  }
+
+  private getAxesSnapLines(origin = new THREE.Vector3()): THREE.Line3[] {
+    const allAxisDirections = Object.values(axisDirections);
+    allAxisDirections.push(
+      ...Object.values(axisDirections).map((direction) =>
+        direction.clone().negate(),
+      ),
+    );
+
+    return allAxisDirections.map((direction) => {
+      const start = origin.clone();
+      const end = origin
+        .clone()
+        .add(direction.clone().multiplyScalar(this.renderer.groundPlaneSize));
+      const line = new THREE.Line3(start, end);
+      return line;
+    });
+  }
+
+  private getSnapLineObject(line: THREE.Line3): THREE.Line {
+    const geometry = new THREE.BufferGeometry().setFromPoints([
+      line.start,
+      line.end,
+    ]);
+    // Only used for debugging
+    const material = new THREE.LineBasicMaterial({
+      color: 0x000000,
+      depthTest: false,
+      depthWrite: false,
+    });
+
+    const lineObject = new THREE.Line(geometry, material);
+    lineObject.userData.line = line;
+    return lineObject;
+  }
+
+  private getSnapPointObject(point: SnapPoint): THREE.Points {
+    const geometry = new THREE.BufferGeometry().setFromPoints([point.point]);
+    // Only used for debugging
+    const material = new THREE.PointsMaterial({
+      size: 5,
+      sizeAttenuation: false,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const pointObject = new THREE.Points(geometry, material);
+    pointObject.userData.point = point;
+    return pointObject;
+  }
+
+  ///
+  // Constrain snap objects to a plane or line
+
+  private constrainToPlane(
+    constraintPlane: THREE.Plane,
+    snapPlanes: THREE.Plane[],
+    snapLines: THREE.Line3[],
+    neighborPoint: THREE.Vector3,
+  ): [THREE.Plane[], THREE.Line3[], SnapPoint[]] {
+    const constrainedPlanes: THREE.Plane[] = [];
+    const constrainedLines: THREE.Line3[] = [];
+    const constrainedPoints: SnapPoint[] = [];
+
+    for (const plane of snapPlanes) {
+      const intersection = intersectPlanes(constraintPlane, plane);
+      if (intersection) {
+        const direction = intersection
+          .delta(new THREE.Vector3())
+          .multiplyScalar(this.renderer.groundPlaneSize);
+        const start = intersection.closestPointToPoint(
+          neighborPoint,
+          false,
+          new THREE.Vector3(),
+        );
+        constrainedLines.push(
+          new THREE.Line3(start.clone(), start.clone().add(direction)),
+        );
+        constrainedLines.push(
+          new THREE.Line3(start.clone(), start.clone().sub(direction)),
+        );
+      }
+    }
+
+    for (const line of [...constrainedLines, ...snapLines]) {
+      if (
+        Math.abs(constraintPlane.distanceToPoint(line.start)) < 1e-6 &&
+        Math.abs(constraintPlane.distanceToPoint(line.end)) < 1e-6
+      ) {
+        constrainedLines.push(line);
+      } else {
+        const intersection = intersectPlaneAndLine(
+          constraintPlane,
+          line,
+          new THREE.Vector3(),
+        );
+        if (intersection) {
+          constrainedPoints.push({
+            point: intersection,
+            lines: [line],
+          });
+        }
+      }
+    }
+
+    return [constrainedPlanes, constrainedLines, constrainedPoints];
+  }
+
+  private constrainToLine(
     constraintLine: THREE.Line3,
-    _neighborPoint: THREE.Vector3,
-  ) {
-    const origin = new THREE.Vector3();
-    const preferredPoints: PreferredPoint[] = [];
+    snapPlanes: THREE.Plane[],
+    snapLines: THREE.Line3[],
+  ): [THREE.Plane[], THREE.Line3[], SnapPoint[]] {
+    const constrainedPlanes: THREE.Plane[] = [];
+    const constrainedLines: THREE.Line3[] = [];
+    const constrainedPoints: SnapPoint[] = [];
 
-    for (const axisDirection of Object.values(axisDirections)) {
-      const line = new THREE.Line3(origin, axisDirection);
+    for (const plane of snapPlanes) {
+      const intersection = intersectPlaneAndLine(
+        plane,
+        constraintLine,
+        new THREE.Vector3(),
+      );
+      if (intersection) {
+        constrainedPoints.push({
+          point: intersection,
+          lines: [constraintLine],
+        });
+      }
+    }
+
+    for (const line of snapLines) {
       const intersection = new THREE.Vector3();
       const distance = distanceBetweenLines(constraintLine, line, intersection);
       if (distance < 1e-6) {
-        preferredPoints.push({
+        constrainedPoints.push({
           point: intersection,
           lines: [constraintLine, line],
         });
       }
     }
 
-    return preferredPoints;
-  }
-
-  private getPreferredLinesOnPlane(
-    constraintPlane: THREE.Plane,
-    neighborPoint: THREE.Vector3,
-  ) {
-    const preferredLines: THREE.Line3[] = [];
-
-    // Add the lines that are parallel to the axis planes
-    for (const axisDirection of Object.values(axisDirections)) {
-      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-        axisDirection,
-        neighborPoint,
-      );
-      const intersection = intersectPlanes(constraintPlane, plane);
-      if (intersection) {
-        const line = new THREE.Line3(
-          neighborPoint,
-          neighborPoint.clone().add(intersection.delta(new THREE.Vector3())),
-        );
-        preferredLines.push(line);
-      }
-    }
-
-    // Add the line that points mostly upwards
-    const YPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      new THREE.Vector3(0, 1, 0),
-      neighborPoint,
-    );
-    const intersection = intersectPlanes(constraintPlane, YPlane);
-    if (intersection) {
-      const upDirection = intersection
-        .delta(new THREE.Vector3())
-        .cross(constraintPlane.normal);
-      const upLine = new THREE.Line3(
-        neighborPoint,
-        neighborPoint.clone().add(upDirection),
-      );
-      preferredLines.push(upLine);
-    }
-
-    // Check if there are any axes that are coplanar with the constraint plane
-    for (const axisDirection of Object.values(axisDirections)) {
-      const line = new THREE.Line3(new THREE.Vector3(), axisDirection);
-      if (
-        Math.abs(constraintPlane.distanceToPoint(line.start)) < 1e-6 &&
-        Math.abs(constraintPlane.distanceToPoint(line.end)) < 1e-6
-      ) {
-        preferredLines.push(line);
-      }
-    }
-
-    return preferredLines;
-  }
-
-  private getPreferredPointsOnPlane(
-    constraintPlane: THREE.Plane,
-    neighborPoint: THREE.Vector3,
-  ) {
-    const origin = new THREE.Vector3();
-    const preferredPoints: PreferredPoint[] = [];
-
-    for (const axisDirection of Object.values(axisDirections)) {
-      // TODO: check if line and plane are coplanar
-      const line = new THREE.Line3(origin, axisDirection);
-      const intersection = intersectPlaneAndLine(
-        constraintPlane,
-        line,
-        new THREE.Vector3(),
-      );
-      if (intersection) {
-        const secondLine = new THREE.Line3(neighborPoint, intersection);
-        preferredPoints.push({
-          point: intersection,
-          lines: [line, secondLine],
-        });
-      }
-    }
-
-    return preferredPoints;
-  }
-
-  private getPreferredLinesUnconstrained(neighborPoint?: THREE.Vector3) {
-    const preferredLines: THREE.Line3[] = [];
-
-    for (const axisDirection of Object.values(axisDirections)) {
-      preferredLines.push(
-        new THREE.Line3(new THREE.Vector3(), axisDirection.clone()),
-      );
-      if (neighborPoint) {
-        preferredLines.push(
-          new THREE.Line3(
-            neighborPoint.clone(),
-            neighborPoint.clone().add(axisDirection),
-          ),
-        );
-      }
-    }
-
-    return preferredLines;
-  }
-
-  private getPreferredPointsUnconstrained(_neighborPoint?: THREE.Vector3) {
-    return [];
-  }
-
-  private getPreferredPointsShared(preferredLines: THREE.Line3[]) {
-    const preferredPoints: PreferredPoint[] = [];
-
-    for (const [i, line1] of preferredLines.entries()) {
-      for (const line2 of preferredLines.slice(i + 1)) {
-        const point = new THREE.Vector3();
-        const distance = distanceBetweenLines(line1, line2, point);
-        if (distance < 1e-6) {
-          preferredPoints.push({
-            point,
-            lines: [line1, line2],
-          });
-        }
-      }
-    }
-
-    return preferredPoints;
+    return [constrainedPlanes, constrainedLines, constrainedPoints];
   }
 
   ///
   // Find targets
 
-  findTarget(ray: THREE.Ray, pixelSize: Pixels): Target {
+  findTarget(raycaster: Raycaster): Target {
+    const intersects = raycaster.intersectObjects([
+      ...this.snapObjects,
+      ...this.snapLines,
+      ...this.snapPoints,
+    ]);
+    if (intersects.length > 0) {
+      return this.createTargetFromIntersect(intersects[0]);
+    }
+
     if (this.constraintLine) {
-      return this.getTargetOnLine(ray, this.constraintLine, pixelSize);
+      return this.getTargetOnLine(raycaster, this.constraintLine);
     } else if (this.constraintPlane) {
-      return this.getTargetOnPlane(ray, this.constraintPlane, pixelSize);
+      return this.getTargetOnPlane(raycaster, this.constraintPlane);
     } else {
       return this.getTargetNearPoint(
-        ray,
+        raycaster,
         this.neighborPoint ?? new THREE.Vector3(),
-        pixelSize,
       );
     }
   }
 
-  getTargetNearPoint(
-    ray: THREE.Ray,
+  private createTargetFromIntersect(intersect: THREE.Intersection): Target {
+    const point = intersect.point;
+    const object = intersect.object;
+    if (object.parent === this.snapGroup) {
+      if (object instanceof THREE.Line) {
+        const line = object.userData.line as THREE.Line3;
+        return {
+          target: line.closestPointToPoint(point, true, new THREE.Vector3()),
+          snappedLine: line,
+          plane: this.constraintPlane,
+        };
+      } else if (object instanceof THREE.Points) {
+        const snapPoint = object.userData.point as SnapPoint;
+        return {
+          target: snapPoint.point,
+          snapPoint: snapPoint,
+          plane: this.constraintPlane,
+        };
+      } else {
+        throw new Error('Unexpected object in snap group');
+      }
+    } else {
+      return {
+        target: point,
+        snapPoint: {
+          point,
+        },
+        plane: this.constraintPlane,
+      };
+    }
+  }
+
+  private getTargetOnLine(raycaster: Raycaster, line: THREE.Line3): Target {
+    const target = new THREE.Vector3();
+    distanceToLine(raycaster.ray, line, undefined, target);
+    return {
+      target,
+    };
+  }
+
+  getTargetOnPlane(raycaster: Raycaster, plane: THREE.Plane): Target {
+    const target =
+      raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
+    return {
+      target,
+      plane,
+    };
+  }
+
+  private getTargetNearPoint(
+    raycaster: Raycaster,
     point: THREE.Vector3,
-    pixelSize: Pixels,
   ): Target {
-    const pointTarget = this.snapToPoints(ray, this.preferredPoints, pixelSize);
-    if (pointTarget) {
-      // TODO: try to match to an axis plane?
-      return {
-        target: pointTarget.point,
-        snappedPoint: pointTarget,
-      };
-    }
-
-    const { target: lineTarget, line } = this.snapToLines(
-      ray,
-      this.preferredLines,
-      pixelSize,
-    );
-    if (lineTarget) {
-      return {
-        target: lineTarget,
-        snappedLine: line,
-      };
-    }
-
-    const planeNormal = this.getDominantPlaneNormal(ray.direction);
+    const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
       planeNormal,
       point,
     );
-    const target = ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
+    const target =
+      raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
     return {
       target,
       plane,
     };
   }
 
-  getTargetOnPlane(
-    ray: THREE.Ray,
-    plane: THREE.Plane,
-    pixelSize: Pixels,
-  ): Target {
-    const pointTarget = this.snapToPoints(ray, this.preferredPoints, pixelSize);
-    if (pointTarget) {
-      return {
-        target: pointTarget.point,
-        snappedPoint: pointTarget,
-        plane,
-      };
-    }
-
-    const { target: lineTarget, line } = this.snapToLines(
-      ray,
-      this.preferredLines,
-      pixelSize,
+  getTargetOnAxisPlane(raycaster: Raycaster, point: THREE.Vector3): Target {
+    const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      planeNormal,
+      point,
     );
-    if (lineTarget) {
-      return {
-        target: lineTarget,
-        snappedLine: line,
-        plane,
-      };
-    }
-
-    const target = ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
+    const target =
+      raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
     return {
       target,
       plane,
     };
-  }
-
-  getTargetOnLine(
-    ray: THREE.Ray,
-    line: THREE.Line3,
-    pixelSize: Pixels,
-  ): Target {
-    const pointTarget = this.snapToPoints(ray, this.preferredPoints, pixelSize);
-    if (pointTarget) {
-      return {
-        target: pointTarget.point,
-        snappedPoint: pointTarget,
-      };
-    }
-
-    const target = new THREE.Vector3();
-    distanceToLine(ray, line, undefined, target);
-    return {
-      target,
-    };
-  }
-
-  private snapToPoints(
-    ray: THREE.Ray,
-    points: PreferredPoint[],
-    pixelSize: Pixels,
-  ): PreferredPoint | undefined {
-    for (const point of points) {
-      const target = this.snapToPoint(ray, point, pixelSize);
-      if (target) {
-        return target;
-      }
-    }
-  }
-
-  private snapToPoint(
-    ray: THREE.Ray,
-    point: PreferredPoint,
-    pixelSize: Pixels,
-  ): PreferredPoint | undefined {
-    const distance = ray.distanceToPoint(point.point);
-    const snapDistance = this.getSnapDistance(pixelSize);
-    if (distance < snapDistance) {
-      return point;
-    }
-  }
-
-  private snapToLines(
-    ray: THREE.Ray,
-    lines: THREE.Line3[],
-    pixelSize: Pixels,
-  ): { target?: THREE.Vector3; line?: THREE.Line3 } {
-    for (const line of lines) {
-      const target = this.snapToLine(ray, line, pixelSize);
-      if (target) {
-        return { target, line };
-      }
-    }
-    return {};
-  }
-
-  private snapToLine(
-    ray: THREE.Ray,
-    line: THREE.Line3,
-    pixelSize: Pixels,
-  ): THREE.Vector3 | undefined {
-    const target = new THREE.Vector3();
-    const distance = distanceToLine(ray, line, undefined, target);
-    const snapDistance = this.getSnapDistance(pixelSize);
-    if (distance < snapDistance) {
-      return target;
-    }
-  }
-
-  private getSnapDistance(pixelSize: Pixels) {
-    return this.snapThreshold * pixelSize;
   }
 
   private getDominantPlaneNormal(

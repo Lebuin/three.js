@@ -16,3 +16,20 @@ export function disposeMaterial(material: THREE.Material | THREE.Material[]) {
     material.dispose();
   });
 }
+
+export function disposeObject(object: THREE.Object3D) {
+  object.traverse((child) => {
+    if (
+      child instanceof THREE.Mesh ||
+      child instanceof THREE.Line ||
+      child instanceof THREE.Points
+    ) {
+      (child.geometry as THREE.BufferGeometry).dispose();
+      disposeMaterial(child.material as THREE.Material | THREE.Material[]);
+    } else {
+      throw new Error(
+        `Not implemented: disposeObject(object: ${child.constructor.name})`,
+      );
+    }
+  });
+}

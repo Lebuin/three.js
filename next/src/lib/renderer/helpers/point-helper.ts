@@ -56,6 +56,6 @@ export class PointHelper extends UpdatingObjectMixin(THREE.Group) {
    */
   public update(renderer: Renderer) {
     const pixelSize = renderer.getPixelSize();
-    this.scale.set(1, 1, 1).multiplyScalar(pixelSize * this.size);
+    this.scale.set(1, 1, 1).multiplyScalar(this.size / pixelSize);
   }
 }

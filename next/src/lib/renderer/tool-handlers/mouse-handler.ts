@@ -33,7 +33,7 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
     super();
 
     this.renderer = renderer;
-    this._targetFinder = new TargetFinder();
+    this._targetFinder = new TargetFinder(renderer);
     this.drawingHelper = new DrawingHelper();
     this.renderer.addUpdating(this.drawingHelper);
 
@@ -44,6 +44,7 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
     this.renderer.removeUpdating(this.drawingHelper);
     this.renderer.setMouseTarget();
     this.drawingHelper.dispose();
+    this.targetFinder.dispose();
     this.removeListeners();
   }
 
@@ -134,10 +135,13 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
     }
 
     const raycaster = this.renderer.getRaycaster(this.mouseEvent);
-    const pixelSize = this.renderer.getPixelSize();
 
-    const { target, plane, snappedPoint, snappedLine } =
-      this.targetFinder.findTarget(raycaster.ray, pixelSize);
+    const {
+      target,
+      plane,
+      snapPoint: snappedPoint,
+      snappedLine,
+    } = this.targetFinder.findTarget(raycaster);
 
     this.renderer.setMouseTarget(target);
 
