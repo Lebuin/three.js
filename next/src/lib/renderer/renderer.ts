@@ -4,6 +4,7 @@ import { Part } from '@/lib/model/parts/part';
 import { Pixels } from '@/lib/util/geometry';
 import _ from 'lodash';
 import * as THREE from 'three';
+import { initOC } from '../geo/oc';
 import { AxesHelper } from './helpers/axes-helper';
 import { UpdatingObject } from './helpers/updating-object-mixin';
 import { Lighting } from './lighting';
@@ -59,7 +60,15 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.addUpdating(this.lighting);
 
     this.controls = new OrbitControls(this.camera, this.canvas);
-    this.addPart(...model.parts);
+
+    initOC()
+      .then(() => {
+        this.loadModel();
+      })
+      .catch((e) => {
+        // TODO: show error to the user
+        console.error(e);
+      });
 
     this.setupListeners();
   }
@@ -173,6 +182,10 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   public removeUpdating(object: UpdatingObject) {
     this.updatingObjects = _.remove(this.updatingObjects, object);
     this.remove(object);
+  }
+
+  private loadModel() {
+    this.addPart(...this.model.parts);
   }
 
   private addPart(...parts: Part[]) {

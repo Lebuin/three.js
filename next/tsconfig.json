@@ -27,7 +27,6 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "src/lib/renderer/part-objects"
   ],
   "exclude": ["node_modules"]
 }

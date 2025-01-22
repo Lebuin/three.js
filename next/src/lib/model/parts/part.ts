@@ -1,3 +1,5 @@
+import { buildGeometry } from '@/lib/geo/mesh';
+import { TopoDS_Shape } from 'opencascade.js';
 import * as THREE from 'three';
 
 interface PartEvents {
@@ -8,6 +10,7 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   private _position: THREE.Vector3;
   private _quaternion: THREE.Quaternion;
   public temporary = false;
+  private geometry?: THREE.BufferGeometry;
 
   constructor(position?: THREE.Vector3, quaternion?: THREE.Quaternion) {
     super();
@@ -15,12 +18,17 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
     this._quaternion = quaternion ?? new THREE.Quaternion();
   }
 
+  protected onChange() {
+    this.invalidateGeometry();
+    this.dispatchEvent({ type: 'change' });
+  }
+
   get position() {
     return this._position;
   }
   set position(position: THREE.Vector3) {
     this._position = position;
-    this.dispatchEvent({ type: 'change' });
+    this.onChange();
   }
 
   get quaternion() {
@@ -28,6 +36,29 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   }
   set quaternion(quaternion: THREE.Quaternion) {
     this._quaternion = quaternion;
-    this.dispatchEvent({ type: 'change' });
+    this.onChange();
   }
+
+  public getGeometry(): THREE.BufferGeometry {
+    if (!this.geometry) {
+      this.geometry = this.buildGeometry();
+    }
+    return this.geometry;
+  }
+
+  protected invalidateGeometry() {
+    if (this.geometry) {
+      this.geometry.dispose();
+      this.geometry = undefined;
+    }
+  }
+
+  protected buildGeometry() {
+    const shape = this.buildOCShape();
+    const geometry = buildGeometry(shape);
+    shape.delete();
+    return geometry;
+  }
+
+  protected abstract buildOCShape(): TopoDS_Shape;
 }

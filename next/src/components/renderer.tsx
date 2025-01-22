@@ -1,8 +1,10 @@
 'use client';
 
 import { Model } from '@/lib/model/model';
+import { Board } from '@/lib/model/parts/board';
 import { Renderer as SceneRenderer } from '@/lib/renderer/renderer';
 import React from 'react';
+import * as THREE from 'three';
 import { Tool, toolInfo } from './toolbar';
 
 export interface RendererProps {
@@ -21,6 +23,7 @@ export default function Renderer(props: RendererProps) {
     }
 
     const model = new Model();
+    model.addPart(new Board(new THREE.Vector3(200, 100, 100)));
     const renderer = new SceneRenderer(mount, model);
     renderer.addEventListener('tool', (event) => {
       props.onTool.call(null, event.tool);

@@ -17,15 +17,38 @@ export function disposeMaterial(material: THREE.Material | THREE.Material[]) {
   });
 }
 
-export function disposeObject(object: THREE.Object3D) {
+interface DisposeOptions {
+  material: boolean;
+  geometry: boolean;
+}
+const defaultDisposeOptions: DisposeOptions = {
+  material: true,
+  geometry: true,
+};
+
+export function disposeObject(
+  object: THREE.Object3D,
+  options: Partial<DisposeOptions> = {},
+) {
+  const disposeOptions = {
+    ...defaultDisposeOptions,
+    ...options,
+  };
+
   object.traverse((child) => {
     if (
       child instanceof THREE.Mesh ||
       child instanceof THREE.Line ||
       child instanceof THREE.Points
     ) {
-      (child.geometry as THREE.BufferGeometry).dispose();
-      disposeMaterial(child.material as THREE.Material | THREE.Material[]);
+      if (disposeOptions.geometry) {
+        (child.geometry as THREE.BufferGeometry).dispose();
+      }
+      if (disposeOptions.material) {
+        disposeMaterial(child.material as THREE.Material | THREE.Material[]);
+      }
+    } else if (child instanceof THREE.Group) {
+      // Do nothing
     } else {
       throw new Error(
         `Not implemented: disposeObject(object: ${child.constructor.name})`,

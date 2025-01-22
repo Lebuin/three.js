@@ -1,3 +1,4 @@
+import { withOC } from '@/lib/geo/oc';
 import * as THREE from 'three';
 import { Part } from './part';
 
@@ -18,6 +19,18 @@ export class Board extends Part {
   }
   set size(size: THREE.Vector3) {
     this._size = size;
-    this.dispatchEvent({ type: 'change' });
+    this.onChange();
+  }
+
+  buildOCShape() {
+    return withOC((oc) => {
+      const box = new oc.BRepPrimAPI_MakeBox_2(
+        this.size.x,
+        this.size.y,
+        this.size.z,
+      );
+      const shape = box.Shape();
+      return shape;
+    });
   }
 }
