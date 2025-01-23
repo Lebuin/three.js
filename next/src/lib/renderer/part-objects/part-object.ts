@@ -73,8 +73,8 @@ export abstract class PartObject<T extends Part> extends THREE.Group {
     return this.part.getGeometry();
   }
 
-  private getEdgesGeometry(_meshGeometry: THREE.BufferGeometry) {
-    // TODO
-    return new THREE.BufferGeometry();
+  private getEdgesGeometry(meshGeometry: THREE.BufferGeometry) {
+    const edgesGeometry = new THREE.EdgesGeometry(meshGeometry);
+    return edgesGeometry;
   }
 }

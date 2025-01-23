@@ -9,27 +9,28 @@ import { concatTypedArrays } from '../util/array';
 import { GarbageCollector, withOC } from './oc';
 
 /**
- * Based on https://github.com/polygonjs/polygonjs/blob/master/src/core/geometry/modules/cad/toObject3D/CadShape.ts#L184
+ * Based on https://github.com/polygonjs/polygonjs/blob/4260474f58715fab90a5a6c171cc86ee883b924e/src/core/geometry/modules/cad/toObject3D/CadShape.ts#L184
  */
-export function buildGeometry(shape: TopoDS_Shape): THREE.BufferGeometry {
+export function buildFaceGeometry(shape: TopoDS_Shape): THREE.BufferGeometry {
   return withOC((oc, gc) => {
-    const mesher = new oc.BRepMesh_IncrementalMesh_2(
-      shape,
-      0.01,
-      false,
-      0.5,
-      true,
-    );
-
-    const done = mesher.IsDone();
-    mesher.delete();
-    if (!done) {
-      throw new Error('Mesher did not finish');
-    }
-
-    const faceGeometry = buildFacesGeometry(oc, gc, shape);
+    meshShape(oc, gc, shape);
+    const faceGeometry = buildFaceGeometryForMeshed(oc, gc, shape);
     return faceGeometry;
   });
+}
+
+function meshShape(
+  oc: OpenCascadeInstance,
+  gc: GarbageCollector,
+  shape: TopoDS_Shape,
+) {
+  const mesher = gc(
+    new oc.BRepMesh_IncrementalMesh_2(shape, 0.01, false, 0.5, true),
+  );
+
+  if (!mesher.IsDone()) {
+    throw new Error('Mesher did not finish');
+  }
 }
 
 interface FaceData {
@@ -39,7 +40,10 @@ interface FaceData {
 }
 const STRIDE = 3;
 
-function buildFacesGeometry(
+/**
+ * Based on https://github.com/polygonjs/polygonjs/blob/4260474f58715fab90a5a6c171cc86ee883b924e/src/core/geometry/modules/cad/CadTraverse.ts#L3
+ */
+function buildFaceGeometryForMeshed(
   oc: OpenCascadeInstance,
   gc: GarbageCollector,
   shape: TopoDS_Shape,
@@ -67,7 +71,7 @@ function buildFacesGeometry(
     normals: concatTypedArrays(...allFaceData.map((fd) => fd.normals)),
     indices: concatTypedArrays(...allFaceData.map((fd) => fd.indices)),
   };
-  const geometry = createBufferGeometry(faceData);
+  const geometry = createFaceBufferGeometry(faceData);
   return geometry;
 }
 
@@ -157,7 +161,7 @@ function getFaceOrientation(
     : FaceOrientation.BACKWARD;
 }
 
-function createBufferGeometry(faceData: FaceData) {
+function createFaceBufferGeometry(faceData: FaceData) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     'position',
