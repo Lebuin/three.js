@@ -21,17 +21,14 @@ export function buildGeometry(shape: TopoDS_Shape): THREE.BufferGeometry {
       true,
     );
 
-    try {
-      if (!mesher.IsDone()) {
-        throw new Error('Mesher did not finish');
-      }
-      const faceGeometry = buildFacesGeometry(oc, gc, shape);
-      return faceGeometry;
-    } finally {
-      // TODO: can we refactor this into `const done = mesher.IsDone(); mesher.delete()` to avoid
-      // the try-finally?
-      mesher.delete();
+    const done = mesher.IsDone();
+    mesher.delete();
+    if (!done) {
+      throw new Error('Mesher did not finish');
     }
+
+    const faceGeometry = buildFacesGeometry(oc, gc, shape);
+    return faceGeometry;
   });
 }
 
