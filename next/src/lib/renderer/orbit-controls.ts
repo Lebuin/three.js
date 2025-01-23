@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls as DefaultOrbitControls } from 'three/examples/jsm/Addons.js';
+import { axisDirections } from '../util/geometry';
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
-
+const _v3 = new THREE.Vector3();
 const _EPS = 0.000001;
 
 // Add internal properties that we need in our overriden methods
@@ -66,18 +67,34 @@ export class OrbitControls extends DefaultOrbitControls {
   private updateRotate() {
     this.object.updateWorldMatrix(true, false);
     const targetBefore = _v;
+    const cameraY = _v2;
+    const cameraZ = _v3;
     targetBefore.copy(this.target).project(this.object);
 
-    this.object.rotateOnAxis(
-      new THREE.Vector3(1, 0, 0),
-      this._sphericalDelta.phi,
-    );
     this.object.rotateOnWorldAxis(
       new THREE.Vector3(0, 1, 0),
       this._sphericalDelta.theta,
     );
-    this.object.updateWorldMatrix(true, false);
 
+    // Calculate the angle between the world direction and the ground plane. We never want this
+    // angle to exceed Math.PI, i.e. the camera should never be upside down.
+    cameraY.set(0, 1, 0).applyQuaternion(this.object.quaternion);
+    cameraZ.set(0, 0, 1).applyQuaternion(this.object.quaternion);
+    const isLookingDown = cameraZ.y > 0;
+    const currentAngle =
+      (isLookingDown ? 1 : -1) * cameraY.angleTo(axisDirections.y);
+
+    this._sphericalDelta.phi = -THREE.MathUtils.clamp(
+      -this._sphericalDelta.phi,
+      -Math.PI / 2 - currentAngle,
+      Math.PI / 2 - currentAngle,
+    );
+    this.object.rotateOnAxis(
+      new THREE.Vector3(1, 0, 0),
+      this._sphericalDelta.phi,
+    );
+
+    this.object.updateWorldMatrix(true, false);
     targetBefore.unproject(this.object);
     this.object.position.add(this.target).sub(targetBefore);
 
