@@ -48,16 +48,18 @@ function buildFaceGeometryForMeshed(
   gc: GarbageCollector,
   shape: TopoDS_Shape,
 ): THREE.BufferGeometry {
-  const explorer = new oc.TopExp_Explorer_2(
-    shape,
-    oc.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum,
-    oc.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum,
+  const explorer = gc(
+    new oc.TopExp_Explorer_2(
+      shape,
+      oc.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum,
+      oc.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum,
+    ),
   );
 
   let index = 0;
   const allFaceData: FaceData[] = [];
   while (explorer.More()) {
-    const face = oc.TopoDS.Face_1(explorer.Current());
+    const face = gc(oc.TopoDS.Face_1(explorer.Current()));
     const faceData = getFaceData(oc, gc, face, index);
     if (faceData) {
       allFaceData.push(faceData);
@@ -84,8 +86,8 @@ export function getFaceData(
   face: TopoDS_Face,
   index0 = 0,
 ): FaceData | void {
-  const location = new oc.TopLoc_Location_1();
-  const triangulation = oc.BRep_Tool.Triangulation(face, location, 0);
+  const location = gc(new oc.TopLoc_Location_1());
+  const triangulation = gc(oc.BRep_Tool.Triangulation(face, location, 0));
 
   if (triangulation.IsNull()) {
     return;
