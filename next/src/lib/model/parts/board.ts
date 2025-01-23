@@ -23,7 +23,7 @@ export class Board extends Part {
     this.onChange();
   }
 
-  buildOCShape() {
+  protected buildOCShape() {
     return withOC((oc) => {
       const axes = axesFromVectorQuaternion(this.position, this.quaternion);
       // OCCT doesn't support boxes with a 0 dimension. It's a bit hacky but it'll do.

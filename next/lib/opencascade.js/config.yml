@@ -18,8 +18,10 @@ mainBuild:
     - symbol: Handle_Poly_Triangulation
     - symbol: gp_Ax2
     - symbol: gp_Dir
+    - symbol: gp_Lin
     - symbol: gp_Pnt
     - symbol: gp_Trsf
+    - symbol: IntCurvesFace_ShapeIntersector
     - symbol: Poly_Connect
     - symbol: Poly_Triangle
     - symbol: Poly_Triangulation

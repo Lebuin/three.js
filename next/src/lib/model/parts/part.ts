@@ -10,7 +10,9 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   private _position: THREE.Vector3;
   private _quaternion: THREE.Quaternion;
   public temporary = false;
-  private geometry?: THREE.BufferGeometry;
+
+  protected geometry?: THREE.BufferGeometry;
+  protected ocShape?: TopoDS_Shape;
 
   constructor(position?: THREE.Vector3, quaternion?: THREE.Quaternion) {
     super();
@@ -19,7 +21,7 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   }
 
   protected onChange() {
-    this.invalidateGeometry();
+    this.invalidateOCShape();
     this.dispatchEvent({ type: 'change' });
   }
 
@@ -39,6 +41,17 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
     this.onChange();
   }
 
+  protected invalidateOCShape() {
+    if (this.ocShape) {
+      this.ocShape.delete();
+      this.ocShape = undefined;
+    }
+    if (this.geometry) {
+      this.geometry.dispose();
+      this.geometry = undefined;
+    }
+  }
+
   public getGeometry(): THREE.BufferGeometry {
     if (!this.geometry) {
       this.geometry = this.buildGeometry();
@@ -46,17 +59,16 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
     return this.geometry;
   }
 
-  protected invalidateGeometry() {
-    if (this.geometry) {
-      this.geometry.dispose();
-      this.geometry = undefined;
+  public getOCShape(): TopoDS_Shape {
+    if (!this.ocShape) {
+      this.ocShape = this.buildOCShape();
     }
+    return this.ocShape;
   }
 
   protected buildGeometry() {
-    const shape = this.buildOCShape();
+    const shape = this.getOCShape();
     const geometry = buildFaceGeometry(shape);
-    shape.delete();
     return geometry;
   }
 
