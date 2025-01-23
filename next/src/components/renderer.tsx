@@ -23,7 +23,16 @@ export default function Renderer(props: RendererProps) {
     }
 
     const model = new Model();
-    model.addPart(new Board(new THREE.Vector3(200, 100, 100)));
+    model.addPart(
+      new Board(
+        new THREE.Vector3(200, 100, 100),
+        new THREE.Vector3(50, 0, 10),
+        new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(1, 1, 0).normalize(),
+          Math.PI / 4,
+        ),
+      ),
+    );
     const renderer = new SceneRenderer(mount, model);
     renderer.addEventListener('tool', (event) => {
       props.onTool.call(null, event.tool);

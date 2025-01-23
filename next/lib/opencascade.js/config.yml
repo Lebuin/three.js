@@ -16,6 +16,7 @@ mainBuild:
     - symbol: BRepMesh_IncrementalMesh
     - symbol: BRepPrimAPI_MakeBox
     - symbol: Handle_Poly_Triangulation
+    - symbol: gp_Ax2
     - symbol: gp_Dir
     - symbol: gp_Pnt
     - symbol: gp_Trsf

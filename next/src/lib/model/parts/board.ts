@@ -1,4 +1,5 @@
 import { withOC } from '@/lib/geo/oc';
+import { axesFromVectorQuaternion } from '@/lib/geo/util';
 import * as THREE from 'three';
 import { Part } from './part';
 
@@ -24,7 +25,9 @@ export class Board extends Part {
 
   buildOCShape() {
     return withOC((oc) => {
-      const box = new oc.BRepPrimAPI_MakeBox_2(
+      const axes = axesFromVectorQuaternion(this.position, this.quaternion);
+      const box = new oc.BRepPrimAPI_MakeBox_5(
+        axes,
         this.size.x,
         this.size.y,
         this.size.z,
