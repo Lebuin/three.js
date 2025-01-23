@@ -2,6 +2,9 @@ import { OpenCascadeInstance } from '@lib/opencascade.js';
 import ocJS from '@lib/opencascade.js/maqet-occt.js';
 import ocWasm from '@lib/opencascade.js/maqet-occt.wasm';
 import _ from 'lodash';
+// Sometimes it's useful to debug a problem with our custom build by importing the full build.
+// import ocJS from 'opencascade.js/dist/opencascade.full.js';
+// import ocWasm from 'opencascade.js/dist/opencascade.full.wasm';
 
 let oc: OpenCascadeInstance | undefined;
 let ocError: unknown;
@@ -29,7 +32,10 @@ export type GarbageCollector = <D extends Deletable>(deletable: D) => D;
 export function withOC<T>(
   callback: (oc: OpenCascadeInstance, gc: GarbageCollector) => T,
 ): T {
-  if (!oc) {
+  if (ocError) {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw ocError;
+  } else if (!oc) {
     throw new Error('OpenCascade not initialized');
   }
 
@@ -54,10 +60,7 @@ export function withOC<T>(
 export class OCError extends Error {}
 
 export function parseError(e: unknown): unknown {
-  if (ocError) {
-    // eslint-disable-next-line @typescript-eslint/only-throw-error
-    throw ocError;
-  } else if (!oc) {
+  if (!oc) {
     throw new Error('OpenCascade not initialized');
   }
 

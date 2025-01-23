@@ -26,11 +26,12 @@ export class Board extends Part {
   buildOCShape() {
     return withOC((oc) => {
       const axes = axesFromVectorQuaternion(this.position, this.quaternion);
+      // OCCT doesn't support boxes with a 0 dimension. It's a bit hacky but it'll do.
       const box = new oc.BRepPrimAPI_MakeBox_5(
         axes,
-        this.size.x,
-        this.size.y,
-        this.size.z,
+        Math.max(0.001, this.size.x),
+        Math.max(0.001, this.size.y),
+        Math.max(0.001, this.size.z),
       );
       const shape = box.Shape();
       return shape;
