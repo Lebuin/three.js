@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build-opencascadejs": "lib/opencascade.js/build.sh",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest"
@@ -13,7 +14,6 @@
     "clsx": "^2.1.1",
     "lodash": "^4.17.21",
     "next": "15.1.3",
-    "opencascade.js": "^2.0.0-beta.b5ff984",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.4.0",

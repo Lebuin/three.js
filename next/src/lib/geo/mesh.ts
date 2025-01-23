@@ -3,7 +3,7 @@ import {
   TopAbs_ShapeEnum,
   TopoDS_Face,
   TopoDS_Shape,
-} from 'opencascade.js';
+} from '@lib/opencascade.js';
 import * as THREE from 'three';
 import { concatTypedArrays } from '../util/array';
 import { GarbageCollector, withOC } from './oc';

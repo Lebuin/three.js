@@ -1,0 +1,58 @@
+mainBuild:
+  name: maqet-occt.js
+  bindings:
+    - symbol: BRep_Tool
+    - symbol: BRepBuilderAPI_Command
+    - symbol: BRepBuilderAPI_EdgeError
+    - symbol: BRepBuilderAPI_MakeEdge
+    - symbol: BRepBuilderAPI_MakeFace
+    - symbol: BRepBuilderAPI_MakePolygon
+    - symbol: BRepBuilderAPI_MakeVertex
+    - symbol: BRepBuilderAPI_MakeWire
+    - symbol: BRepBuilderAPI_ModifyShape
+    - symbol: BRepBuilderAPI_Transform
+    - symbol: BRepBuilderAPI_MakeShape
+    - symbol: BRepMesh_DiscretRoot
+    - symbol: BRepMesh_IncrementalMesh
+    - symbol: BRepPrimAPI_MakeBox
+    - symbol: Handle_Poly_Triangulation
+    - symbol: gp_Dir
+    - symbol: gp_Pnt
+    - symbol: gp_Trsf
+    - symbol: Poly_Connect
+    - symbol: Poly_Triangle
+    - symbol: Poly_Triangulation
+    - symbol: Standard_Transient
+    - symbol: StdPrs_ToolTriangulatedShape
+    - symbol: TColgp_Array1OfDir
+    - symbol: TopAbs_Orientation
+    - symbol: TopAbs_ShapeEnum
+    - symbol: TopExp_Explorer
+    - symbol: TopLoc_Location
+    - symbol: TopoDS
+    - symbol: TopoDS_Edge
+    - symbol: TopoDS_Face
+    - symbol: TopoDS_Shape
+    - symbol: TopoDS_Shell
+    - symbol: TopoDS_Solid
+    - symbol: TopoDS_Vertex
+    - symbol: TopoDS_Wire
+
+    - symbol: OCJS
+    - symbol: Standard_Failure
+
+  emccFlags:
+    - -O3
+    - -sEXPORT_ES6=1
+    - -sUSE_ES6_IMPORT_META=0
+    - -sEXPORTED_RUNTIME_METHODS=['FS']
+    - -sALLOW_MEMORY_GROWTH=1
+
+additionalCppCode: |
+  typedef Handle(IMeshTools_Context) Handle_IMeshTools_Context;
+  class OCJS {
+  public:
+    static Standard_Failure* getStandard_FailureData(intptr_t exceptionPtr) {
+      return reinterpret_cast<Standard_Failure*>(exceptionPtr);
+    }
+  };

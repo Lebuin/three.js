@@ -1,3 +1,5 @@
+import _ from 'lodash';
+
 type TypedArray =
   | Int8Array
   | Uint8Array
@@ -10,7 +12,7 @@ type TypedArray =
 type TypedArrayConstructor<T> = new (size: number) => T;
 
 export function concatTypedArrays<T extends TypedArray>(...arrays: T[]): T {
-  const totalLength = arrays.reduce((acc, arr) => acc + arr.length, 0);
+  const totalLength = _.sumBy(arrays, 'length');
   const constructor = arrays[0].constructor as TypedArrayConstructor<T>;
   const result = new constructor(totalLength);
 

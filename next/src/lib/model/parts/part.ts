@@ -1,5 +1,5 @@
 import { buildGeometry } from '@/lib/geo/mesh';
-import { TopoDS_Shape } from 'opencascade.js';
+import { TopoDS_Shape } from '@lib/opencascade.js';
 import * as THREE from 'three';
 
 interface PartEvents {

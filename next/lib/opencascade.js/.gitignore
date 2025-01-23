@@ -1,0 +1,4 @@
+/emcc-cache/*
+/maqet-occt.d.ts
+/maqet-occt.js
+/maqet-occt.wasm

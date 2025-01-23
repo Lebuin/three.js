@@ -1,8 +1,7 @@
+import { OpenCascadeInstance } from '@lib/opencascade.js';
+import ocJS from '@lib/opencascade.js/maqet-occt.js';
+import ocWasm from '@lib/opencascade.js/maqet-occt.wasm';
 import _ from 'lodash';
-import { OpenCascadeInstance } from 'opencascade.js';
-import ocFullJS from 'opencascade.js/dist/opencascade.full.js';
-import ocFullWasm from 'opencascade.js/dist/opencascade.full.wasm';
-// const ocFullWasm = '/opencascade.full.wasm';
 
 let oc: OpenCascadeInstance | undefined;
 let ocError: unknown;
@@ -10,12 +9,12 @@ let ocError: unknown;
 export const initOC = _.once(async () => {
   const options = {
     locateFile() {
-      return ocFullWasm;
+      return ocWasm;
     },
   };
   try {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
-    oc = await new (ocFullJS as any)(options);
+    oc = await new (ocJS as any)(options);
   } catch (e: unknown) {
     ocError = e;
     throw e;

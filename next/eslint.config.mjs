@@ -21,6 +21,9 @@ export default tseslint.config(
     semi: true,
   }),
   {
+    ignores: ['lib', 'eslint.config.mjs'],
+  },
+  {
     languageOptions: {
       parserOptions: {
         projectService: true,
