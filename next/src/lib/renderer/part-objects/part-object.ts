@@ -57,7 +57,7 @@ export abstract class PartObject<T extends Part> extends THREE.Group {
 
   protected getMeshMaterial() {
     const meshMaterial = new THREE.MeshStandardMaterial({
-      color: 'hsl(38, 86%, 78%)',
+      color: 'hsl(38, 70%, 78%)',
       roughness: 0.6,
       metalness: 0.2,
       polygonOffset: true,
@@ -70,7 +70,7 @@ export abstract class PartObject<T extends Part> extends THREE.Group {
 
   protected getEdgesMaterial() {
     const edgesMaterial = new THREE.LineBasicMaterial({
-      color: 'hsl(38, 86%, 15%)',
+      color: 'hsl(38, 70%, 15%)',
       linewidth: 1.5,
     });
     return edgesMaterial;
