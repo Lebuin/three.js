@@ -27,7 +27,9 @@ export const initOC = _.once(async () => {
 interface Deletable {
   delete: () => void;
 }
-export type GarbageCollector = <D extends Deletable>(deletable: D) => D;
+export type GarbageCollector = <D extends Deletable | Deletable[]>(
+  deletable: D,
+) => D;
 
 export function withOC<T>(
   callback: (oc: OpenCascadeInstance, gc: GarbageCollector) => T,
@@ -40,8 +42,12 @@ export function withOC<T>(
   }
 
   const deletables: Deletable[] = [];
-  function gc<D extends Deletable>(deletable: D): D {
-    deletables.push(deletable);
+  function gc<D extends Deletable | Deletable[]>(deletable: D): D {
+    if (Array.isArray(deletable)) {
+      deletables.push(...deletable);
+    } else {
+      deletables.push(deletable);
+    }
     return deletable;
   }
 

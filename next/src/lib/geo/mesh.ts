@@ -1,11 +1,11 @@
 import {
   OpenCascadeInstance,
-  TopAbs_ShapeEnum,
   TopoDS_Face,
   TopoDS_Shape,
 } from '@lib/opencascade.js';
 import * as THREE from 'three';
 import { concatTypedArrays } from '../util/array';
+import { exploreFaces } from './explore';
 import { GarbageCollector, withOC } from './oc';
 
 /**
@@ -48,24 +48,15 @@ function buildFaceGeometryForMeshed(
   gc: GarbageCollector,
   shape: TopoDS_Shape,
 ): THREE.BufferGeometry {
-  const explorer = gc(
-    new oc.TopExp_Explorer_2(
-      shape,
-      oc.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum,
-      oc.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum,
-    ),
-  );
-
   let index = 0;
   const allFaceData: FaceData[] = [];
-  while (explorer.More()) {
-    const face = gc(oc.TopoDS.Face_1(explorer.Current()));
+  const faces = gc(exploreFaces(shape));
+  for (const face of faces) {
     const faceData = getFaceData(oc, gc, face, index);
     if (faceData) {
       allFaceData.push(faceData);
       index += faceData.positions.length / STRIDE;
     }
-    explorer.Next();
   }
 
   const faceData: FaceData = {

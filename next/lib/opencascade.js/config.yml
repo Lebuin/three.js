@@ -12,6 +12,7 @@ mainBuild:
     - symbol: BRepBuilderAPI_ModifyShape
     - symbol: BRepBuilderAPI_Transform
     - symbol: BRepBuilderAPI_MakeShape
+    - symbol: BRepExtrema_DistShapeShape
     - symbol: BRepMesh_DiscretRoot
     - symbol: BRepMesh_IncrementalMesh
     - symbol: BRepPrimAPI_MakeBox
@@ -22,6 +23,7 @@ mainBuild:
     - symbol: gp_Pnt
     - symbol: gp_Trsf
     - symbol: IntCurvesFace_ShapeIntersector
+    - symbol: Message_ProgressRange
     - symbol: Poly_Connect
     - symbol: Poly_Triangle
     - symbol: Poly_Triangulation

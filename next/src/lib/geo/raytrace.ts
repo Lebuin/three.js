@@ -1,43 +1,213 @@
-import { TopoDS_Shape } from 'opencascade.js';
+import {
+  TopoDS_Edge,
+  TopoDS_Face,
+  TopoDS_Shape,
+  TopoDS_Vertex,
+} from '@lib/opencascade.js';
 import * as THREE from 'three';
+import { explore, ShapeType } from './explore';
 import { withOC } from './oc';
-import { directionFromVector, pointFromVector } from './util';
+import { pointFromVector, pointToVector } from './util';
 
 export interface Intersection {
-  pointOnRay: THREE.Vector3;
   shape: TopoDS_Shape;
   distance: number;
+  distanceToRay: number;
+  pointOnRay: THREE.Vector3;
+  pointOnShape: THREE.Vector3;
 
-  pointOnEdge?: THREE.Vector3;
-  distanceToEdge?: number;
+  face?: TopoDS_Face;
+  edge?: TopoDS_Edge;
+  vertex?: TopoDS_Vertex;
+}
+
+export function raytraceSnapping(
+  ray: THREE.Line3,
+  shapes: TopoDS_Shape[],
+  tolerance: number,
+): Intersection | undefined {
+  const intersections = raytrace(ray, shapes, tolerance);
+  if (intersections.length === 0) {
+    return;
+  }
+
+  const closerIntersection = snapToIntersections(
+    ray,
+    intersections[0],
+    intersections.slice(1),
+    tolerance,
+  );
+  if (closerIntersection) {
+    return closerIntersection;
+  }
+  return intersections[0];
+}
+
+function snapToIntersections(
+  ray: THREE.Line3,
+  closestIntersection: Intersection,
+  intersections: Intersection[],
+  tolerance: number,
+): Intersection | undefined {
+  if (closestIntersection.vertex) {
+    return closestIntersection;
+  }
+
+  const nearbyVertexIntersection = snapToIntersectionsOfType(
+    ray,
+    closestIntersection,
+    intersections,
+    tolerance,
+    'vertex',
+  );
+  if (nearbyVertexIntersection) {
+    return nearbyVertexIntersection;
+  }
+
+  if (closestIntersection.face) {
+    const closerEdgeIntersection = snapToIntersectionsOfType(
+      ray,
+      closestIntersection,
+      intersections,
+      tolerance,
+      'edge',
+    );
+    if (closerEdgeIntersection) {
+      return closerEdgeIntersection;
+    }
+  }
+
+  return closestIntersection;
+}
+
+function snapToIntersectionsOfType(
+  ray: THREE.Line3,
+  closestIntersection: Intersection,
+  intersections: Intersection[],
+  tolerance: number,
+  type: 'edge' | 'vertex',
+): Intersection | undefined {
+  const shapesToCheckForVisibility = new Set([closestIntersection.shape]);
+  for (const intersection of intersections) {
+    shapesToCheckForVisibility.add(intersection.shape);
+    if (intersection.distance - closestIntersection.distance > tolerance) {
+      return;
+    }
+    if (!intersection[type]) {
+      continue;
+    }
+    if (isVisible(intersection.pointOnShape, ray, shapesToCheckForVisibility)) {
+      return intersection;
+    }
+  }
+}
+
+function isVisible(
+  point: THREE.Vector3,
+  ray: THREE.Line3,
+  shapes: Set<TopoDS_Shape>,
+): boolean {
+  const faceIntersections = raytraceFaces(
+    new THREE.Line3(ray.start, point),
+    shapes,
+  );
+
+  for (const faceIntersection of faceIntersections) {
+    // If the face intersection coincides with the point, this means the point is a corner of this
+    // face, and therefore not obscured by this face.
+    if (faceIntersection.pointOnRay.distanceTo(point) > 1e-6) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export function raytrace(
-  ray: THREE.Ray,
-  shapes: TopoDS_Shape[],
+  ray: THREE.Line3,
+  shapes: Iterable<TopoDS_Shape>,
+  tolerance: number,
+): Intersection[] {
+  const faceIntersections = raytraceFaces(ray, shapes);
+  const edgeIntersections = raytraceEdges(ray, shapes, tolerance);
+  const vertexIntersections = raytraceVertices(ray, shapes, tolerance);
+  const intersections = [
+    ...faceIntersections,
+    ...edgeIntersections,
+    ...vertexIntersections,
+  ];
+  intersections.sort((a, b) => a.distance - b.distance);
+  return intersections;
+}
+
+export function raytraceFaces(
+  ray: THREE.Line3,
+  shapes: Iterable<TopoDS_Shape>,
+): Intersection[] {
+  return raytraceShapeType(ray, shapes, 'face', 0);
+}
+
+export function raytraceEdges(
+  ray: THREE.Line3,
+  shapes: Iterable<TopoDS_Shape>,
+  tolerance: number,
+): Intersection[] {
+  return raytraceShapeType(ray, shapes, 'edge', tolerance);
+}
+
+export function raytraceVertices(
+  ray: THREE.Line3,
+  shapes: Iterable<TopoDS_Shape>,
+  tolerance: number,
+): Intersection[] {
+  return raytraceShapeType(ray, shapes, 'vertex', tolerance);
+}
+
+export function raytraceShapeType<T extends ShapeType>(
+  ray: THREE.Line3,
+  shapes: Iterable<TopoDS_Shape>,
+  shapeType: T['name'],
+  tolerance: number,
 ): Intersection[] {
   return withOC((oc, gc) => {
-    const line = new oc.gp_Lin_3(
-      pointFromVector(ray.origin),
-      directionFromVector(ray.direction),
+    const rayStart = gc(pointFromVector(ray.start));
+    const rayEnd = gc(pointFromVector(ray.end));
+    const rayEdgeBuilder = gc(
+      new oc.BRepBuilderAPI_MakeEdge_3(rayStart, rayEnd),
     );
-    const intersector = gc(new oc.IntCurvesFace_ShapeIntersector());
+    const rayEdge = gc(rayEdgeBuilder.Edge());
+
     const intersections: Intersection[] = [];
+    const distTool = gc(new oc.BRepExtrema_DistShapeShape_1());
+    distTool.LoadS1(rayEdge);
+    const progressRange = gc(new oc.Message_ProgressRange_1());
+
     for (const shape of shapes) {
-      intersector.Load(shape, 0);
-      intersector.Perform_1(line, 0, Infinity);
-      if (!intersector.IsDone()) {
-        throw new Error('Intersector did not finish');
-      }
-      const numPoints = intersector.NbPnt();
-      for (let i = 0; i < numPoints; i++) {
-        const point = intersector.Pnt(i + 1);
-        const distance = point.Distance(line.Location());
-        intersections.push({
-          pointOnRay: new THREE.Vector3(point.X(), point.Y(), point.Z()),
-          shape,
-          distance,
-        });
+      const subShapes = gc(explore(shape, shapeType));
+      for (const subShape of subShapes) {
+        distTool.LoadS2(subShape);
+
+        const isDone = distTool.Perform(progressRange);
+        if (!isDone) {
+          throw new Error('Distance calculation failed');
+        }
+        const distanceToRay = distTool.Value();
+        if (distanceToRay <= tolerance) {
+          const numPoints = distTool.NbSolution();
+          for (let i = 0; i < numPoints; i++) {
+            const pointOnRay = gc(distTool.PointOnShape1(i + 1));
+            const pointOnShape = gc(distTool.PointOnShape2(i + 1));
+            const distance = rayStart.Distance(pointOnShape);
+            intersections.push({
+              shape,
+              distance,
+              distanceToRay,
+              pointOnRay: pointToVector(pointOnRay),
+              pointOnShape: pointToVector(pointOnShape),
+              [shapeType]: subShape,
+            });
+          }
+        }
       }
     }
     return intersections;
