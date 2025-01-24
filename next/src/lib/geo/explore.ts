@@ -5,7 +5,7 @@ import {
   TopoDS_Shape,
   TopoDS_Vertex,
 } from '@lib/opencascade.js';
-import { withOC } from './oc';
+import { getOC } from './oc';
 
 export type ShapeType =
   | { name: 'face'; type: TopoDS_Face }
@@ -16,42 +16,39 @@ export function explore<T extends ShapeType>(
   shape: TopoDS_Shape,
   toFind: T['name'],
 ): T['type'][] {
-  return withOC((oc, gc) => {
-    let createCallback: (shape: TopoDS_Shape) => T['type'],
-      toFindEnum: TopAbs_ShapeEnum;
-    switch (toFind) {
-      case 'face':
-        createCallback = (shape: TopoDS_Shape) => oc.TopoDS.Face_1(shape);
-        toFindEnum = oc.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum;
-        break;
-      case 'edge':
-        createCallback = (shape: TopoDS_Shape) => oc.TopoDS.Edge_1(shape);
-        toFindEnum = oc.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum;
-        break;
-      case 'vertex':
-        createCallback = (shape: TopoDS_Shape) => oc.TopoDS.Vertex_1(shape);
-        toFindEnum = oc.TopAbs_ShapeEnum.TopAbs_VERTEX as TopAbs_ShapeEnum;
-        break;
-      default:
-        throw new Error(`Unknown shape type: ${toFind}`);
-    }
+  const oc = getOC();
+  let createCallback: (shape: TopoDS_Shape) => T['type'],
+    toFindEnum: TopAbs_ShapeEnum;
+  switch (toFind) {
+    case 'face':
+      createCallback = (shape: TopoDS_Shape) => oc.TopoDS.Face_1(shape);
+      toFindEnum = oc.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum;
+      break;
+    case 'edge':
+      createCallback = (shape: TopoDS_Shape) => oc.TopoDS.Edge_1(shape);
+      toFindEnum = oc.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum;
+      break;
+    case 'vertex':
+      createCallback = (shape: TopoDS_Shape) => oc.TopoDS.Vertex_1(shape);
+      toFindEnum = oc.TopAbs_ShapeEnum.TopAbs_VERTEX as TopAbs_ShapeEnum;
+      break;
+    default:
+      throw new Error(`Unknown shape type: ${toFind}`);
+  }
 
-    const explorer = gc(
-      new oc.TopExp_Explorer_2(
-        shape,
-        toFindEnum,
-        oc.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum,
-      ),
-    );
-    const shapes: T['type'][] = [];
-    while (explorer.More()) {
-      const current = explorer.Current();
-      const shape = createCallback(current);
-      shapes.push(shape);
-      explorer.Next();
-    }
-    return shapes;
-  });
+  const explorer = new oc.TopExp_Explorer_2(
+    shape,
+    toFindEnum,
+    oc.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum,
+  );
+  const shapes: T['type'][] = [];
+  while (explorer.More()) {
+    const current = explorer.Current();
+    const shape = createCallback(current);
+    shapes.push(shape);
+    explorer.Next();
+  }
+  return shapes;
 }
 
 export function exploreFaces(shape: TopoDS_Shape): TopoDS_Face[] {

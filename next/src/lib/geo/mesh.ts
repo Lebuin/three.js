@@ -6,28 +6,26 @@ import {
 import * as THREE from 'three';
 import { concatTypedArrays } from '../util/array';
 import { exploreFaces } from './explore';
-import { GarbageCollector, withOC } from './oc';
+import { getOC } from './oc';
 
 /**
  * Based on https://github.com/polygonjs/polygonjs/blob/4260474f58715fab90a5a6c171cc86ee883b924e/src/core/geometry/modules/cad/toObject3D/CadShape.ts#L184
  */
 export function buildFaceGeometry(shape: TopoDS_Shape): THREE.BufferGeometry {
-  return withOC((oc, gc) => {
-    meshShape(oc, gc, shape);
-    const faceGeometry = buildFaceGeometryForMeshed(oc, gc, shape);
-    return faceGeometry;
-  });
+  meshShape(shape);
+  const faceGeometry = buildFaceGeometryForMeshed(shape);
+  return faceGeometry;
 }
 
-function meshShape(
-  oc: OpenCascadeInstance,
-  gc: GarbageCollector,
-  shape: TopoDS_Shape,
-) {
-  const mesher = gc(
-    new oc.BRepMesh_IncrementalMesh_2(shape, 0.01, false, 0.5, true),
+function meshShape(shape: TopoDS_Shape) {
+  const oc = getOC();
+  const mesher = new oc.BRepMesh_IncrementalMesh_2(
+    shape,
+    0.01,
+    false,
+    0.5,
+    true,
   );
-
   if (!mesher.IsDone()) {
     throw new Error('Mesher did not finish');
   }
@@ -43,16 +41,12 @@ const STRIDE = 3;
 /**
  * Based on https://github.com/polygonjs/polygonjs/blob/4260474f58715fab90a5a6c171cc86ee883b924e/src/core/geometry/modules/cad/CadTraverse.ts#L3
  */
-function buildFaceGeometryForMeshed(
-  oc: OpenCascadeInstance,
-  gc: GarbageCollector,
-  shape: TopoDS_Shape,
-): THREE.BufferGeometry {
+function buildFaceGeometryForMeshed(shape: TopoDS_Shape): THREE.BufferGeometry {
   let index = 0;
   const allFaceData: FaceData[] = [];
-  const faces = gc(exploreFaces(shape));
+  const faces = exploreFaces(shape);
   for (const face of faces) {
-    const faceData = getFaceData(oc, gc, face, index);
+    const faceData = getFaceData(face, index);
     if (faceData) {
       allFaceData.push(faceData);
       index += faceData.positions.length / STRIDE;
@@ -71,14 +65,10 @@ function buildFaceGeometryForMeshed(
 /**
  * Based on https://github.com/polygonjs/polygonjs/blob/4260474f58715fab90a5a6c171cc86ee883b924e/src/core/geometry/modules/cad/toObject3D/CadTriangulationFaceUtils.ts#L14
  */
-export function getFaceData(
-  oc: OpenCascadeInstance,
-  gc: GarbageCollector,
-  face: TopoDS_Face,
-  index0 = 0,
-): FaceData | void {
-  const location = gc(new oc.TopLoc_Location_1());
-  const triangulation = gc(oc.BRep_Tool.Triangulation(face, location, 0));
+export function getFaceData(face: TopoDS_Face, index0 = 0): FaceData | void {
+  const oc = getOC();
+  const location = new oc.TopLoc_Location_1();
+  const triangulation = oc.BRep_Tool.Triangulation(face, location, 0);
 
   if (triangulation.IsNull()) {
     return;
@@ -89,8 +79,8 @@ export function getFaceData(
   const nbNodes = tri.NbNodes();
 
   // init
-  const normalsArray = gc(new oc.TColgp_Array1OfDir_2(1, nbNodes));
-  const pc = gc(new oc.Poly_Connect_2(triangulation));
+  const normalsArray = new oc.TColgp_Array1OfDir_2(1, nbNodes);
+  const pc = new oc.Poly_Connect_2(triangulation);
   oc.StdPrs_ToolTriangulatedShape.Normal(face, pc, normalsArray);
   const nbTriangles = tri.NbTriangles();
   const faceData: FaceData = {

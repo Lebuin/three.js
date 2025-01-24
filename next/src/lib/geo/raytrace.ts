@@ -6,7 +6,7 @@ import {
 } from '@lib/opencascade.js';
 import * as THREE from 'three';
 import { explore, ShapeType } from './explore';
-import { withOC } from './oc';
+import { getOC } from './oc';
 import { pointFromVector, pointToVector } from './util';
 
 export interface Intersection {
@@ -169,47 +169,44 @@ export function raytraceShapeType<T extends ShapeType>(
   shapeType: T['name'],
   tolerance: number,
 ): Intersection[] {
-  return withOC((oc, gc) => {
-    const rayStart = gc(pointFromVector(ray.start));
-    const rayEnd = gc(pointFromVector(ray.end));
-    const rayEdgeBuilder = gc(
-      new oc.BRepBuilderAPI_MakeEdge_3(rayStart, rayEnd),
-    );
-    const rayEdge = gc(rayEdgeBuilder.Edge());
+  const oc = getOC();
+  const rayStart = pointFromVector(ray.start);
+  const rayEnd = pointFromVector(ray.end);
+  const rayEdgeBuilder = new oc.BRepBuilderAPI_MakeEdge_3(rayStart, rayEnd);
+  const rayEdge = rayEdgeBuilder.Edge();
 
-    const intersections: Intersection[] = [];
-    const distTool = gc(new oc.BRepExtrema_DistShapeShape_1());
-    distTool.LoadS1(rayEdge);
-    const progressRange = gc(new oc.Message_ProgressRange_1());
+  const intersections: Intersection[] = [];
+  const distTool = new oc.BRepExtrema_DistShapeShape_1();
+  distTool.LoadS1(rayEdge);
+  const progressRange = new oc.Message_ProgressRange_1();
 
-    for (const shape of shapes) {
-      const subShapes = gc(explore(shape, shapeType));
-      for (const subShape of subShapes) {
-        distTool.LoadS2(subShape);
+  for (const shape of shapes) {
+    const subShapes = explore(shape, shapeType);
+    for (const subShape of subShapes) {
+      distTool.LoadS2(subShape);
 
-        const isDone = distTool.Perform(progressRange);
-        if (!isDone) {
-          throw new Error('Distance calculation failed');
-        }
-        const distanceToRay = distTool.Value();
-        if (distanceToRay <= tolerance) {
-          const numPoints = distTool.NbSolution();
-          for (let i = 0; i < numPoints; i++) {
-            const pointOnRay = gc(distTool.PointOnShape1(i + 1));
-            const pointOnShape = gc(distTool.PointOnShape2(i + 1));
-            const distance = rayStart.Distance(pointOnShape);
-            intersections.push({
-              shape,
-              distance,
-              distanceToRay,
-              pointOnRay: pointToVector(pointOnRay),
-              pointOnShape: pointToVector(pointOnShape),
-              [shapeType]: subShape,
-            });
-          }
+      const isDone = distTool.Perform(progressRange);
+      if (!isDone) {
+        throw new Error('Distance calculation failed');
+      }
+      const distanceToRay = distTool.Value();
+      if (distanceToRay <= tolerance) {
+        const numPoints = distTool.NbSolution();
+        for (let i = 0; i < numPoints; i++) {
+          const pointOnRay = distTool.PointOnShape1(i + 1);
+          const pointOnShape = distTool.PointOnShape2(i + 1);
+          const distance = rayStart.Distance(pointOnShape);
+          intersections.push({
+            shape,
+            distance,
+            distanceToRay,
+            pointOnRay: pointToVector(pointOnRay),
+            pointOnShape: pointToVector(pointOnShape),
+            [shapeType]: subShape,
+          });
         }
       }
     }
-    return intersections;
-  });
+  }
+  return intersections;
 }
