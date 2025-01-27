@@ -1,6 +1,5 @@
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { Renderer } from '../renderer';
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Object3DConstructor = new (...args: any[]) => THREE.Object3D;
 

@@ -1,10 +1,9 @@
 import { getQuaternionFromAxes, vectorsAreParallel } from '@/lib/util/geometry';
+import { THREE } from '@lib/three.js';
 import _ from 'lodash';
-import * as THREE from 'three';
 import { Color4 } from '../../util/color4';
 import { disposeMaterial } from '../../util/three';
 import * as settings from '../settings';
-
 export interface PlaneHelperColors {
   plane: Color4;
   edgeX: Color4;

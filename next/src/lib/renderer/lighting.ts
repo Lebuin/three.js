@@ -1,7 +1,6 @@
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { UpdatingObjectMixin } from './helpers/updating-object-mixin';
 import { Renderer } from './renderer';
-
 export class Lighting extends UpdatingObjectMixin(THREE.Group) {
   constructor(private castShadows = false) {
     super();

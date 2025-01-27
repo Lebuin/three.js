@@ -1,17 +1,10 @@
-import { Part } from '@/lib/model/parts/part';
-import {
-  axisDirections,
-  distanceBetweenLines,
-  distanceToLine,
-  intersectPlaneAndLine,
-  intersectPlanes,
-} from '@/lib/util/geometry';
+import { Axes } from '@/lib/model/parts/axes';
+import { axisDirections, distanceToLine } from '@/lib/util/geometry';
 import { disposeObject } from '@/lib/util/three';
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { PartObject } from '../part-objects/part-object';
-import Raycaster from '../raycaster';
+import Raycaster, { Intersection } from '../raycaster';
 import { Renderer } from '../renderer';
-
 interface SnapPoint {
   point: THREE.Vector3;
   lines?: THREE.Line3[];
@@ -45,10 +38,9 @@ export class TargetFinder {
   private _constraintPlane?: THREE.Plane;
   private _constraintLine?: THREE.Line3;
 
-  private snapObjects: PartObject<Part>[] = [];
-  private snapGroup: THREE.Group;
-  private snapLines: THREE.Line[] = [];
-  private snapPoints: THREE.Points[] = [];
+  private snapObjects: PartObject[] = [];
+  private snapHelperObjects: PartObject[] = [];
+  private snapHelpers: THREE.Group;
 
   // When determining the plane to constrain to, the XZ plane is given a preference, meaning that
   // if the camera is rotated equally towards all planes, the XZ plane will be chosen. This number
@@ -59,15 +51,16 @@ export class TargetFinder {
   constructor(renderer: Renderer) {
     this.renderer = renderer;
 
-    this.snapGroup = new THREE.Group();
-    this.snapGroup.visible = false;
-    this.renderer.add(this.snapGroup);
+    this.snapHelpers = new THREE.Group();
+    this.snapHelpers.visible = false;
+    this.renderer.add(this.snapHelpers);
 
     this.updateSnapObjects();
   }
 
   dispose() {
-    this.renderer.remove(this.snapGroup);
+    this.renderer.remove(this.snapHelpers);
+    disposeObject(this.snapHelpers);
   }
 
   ///
@@ -116,44 +109,19 @@ export class TargetFinder {
   }
 
   private updateSnapObjects() {
-    this.snapObjects = this.renderer.partObjects.filter(
-      (object) => !object.part.temporary,
-    );
+    this.snapObjects = this.renderer.partObjects;
 
-    for (const child of this.snapGroup.children) {
-      disposeObject(child);
+    disposeObject(this.snapHelpers);
+    const snapHelpers = this.getSnapAxes();
+    this.snapHelperObjects = snapHelpers.map((helper) => {
+      return new PartObject(helper);
+    });
+
+    this.snapHelpers.children = [];
+    if (this.snapHelperObjects.length > 0) {
+      this.snapHelpers.add(...this.snapHelperObjects);
     }
-
-    let snapPlanes = this.getSnapPlanes();
-    let snapLines = this.getSnapLines();
-    let snapPoints: SnapPoint[] = [];
-
-    if (this.constraintPlane) {
-      [snapPlanes, snapLines, snapPoints] = this.constrainToPlane(
-        this.constraintPlane,
-        snapPlanes,
-        snapLines,
-        this.neighborPoint!,
-      );
-    } else if (this.constraintLine) {
-      [snapPlanes, snapLines, snapPoints] = this.constrainToLine(
-        this.constraintLine,
-        snapPlanes,
-        snapLines,
-      );
-    }
-
-    this.snapLines = snapLines.map((line) => this.getSnapLineObject(line));
-    this.snapPoints = snapPoints.map((point) => this.getSnapPointObject(point));
-
-    this.snapGroup.children = [];
-    if (this.snapLines.length > 0) {
-      this.snapGroup.add(...this.snapLines);
-    }
-    if (this.snapPoints.length > 0) {
-      this.snapGroup.add(...this.snapPoints);
-    }
-    this.snapGroup.updateMatrixWorld();
+    this.snapHelpers.updateMatrixWorld();
   }
 
   private getSnapPlanes(): THREE.Plane[] {
@@ -204,202 +172,67 @@ export class TargetFinder {
     return [plane];
   }
 
-  private getSnapLines(): THREE.Line3[] {
-    const snapLines = this.getAxesSnapLines();
+  private getSnapAxes(): Axes[] {
+    const snapAxes = [this.getAxesWithOrigin()];
     if (this.neighborPoint) {
-      snapLines.push(...this.getAxesSnapLines(this.neighborPoint));
+      snapAxes.push(this.getAxesWithOrigin(this.neighborPoint));
     }
-    return snapLines;
+    return snapAxes;
   }
 
-  private getAxesSnapLines(origin = new THREE.Vector3()): THREE.Line3[] {
-    const allAxisDirections = Object.values(axisDirections);
-    allAxisDirections.push(
-      ...Object.values(axisDirections).map((direction) =>
-        direction.clone().negate(),
-      ),
-    );
-
-    return allAxisDirections.map((direction) => {
-      const start = origin.clone();
-      const end = origin
-        .clone()
-        .add(direction.clone().multiplyScalar(this.renderer.groundPlaneSize));
-      const line = new THREE.Line3(start, end);
-      return line;
-    });
-  }
-
-  private getSnapLineObject(line: THREE.Line3): THREE.Line {
-    const geometry = new THREE.BufferGeometry().setFromPoints([
-      line.start,
-      line.end,
-    ]);
-    // Only used for debugging
-    const material = new THREE.LineBasicMaterial({
-      color: 0x000000,
-      depthTest: false,
-      depthWrite: false,
-    });
-
-    const lineObject = new THREE.Line(geometry, material);
-    lineObject.userData.line = line;
-    return lineObject;
-  }
-
-  private getSnapPointObject(point: SnapPoint): THREE.Points {
-    const geometry = new THREE.BufferGeometry().setFromPoints([point.point]);
-    // Only used for debugging
-    const material = new THREE.PointsMaterial({
-      size: 5,
-      sizeAttenuation: false,
-      depthTest: false,
-      depthWrite: false,
-    });
-    const pointObject = new THREE.Points(geometry, material);
-    pointObject.userData.point = point;
-    return pointObject;
-  }
-
-  ///
-  // Constrain snap objects to a plane or line
-
-  private constrainToPlane(
-    constraintPlane: THREE.Plane,
-    snapPlanes: THREE.Plane[],
-    snapLines: THREE.Line3[],
-    neighborPoint: THREE.Vector3,
-  ): [THREE.Plane[], THREE.Line3[], SnapPoint[]] {
-    const constrainedPlanes: THREE.Plane[] = [];
-    const constrainedLines: THREE.Line3[] = [];
-    const constrainedPoints: SnapPoint[] = [];
-
-    for (const plane of snapPlanes) {
-      const intersection = intersectPlanes(constraintPlane, plane);
-      if (intersection) {
-        const direction = intersection
-          .delta(new THREE.Vector3())
-          .multiplyScalar(this.renderer.groundPlaneSize);
-        const start = intersection.closestPointToPoint(
-          neighborPoint,
-          false,
-          new THREE.Vector3(),
-        );
-        constrainedLines.push(
-          new THREE.Line3(start.clone(), start.clone().add(direction)),
-        );
-        constrainedLines.push(
-          new THREE.Line3(start.clone(), start.clone().sub(direction)),
-        );
-      }
-    }
-
-    for (const line of [...constrainedLines, ...snapLines]) {
-      if (
-        Math.abs(constraintPlane.distanceToPoint(line.start)) < 1e-6 &&
-        Math.abs(constraintPlane.distanceToPoint(line.end)) < 1e-6
-      ) {
-        constrainedLines.push(line);
-      } else {
-        const intersection = intersectPlaneAndLine(
-          constraintPlane,
-          line,
-          new THREE.Vector3(),
-        );
-        if (intersection) {
-          constrainedPoints.push({
-            point: intersection,
-            lines: [line],
-          });
-        }
-      }
-    }
-
-    return [constrainedPlanes, constrainedLines, constrainedPoints];
-  }
-
-  private constrainToLine(
-    constraintLine: THREE.Line3,
-    snapPlanes: THREE.Plane[],
-    snapLines: THREE.Line3[],
-  ): [THREE.Plane[], THREE.Line3[], SnapPoint[]] {
-    const constrainedPlanes: THREE.Plane[] = [];
-    const constrainedLines: THREE.Line3[] = [];
-    const constrainedPoints: SnapPoint[] = [];
-
-    for (const plane of snapPlanes) {
-      const intersection = intersectPlaneAndLine(
-        plane,
-        constraintLine,
-        new THREE.Vector3(),
-      );
-      if (intersection) {
-        constrainedPoints.push({
-          point: intersection,
-          lines: [constraintLine],
-        });
-      }
-    }
-
-    for (const line of snapLines) {
-      const intersection = new THREE.Vector3();
-      const distance = distanceBetweenLines(constraintLine, line, intersection);
-      if (distance < 1e-6) {
-        constrainedPoints.push({
-          point: intersection,
-          lines: [constraintLine, line],
-        });
-      }
-    }
-
-    return [constrainedPlanes, constrainedLines, constrainedPoints];
+  private getAxesWithOrigin(origin = new THREE.Vector3()): Axes {
+    return new Axes(this.renderer.groundPlaneSize, origin);
   }
 
   ///
   // Find targets
 
-  findTarget(raycaster: Raycaster): Target {
-    const intersects = raycaster.intersectObjects([
+  findTarget(mouseEvent: MouseEvent): Target {
+    this.renderer.raycaster.setFromEvent(mouseEvent);
+
+    const intersection = this.renderer.raycaster.castSnapping([
       ...this.snapObjects,
-      ...this.snapLines,
-      ...this.snapPoints,
+      ...this.snapHelperObjects,
     ]);
-    if (intersects.length > 0) {
-      return this.createTargetFromIntersect(intersects[0]);
+    if (intersection) {
+      return this.createTargetFromIntersection(intersection);
     }
 
     if (this.constraintLine) {
-      return this.getTargetOnLine(raycaster, this.constraintLine);
+      return this.getTargetOnLine(this.renderer.raycaster, this.constraintLine);
     } else if (this.constraintPlane) {
-      return this.getTargetOnPlane(raycaster, this.constraintPlane);
+      return this.getTargetOnPlane(
+        this.renderer.raycaster,
+        this.constraintPlane,
+      );
     } else {
       return this.getTargetNearPoint(
-        raycaster,
+        this.renderer.raycaster,
         this.neighborPoint ?? new THREE.Vector3(),
       );
     }
   }
 
-  private createTargetFromIntersect(intersect: THREE.Intersection): Target {
-    const point = intersect.point;
-    const object = intersect.object;
-    if (object.parent === this.snapGroup) {
-      if (object instanceof THREE.Line) {
-        const line = object.userData.line as THREE.Line3;
+  private createTargetFromIntersection(
+    intersection: Intersection<PartObject>,
+  ): Target {
+    const point = intersection.point;
+    const object = intersection.object;
+    if (object.parent === this.snapHelpers) {
+      if (object.part instanceof Axes) {
+        const snappedLine = new THREE.Line3(
+          object.part.position.clone(),
+          point.clone(),
+        );
         return {
-          target: line.closestPointToPoint(point, true, new THREE.Vector3()),
-          snappedLine: line,
-          plane: this.constraintPlane,
-        };
-      } else if (object instanceof THREE.Points) {
-        const snapPoint = object.userData.point as SnapPoint;
-        return {
-          target: snapPoint.point,
-          snapPoint: snapPoint,
+          target: point,
+          snappedLine: snappedLine,
           plane: this.constraintPlane,
         };
       } else {
-        throw new Error('Unexpected object in snap group');
+        throw new Error(
+          `Unexpected part in snap helpers group: ${object.part.constructor.name}`,
+        );
       }
     } else {
       return {

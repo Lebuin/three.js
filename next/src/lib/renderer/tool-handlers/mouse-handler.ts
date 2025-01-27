@@ -1,11 +1,10 @@
 import { mouseButtonPressed } from '@/lib/util';
 import { EventDispatcher } from '@/lib/util/event-dispatcher';
 import { Axis } from '@/lib/util/geometry';
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { DrawingHelper } from '../helpers/drawing-helper';
 import { Renderer } from '../renderer';
 import { TargetFinder } from './target-finder';
-
 export interface MouseHandlerEvent {
   point: THREE.Vector3;
   ctrlPressed: boolean;
@@ -134,16 +133,15 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
       return;
     }
 
-    const raycaster = this.renderer.getRaycaster(this.mouseEvent);
-
     const {
       target,
       plane,
       snapPoint: snappedPoint,
       snappedLine,
-    } = this.targetFinder.findTarget(raycaster);
+    } = this.targetFinder.findTarget(this.mouseEvent);
 
     this.renderer.setMouseTarget(target);
+    this.renderer.render();
 
     if (target) {
       this.dispatchEvent({

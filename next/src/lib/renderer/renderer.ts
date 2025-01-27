@@ -2,8 +2,8 @@ import { Tool } from '@/components/toolbar';
 import { Model } from '@/lib/model/model';
 import { Part } from '@/lib/model/parts/part';
 import { Pixels } from '@/lib/util/geometry';
+import { THREE } from '@lib/three.js';
 import _ from 'lodash';
-import * as THREE from 'three';
 import { initOC } from '../geom/oc';
 import { AxesHelper } from './helpers/axes-helper';
 import { UpdatingObject } from './helpers/updating-object-mixin';
@@ -15,7 +15,6 @@ import Raycaster from './raycaster';
 import * as settings from './settings';
 import { createToolHandler } from './tool-handlers';
 import { ToolHandler } from './tool-handlers/tool-handler';
-
 interface RendererEvents {
   tool: { tool: Tool };
 }
@@ -23,6 +22,7 @@ interface RendererEvents {
 export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private readonly _canvas: HTMLCanvasElement;
   private readonly _model: Model;
+  private _raycaster: Raycaster;
 
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
@@ -31,7 +31,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private controls: OrbitControls;
   private axes: AxesHelper;
 
-  private _partObjects: PartObject<Part>[] = [];
+  private _partObjects: PartObject[] = [];
   private updatingObjects: UpdatingObject[] = [];
   private toolHandler?: ToolHandler;
   private mouseTarget?: THREE.Vector3;
@@ -48,6 +48,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
 
     this._canvas = canvas;
     this._model = model;
+    this._raycaster = new Raycaster(this);
 
     this.scene = this.createScene();
     this.renderer = this.createRenderer(this.canvas);
@@ -79,6 +80,9 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   get model() {
     return this._model;
   }
+  get raycaster() {
+    return this._raycaster;
+  }
   get camera() {
     return this._camera;
   }
@@ -91,8 +95,6 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     window.addEventListener('resize', this.onResizeThrottled);
     window.addEventListener('pointerdown', this.onPointerDown);
     this.canvas.addEventListener('contextmenu', this.onContextMenu);
-    this.model.addEventListener('addPart', this.onAddPart);
-    this.model.addEventListener('removePart', this.onRemovePart);
   }
 
   dispose() {
@@ -186,6 +188,8 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
 
   private loadModel() {
     this.addPart(...this.model.parts);
+    this.model.addEventListener('addPart', this.onAddPart);
+    this.model.addEventListener('removePart', this.onRemovePart);
   }
 
   private addPart(...parts: Part[]) {
@@ -280,10 +284,6 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   ///
   /// Controls
 
-  public getRaycaster(event: MouseEvent) {
-    return new Raycaster(this, event);
-  }
-
   /**
    * Set the target of the currently ongoing mouse interaction (e.g. drawing a new part). This
    * point will be used as the target of the controls.
@@ -307,13 +307,15 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
       return new THREE.Vector3();
     }
 
-    const raycaster = this.getRaycaster(event);
-    const intersects = raycaster.intersectObjects(this.partObjects);
-    if (intersects.length > 0) {
-      return intersects[0].point;
+    // TODO: avoid raycasting twice: just make sure MouseHandle is always active regardless of the
+    // tool.
+    this.raycaster.setFromEvent(event);
+    const intersection = this.raycaster.cast(this.partObjects);
+    if (intersection) {
+      return intersection.point;
+    } else {
+      return this.getSceneCenter();
     }
-
-    return this.getSceneCenter();
   }
 
   /**

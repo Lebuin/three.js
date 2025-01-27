@@ -9,8 +9,7 @@ import { Renderer } from '@/lib/renderer/renderer';
 import * as settings from '@/lib/renderer/settings';
 import { Color4 } from '@/lib/util/color4';
 import { Axis, isAxis } from '@/lib/util/geometry';
-import * as THREE from 'three';
-
+import { THREE } from '@lib/three.js';
 /**
  * A collection of a PlaneHelper, PointHelper and LineHelpers that aid in drawing.
  *

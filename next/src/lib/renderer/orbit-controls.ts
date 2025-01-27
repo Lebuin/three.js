@@ -1,7 +1,6 @@
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { OrbitControls as DefaultOrbitControls } from 'three/examples/jsm/Addons.js';
 import { axisDirections } from '../util/geometry';
-
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _v3 = new THREE.Vector3();

@@ -10,22 +10,25 @@ mainBuild:
     - symbol: BRepBuilderAPI_MakeVertex
     - symbol: BRepBuilderAPI_MakeWire
     - symbol: BRepBuilderAPI_ModifyShape
-    - symbol: BRepBuilderAPI_Transform
     - symbol: BRepBuilderAPI_MakeShape
     - symbol: BRepExtrema_DistShapeShape
     - symbol: BRepMesh_DiscretRoot
     - symbol: BRepMesh_IncrementalMesh
     - symbol: BRepPrimAPI_MakeBox
+    - symbol: Handle_Poly_Polygon3D
     - symbol: Handle_Poly_PolygonOnTriangulation
     - symbol: Handle_Poly_Triangulation
     - symbol: gp_Ax2
     - symbol: gp_Dir
     - symbol: gp_Lin
     - symbol: gp_Pnt
+    - symbol: gp_Quaternion
     - symbol: gp_Trsf
+    - symbol: gp_Vec
     - symbol: IntCurvesFace_ShapeIntersector
     - symbol: Message_ProgressRange
     - symbol: Poly_Connect
+    - symbol: Poly_Polygon3D
     - symbol: Poly_PolygonOnTriangulation
     - symbol: Poly_Triangle
     - symbol: Poly_Triangulation

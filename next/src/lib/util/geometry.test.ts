@@ -1,8 +1,7 @@
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { describe, expect, test } from 'vitest';
 import * as geometry from './geometry';
 import { expectToBeDefined, expectVectorsToBeClose } from './test';
-
 describe('getQuaternionFromAxes', () => {
   const xAxis = new THREE.Vector3(1, 0, 0);
   const yAxis = new THREE.Vector3(0, 1, 0);

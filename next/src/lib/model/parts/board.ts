@@ -1,8 +1,6 @@
 import { getOC } from '@/lib/geom/oc';
-import { axesFromVectorQuaternion } from '@/lib/geom/util';
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { Part } from './part';
-
 export class Board extends Part {
   private _size: THREE.Vector3;
 
@@ -25,14 +23,7 @@ export class Board extends Part {
 
   protected buildOCShape() {
     const oc = getOC();
-    const axes = axesFromVectorQuaternion(this.position, this.quaternion);
-    // OCCT doesn't support boxes with a 0 dimension. It's a bit hacky but it'll do.
-    const box = new oc.BRepPrimAPI_MakeBox_5(
-      axes,
-      Math.max(0.001, this.size.x),
-      Math.max(0.001, this.size.y),
-      Math.max(0.001, this.size.z),
-    );
+    const box = new oc.BRepPrimAPI_MakeBox_2(...this.size.toArray());
     const shape = box.Shape();
     return shape;
   }

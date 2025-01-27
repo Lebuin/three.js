@@ -4,11 +4,10 @@ import {
   TopoDS_Shape,
   TopoDS_Vertex,
 } from '@lib/opencascade.js';
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { explore, ShapeType } from './explore';
 import { getOC } from './oc';
 import { pointFromVector, pointToVector } from './util';
-
 export interface Intersection {
   shape: TopoDS_Shape;
   distance: number;
@@ -31,16 +30,13 @@ export function raytraceSnapping(
     return;
   }
 
-  const closerIntersection = snapToIntersections(
+  const snappedIntersection = snapToIntersections(
     ray,
     intersections[0],
     intersections.slice(1),
     tolerance,
   );
-  if (closerIntersection) {
-    return closerIntersection;
-  }
-  return intersections[0];
+  return snappedIntersection;
 }
 
 function snapToIntersections(
@@ -48,7 +44,7 @@ function snapToIntersections(
   closestIntersection: Intersection,
   intersections: Intersection[],
   tolerance: number,
-): Intersection | undefined {
+): Intersection {
   if (closestIntersection.vertex) {
     return closestIntersection;
   }

@@ -1,12 +1,11 @@
 import { Color4 } from '@/lib/util/color4';
 import { disposeMaterial } from '@/lib/util/three';
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import {
   Line2,
   LineGeometry,
   LineMaterial,
 } from 'three/examples/jsm/Addons.js';
-
 export class LineHelper extends THREE.Group {
   private material: LineMaterial;
   private line: Line2;

@@ -1,9 +1,8 @@
 import { Color4 } from '@/lib/util/color4';
 import { disposeMaterial } from '@/lib/util/three';
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { Renderer } from '../renderer';
 import { UpdatingObjectMixin } from './updating-object-mixin';
-
 export class PointHelper extends UpdatingObjectMixin(THREE.Group) {
   private size: number;
   private sprite: THREE.Sprite;

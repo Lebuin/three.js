@@ -1,11 +1,13 @@
+import { Geometries } from '@/lib/geom/geometries';
 import { Board } from '@/lib/model/parts/board';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
-import * as THREE from 'three';
+import { disposeObject } from '@/lib/util/three';
+import { THREE } from '@lib/three.js';
 import { Vector3 } from 'three';
+import { MaterialObject } from '../part-objects/material-object';
 import { Renderer } from '../renderer';
 import { MouseHandler, MouseHandlerEvent } from './mouse-handler';
 import { ToolHandler } from './tool-handler';
-
 interface BoardPoint {
   point: Vector3;
   centerAligned: boolean;
@@ -16,7 +18,7 @@ export class BoardToolHandler extends ToolHandler {
 
   private points: BoardPoint[] = [];
   private fleetingPoint?: BoardPoint;
-  private fleetingBoard?: Board;
+  private fleetingBoard?: MaterialObject;
 
   constructor(renderer: Renderer) {
     super(renderer);
@@ -155,36 +157,9 @@ export class BoardToolHandler extends ToolHandler {
     return event.ctrlPressed;
   }
 
-  private createFleetingBoard() {
-    if (!this.fleetingBoard) {
-      this.fleetingBoard = new Board();
-      this.fleetingBoard.temporary = true;
-      this.model.addPart(this.fleetingBoard);
-    }
-    return this.fleetingBoard;
-  }
-
-  private removeFleetingBoard() {
-    if (this.fleetingBoard) {
-      this.model.removePart(this.fleetingBoard);
-      this.fleetingBoard = undefined;
-    }
-  }
-
-  private updateFleetingBoard() {
-    const points = [...this.points];
-    if (this.fleetingPoint) {
-      points.push(this.fleetingPoint);
-    }
-
-    if (points.length === 0) {
-      return;
-    }
-    while (points.length < 4) {
-      points.push({
-        point: points[points.length - 1].point.clone(),
-        centerAligned: false,
-      });
+  private getBoardProperties(points: BoardPoint[]) {
+    if (points.length !== 4) {
+      throw new Error('Invalid number of points');
     }
 
     const boardSides = {
@@ -216,19 +191,113 @@ export class BoardToolHandler extends ToolHandler {
       position.add(points[3].point.clone().sub(points[2].point));
     }
 
-    const fleetingBoard = this.createFleetingBoard();
-    fleetingBoard.position = position;
-    fleetingBoard.size = size;
-    fleetingBoard.quaternion = quaternion;
+    return {
+      size,
+      position,
+      quaternion,
+    };
+  }
+
+  private getFleetingBoard() {
+    if (!this.fleetingBoard) {
+      this.fleetingBoard = new MaterialObject({
+        faces: new THREE.BufferGeometry(),
+        edges: new THREE.BufferGeometry(),
+        vertices: new THREE.BufferGeometry(),
+      });
+      this.renderer.add(this.fleetingBoard);
+    }
+    return this.fleetingBoard;
+  }
+
+  private removeFleetingBoard() {
+    if (this.fleetingBoard) {
+      disposeObject(this.fleetingBoard);
+      this.renderer.remove(this.fleetingBoard);
+      this.fleetingBoard = undefined;
+    }
+  }
+
+  private updateFleetingBoard() {
+    const points = [...this.points];
+    if (this.fleetingPoint) {
+      points.push(this.fleetingPoint);
+    }
+
+    if (points.length === 0) {
+      return;
+    }
+    while (points.length < 4) {
+      points.push({
+        point: points[points.length - 1].point.clone(),
+        centerAligned: false,
+      });
+    }
+
+    const { size, position, quaternion } = this.getBoardProperties(points);
+
+    const faceGeometry = this.getFaceGeometry(size);
+    const edgeGeometry = this.getEdgeGeometry(size, faceGeometry);
+    const vertexGeometry = new THREE.BufferGeometry();
+    const geometries: Geometries = {
+      faces: faceGeometry,
+      edges: edgeGeometry,
+      vertices: vertexGeometry,
+    };
+
+    const fleetingBoard = this.getFleetingBoard();
+    fleetingBoard.setGeometries(geometries);
+
+    fleetingBoard.position.copy(position);
+    fleetingBoard.quaternion.copy(quaternion);
+
+    const childPosition = size.clone().divideScalar(2);
+    fleetingBoard.children.forEach((child) => {
+      child.position.copy(childPosition);
+    });
+  }
+
+  private getFaceGeometry(size: THREE.Vector3) {
+    const numZero = size.toArray().filter((s) => s === 0).length;
+    if (numZero === 0) {
+      const faceGeometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+      return faceGeometry;
+    } else {
+      const faceGeometry = new THREE.PlaneGeometry(size.x, size.y);
+      return faceGeometry;
+    }
+  }
+
+  private getEdgeGeometry(
+    size: THREE.Vector3,
+    faceGeometry: THREE.BufferGeometry,
+  ) {
+    const numZero = size.toArray().filter((s) => s === 0).length;
+
+    if (numZero < 2) {
+      const edgeGeometry = new THREE.EdgesGeometry(faceGeometry);
+      return edgeGeometry;
+    } else {
+      const edgeGeometry = new THREE.BufferGeometry().setFromPoints([
+        size.clone().multiplyScalar(-0.5),
+        size.clone().multiplyScalar(0.5),
+      ]);
+      return edgeGeometry;
+    }
   }
 
   private confirmBoard() {
-    this.points = [];
     this.fleetingPoint = undefined;
     if (this.fleetingBoard) {
-      this.fleetingBoard.temporary = false;
-      this.fleetingBoard = undefined;
+      const { size, position, quaternion } = this.getBoardProperties(
+        this.points,
+      );
+      const board = new Board(size, position, quaternion);
+      this.model.addPart(board);
+      this.removeFleetingBoard();
     }
+
+    this.points = [];
     this.renderer.setTool('select');
   }
 }

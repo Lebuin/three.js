@@ -1,5 +1,4 @@
-import * as THREE from 'three';
-
+import { THREE } from '@lib/three.js';
 export type Pixels = number;
 
 export function getQuaternionFromAxes(

@@ -1,8 +1,7 @@
 import { disposeMaterial } from '@/lib/util/three';
+import { THREE } from '@lib/three.js';
 import _ from 'lodash';
-import * as THREE from 'three';
 import { Color4 } from '../../util/color4';
-
 interface AxisColors {
   primary: Color4;
   secondary: Color4;

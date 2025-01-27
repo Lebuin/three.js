@@ -1,6 +1,5 @@
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { clamp } from 'three/src/math/MathUtils.js';
-
 export type ColorRepresentation = string | number | Color4;
 
 export class Color4 extends THREE.Color {

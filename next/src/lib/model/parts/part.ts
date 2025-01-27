@@ -1,7 +1,8 @@
-import { ShapeGeometry } from '@/lib/geom/shape-geometry';
-import { TopoDS_Shape } from '@lib/opencascade.js';
-import * as THREE from 'three';
-
+import { OCGeometries } from '@/lib/geom/geometries';
+import { getOC } from '@/lib/geom/oc';
+import { quaternionFromQuaternion, vectorFromVector } from '@/lib/geom/util';
+import { TopLoc_Location, TopoDS_Shape } from '@lib/opencascade.js';
+import { THREE } from '@lib/three.js';
 interface PartEvents {
   change: object;
 }
@@ -9,9 +10,8 @@ interface PartEvents {
 export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   private _position: THREE.Vector3;
   private _quaternion: THREE.Quaternion;
-  public temporary = false;
 
-  protected geometry?: ShapeGeometry;
+  protected geometries?: OCGeometries;
 
   constructor(position?: THREE.Vector3, quaternion?: THREE.Quaternion) {
     super();
@@ -41,19 +41,35 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   }
 
   protected invalidateOCShape() {
-    if (this.geometry) {
-      this.geometry.dispose();
-      this.geometry = undefined;
+    if (this.geometries) {
+      this.geometries.dispose();
+      this.geometries = undefined;
     }
   }
 
-  public getGeometry() {
-    if (!this.geometry) {
+  public getGeometries() {
+    if (!this.geometries) {
       const shape = this.buildOCShape();
-      this.geometry = new ShapeGeometry(shape);
+      this.locateOCShape(shape);
+      this.geometries = new OCGeometries(shape);
     }
-    return this.geometry;
+    return this.geometries;
   }
 
   protected abstract buildOCShape(): TopoDS_Shape;
+
+  protected locateOCShape(shape: TopoDS_Shape) {
+    const location = this.getOCLocation();
+    shape.Location_2(location, true);
+  }
+
+  getOCLocation(): TopLoc_Location {
+    const oc = getOC();
+    const transform = new oc.gp_Trsf_1();
+    const quaternion = quaternionFromQuaternion(this.quaternion);
+    const translation = vectorFromVector(this.position);
+    transform.SetTransformation_3(quaternion, translation);
+    const location = new oc.TopLoc_Location_2(transform);
+    return location;
+  }
 }

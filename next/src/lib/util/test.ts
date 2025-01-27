@@ -1,6 +1,5 @@
-import * as THREE from 'three';
+import { THREE } from '@lib/three.js';
 import { expect } from 'vitest';
-
 /**
  * Identical in functionality to `expect(val).toBeDefined()`, but adds type narrowing.
  */

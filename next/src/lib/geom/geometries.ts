@@ -8,13 +8,12 @@ import {
   TopoDS_Shape,
   TopoDS_Vertex,
 } from '@lib/opencascade.js';
+import { THREE } from '@lib/three.js';
 import _ from 'lodash';
-import * as THREE from 'three';
 import { concatTypedArrays } from '../util/array';
 import { exploreEdges, exploreFaces, exploreVertices } from './explore';
 import { getOC } from './oc';
 import { directionToArray, pointToArray } from './util';
-
 interface FaceData {
   position: Float32Array;
   normal: Float32Array;
@@ -27,11 +26,16 @@ interface EdgeData {
   index: Uint16Array;
   map: TopoDS_Edge[];
 }
+interface WireEdgeData {
+  position: Float32Array;
+  index: Uint16Array;
+  map: TopoDS_Edge[];
+}
 interface VertexData {
   position: Float32Array;
   map: TopoDS_Vertex[];
 }
-const STRIDE = 3;
+export const STRIDE = 3;
 
 enum FaceOrientation {
   BACKWARD,
@@ -46,7 +50,13 @@ const geometryAttributeStride: Record<GeometryAttribute, number> = {
   index: 1,
 } as const;
 
-export class ShapeGeometry {
+export interface Geometries {
+  faces: THREE.BufferGeometry;
+  edges: THREE.BufferGeometry;
+  vertices: THREE.BufferGeometry;
+}
+
+export class OCGeometries {
   private shape: TopoDS_Shape;
 
   private _faces?: THREE.BufferGeometry;
@@ -120,9 +130,17 @@ export class ShapeGeometry {
   }
 
   private buildFacesAndEdges() {
+    const faces = exploreFaces(this.shape);
+    if (faces.length > 0) {
+      this.buildSolidFacesAndEdges(faces);
+    } else {
+      this.buildWireFacesAndEdges();
+    }
+  }
+
+  private buildSolidFacesAndEdges(faces: TopoDS_Face[]) {
     this.mesh();
 
-    const faces = exploreFaces(this.shape);
     const handledEdges: TopoDS_Edge[] = [];
     const allFaceData = faces
       .map((face) => this.getFaceData(face, handledEdges))
@@ -140,9 +158,30 @@ export class ShapeGeometry {
     });
 
     this._faces = faceGeometry;
-    this._edges = edgeGeometry;
     this._faceMap = faceData.map;
+    this._edges = edgeGeometry;
     this._edgeMap = faceData.edgeMap;
+  }
+
+  /**
+   * This method currently only works for straight edges.
+   */
+  private buildWireFacesAndEdges() {
+    const edges = exploreEdges(this.shape);
+    const allEdgeData = edges
+      .map((edge) => this.getWireEdgeData(edge))
+      .filter((edgeData) => edgeData !== undefined);
+    const edgeData = this.mergeWireEdgeData(allEdgeData);
+
+    const edgeGeometry = this.createBufferGeometry({
+      position: edgeData.position,
+      index: edgeData.index,
+    });
+
+    this._faces = new THREE.BufferGeometry();
+    this._faceMap = [];
+    this._edges = edgeGeometry;
+    this._edgeMap = edgeData.map;
   }
 
   private buildVertices() {
@@ -202,6 +241,19 @@ export class ShapeGeometry {
     return { index, map };
   }
 
+  private mergeWireEdgeData(allEdgeData: WireEdgeData[]) {
+    const position = concatTypedArrays(
+      new Float32Array(),
+      ..._.map(allEdgeData, 'position'),
+    );
+    const index = this.mergeIndex(
+      _.map(allEdgeData, 'index'),
+      _.map(allEdgeData, 'position'),
+    );
+    const map = _.flatten(_.map(allEdgeData, 'map'));
+    return { position, index, map };
+  }
+
   private mergeIndex(
     indexArrays: Uint16Array[],
     positionArrays: Float32Array[],
@@ -255,10 +307,12 @@ export class ShapeGeometry {
     const map = this.getFaceMap(face, triangulationHandle);
 
     const edges = exploreEdges(face);
-    const newEdges = edges.filter((edge) => this.isHandled(edge, handledEdges));
+    const newEdges = edges.filter(
+      (edge) => !this.isHandled(edge, handledEdges),
+    );
     handledEdges.push(...newEdges);
 
-    const allEdgeData = exploreEdges(face)
+    const allEdgeData = newEdges
       .map((edge) => this.getEdgeData(edge, triangulationHandle, location))
       .filter((edgeData) => edgeData !== undefined);
     const edgeData = this.mergeEdgeData(allEdgeData);
@@ -359,6 +413,10 @@ export class ShapeGeometry {
       location,
     );
 
+    if (polygonHandle.IsNull()) {
+      return;
+    }
+
     const index = this.getEdgeIndexArray(edge, polygonHandle);
     const map = this.getEdgeMap(edge, polygonHandle);
 
@@ -390,6 +448,52 @@ export class ShapeGeometry {
     return _.times(numNodes - 1, () => edge);
   }
 
+  private getWireEdgeData(edge: TopoDS_Edge): WireEdgeData | void {
+    const vertices = exploreVertices(edge);
+    if (vertices.length < 2) {
+      return;
+    }
+
+    const position = this.getWireEdgePositionArray(edge, vertices);
+    const index = this.getWireEdgeIndexArray(edge, vertices);
+    const map = this.getWireEdgeMap(edge, vertices);
+    return {
+      position,
+      index,
+      map,
+    };
+  }
+
+  private getWireEdgePositionArray(
+    _edge: TopoDS_Edge,
+    vertices: TopoDS_Vertex[],
+  ) {
+    const oc = getOC();
+    const numNodes = vertices.length;
+    const positionArray = new Float32Array(numNodes * 3);
+    for (let i = 0; i < numNodes; i++) {
+      const point = oc.BRep_Tool.Pnt(vertices[i]);
+      const index = i * STRIDE;
+      positionArray.set(pointToArray(point), index);
+    }
+    return positionArray;
+  }
+
+  private getWireEdgeIndexArray(_edge: TopoDS_Edge, vertices: TopoDS_Vertex[]) {
+    const numNodes = vertices.length;
+    const indexArray = new Uint16Array((numNodes - 1) * 2);
+    for (let i = 0; i < numNodes - 1; i++) {
+      const index = i * 2;
+      indexArray.set([i, i + 1], index);
+    }
+    return indexArray;
+  }
+
+  private getWireEdgeMap(_edge: TopoDS_Edge, vertices: TopoDS_Vertex[]) {
+    const numNodes = vertices.length;
+    return _.times(numNodes - 1, () => _edge);
+  }
+
   private getVertexData(vertices: TopoDS_Vertex[]): VertexData {
     const oc = getOC();
     const position = new Float32Array(vertices.length * STRIDE);
@@ -413,7 +517,7 @@ export class ShapeGeometry {
     const oc = getOC();
     const mesher = new oc.BRepMesh_IncrementalMesh_2(
       this.shape,
-      0.01,
+      1,
       false,
       0.5,
       true,
