@@ -4,7 +4,7 @@ import { Part } from '@/lib/model/parts/part';
 import { Pixels } from '@/lib/util/geometry';
 import _ from 'lodash';
 import * as THREE from 'three';
-import { initOC } from '../geo/oc';
+import { initOC } from '../geom/oc';
 import { AxesHelper } from './helpers/axes-helper';
 import { UpdatingObject } from './helpers/updating-object-mixin';
 import { Lighting } from './lighting';

@@ -12,6 +12,10 @@ type TypedArray =
 type TypedArrayConstructor<T> = new (size: number) => T;
 
 export function concatTypedArrays<T extends TypedArray>(...arrays: T[]): T {
+  if (arrays.length === 0) {
+    throw new Error('No arrays to concatenate');
+  }
+
   const totalLength = _.sumBy(arrays, 'length');
   const constructor = arrays[0].constructor as TypedArrayConstructor<T>;
   const result = new constructor(totalLength);

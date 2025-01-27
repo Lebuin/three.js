@@ -1,5 +1,5 @@
-import { getOC } from '@/lib/geo/oc';
-import { axesFromVectorQuaternion } from '@/lib/geo/util';
+import { getOC } from '@/lib/geom/oc';
+import { axesFromVectorQuaternion } from '@/lib/geom/util';
 import * as THREE from 'three';
 import { Part } from './part';
 

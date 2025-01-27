@@ -1,3 +1,4 @@
+import { Part } from '@/lib/model/parts/part';
 import {
   axisDirections,
   distanceBetweenLines,
@@ -7,6 +8,7 @@ import {
 } from '@/lib/util/geometry';
 import { disposeObject } from '@/lib/util/three';
 import * as THREE from 'three';
+import { PartObject } from '../part-objects/part-object';
 import Raycaster from '../raycaster';
 import { Renderer } from '../renderer';
 
@@ -43,7 +45,7 @@ export class TargetFinder {
   private _constraintPlane?: THREE.Plane;
   private _constraintLine?: THREE.Line3;
 
-  private snapObjects: THREE.Object3D[] = [];
+  private snapObjects: PartObject<Part>[] = [];
   private snapGroup: THREE.Group;
   private snapLines: THREE.Line[] = [];
   private snapPoints: THREE.Points[] = [];
@@ -155,6 +157,10 @@ export class TargetFinder {
   }
 
   private getSnapPlanes(): THREE.Plane[] {
+    if (!this.constraintLine && !this.constraintPlane) {
+      return [];
+    }
+
     const snapPlanes: THREE.Plane[] = [
       ...this.getAxesSnapPlanes(),
       ...this.getAxesSnapPlanes(this.neighborPoint),

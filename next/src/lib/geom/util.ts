@@ -12,6 +12,10 @@ export function pointToVector(point: gp_Pnt): THREE.Vector3 {
   return new THREE.Vector3(point.X(), point.Y(), point.Z());
 }
 
+export function pointToArray(point: gp_Pnt): [number, number, number] {
+  return [point.X(), point.Y(), point.Z()];
+}
+
 export function directionFromVector(direction: THREE.Vector3): gp_Dir {
   const oc = getOC();
   return new oc.gp_Dir_4(direction.x, direction.y, direction.z);
@@ -19,6 +23,10 @@ export function directionFromVector(direction: THREE.Vector3): gp_Dir {
 
 export function directionToVector(direction: gp_Dir): THREE.Vector3 {
   return new THREE.Vector3(direction.X(), direction.Y(), direction.Z());
+}
+
+export function directionToArray(direction: gp_Dir): [number, number, number] {
+  return [direction.X(), direction.Y(), direction.Z()];
 }
 
 export function axesFromVectorQuaternion(

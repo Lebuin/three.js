@@ -16,6 +16,7 @@ mainBuild:
     - symbol: BRepMesh_DiscretRoot
     - symbol: BRepMesh_IncrementalMesh
     - symbol: BRepPrimAPI_MakeBox
+    - symbol: Handle_Poly_PolygonOnTriangulation
     - symbol: Handle_Poly_Triangulation
     - symbol: gp_Ax2
     - symbol: gp_Dir
@@ -25,6 +26,7 @@ mainBuild:
     - symbol: IntCurvesFace_ShapeIntersector
     - symbol: Message_ProgressRange
     - symbol: Poly_Connect
+    - symbol: Poly_PolygonOnTriangulation
     - symbol: Poly_Triangle
     - symbol: Poly_Triangulation
     - symbol: Standard_Transient

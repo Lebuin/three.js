@@ -1,4 +1,4 @@
-import { buildFaceGeometry } from '@/lib/geo/mesh';
+import { ShapeGeometry } from '@/lib/geom/shape-geometry';
 import { TopoDS_Shape } from '@lib/opencascade.js';
 import * as THREE from 'three';
 
@@ -11,8 +11,7 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   private _quaternion: THREE.Quaternion;
   public temporary = false;
 
-  protected geometry?: THREE.BufferGeometry;
-  protected ocShape?: TopoDS_Shape;
+  protected geometry?: ShapeGeometry;
 
   constructor(position?: THREE.Vector3, quaternion?: THREE.Quaternion) {
     super();
@@ -42,34 +41,18 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   }
 
   protected invalidateOCShape() {
-    if (this.ocShape) {
-      this.ocShape.delete();
-      this.ocShape = undefined;
-    }
     if (this.geometry) {
       this.geometry.dispose();
       this.geometry = undefined;
     }
   }
 
-  public getGeometry(): THREE.BufferGeometry {
+  public getGeometry() {
     if (!this.geometry) {
-      this.geometry = this.buildGeometry();
+      const shape = this.buildOCShape();
+      this.geometry = new ShapeGeometry(shape);
     }
     return this.geometry;
-  }
-
-  public getOCShape(): TopoDS_Shape {
-    if (!this.ocShape) {
-      this.ocShape = this.buildOCShape();
-    }
-    return this.ocShape;
-  }
-
-  protected buildGeometry() {
-    const shape = this.getOCShape();
-    const geometry = buildFaceGeometry(shape);
-    return geometry;
   }
 
   protected abstract buildOCShape(): TopoDS_Shape;

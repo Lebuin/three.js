@@ -55,10 +55,10 @@ export function exploreFaces(shape: TopoDS_Shape): TopoDS_Face[] {
   return explore(shape, 'face');
 }
 
-export function exploreEdges(shape: TopoDS_Shape): TopoDS_Face[] {
+export function exploreEdges(shape: TopoDS_Shape): TopoDS_Edge[] {
   return explore(shape, 'edge');
 }
 
-export function exploreVertices(shape: TopoDS_Shape): TopoDS_Face[] {
+export function exploreVertices(shape: TopoDS_Shape): TopoDS_Vertex[] {
   return explore(shape, 'vertex');
 }

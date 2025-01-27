@@ -2,26 +2,35 @@ import { Part } from '@/lib/model/parts/part';
 import { disposeMaterial } from '@/lib/util/three';
 import * as THREE from 'three';
 
+interface TypedChildren {
+  faces: THREE.Mesh;
+  edges: THREE.LineSegments;
+  vertices: THREE.Points;
+}
+
 export abstract class PartObject<T extends Part> extends THREE.Group {
   protected _part: T;
 
-  protected typedChildren: [THREE.Mesh, THREE.LineSegments];
+  protected typedChildren: TypedChildren;
 
   constructor(part: T) {
     super();
     this._part = part;
 
     this.typedChildren = this.createChildren();
-    this.add(...this.typedChildren);
+    this.add(
+      this.typedChildren.faces,
+      this.typedChildren.edges,
+      this.typedChildren.vertices,
+    );
 
     this.part.addEventListener('change', this.onPartChange);
     this.onPartChange();
   }
 
   dispose() {
-    disposeMaterial(this.typedChildren[0].material);
-    disposeMaterial(this.typedChildren[1].material);
-    this.typedChildren[1].geometry.dispose();
+    disposeMaterial(this.typedChildren.faces.material);
+    disposeMaterial(this.typedChildren.edges.material);
     this.part.removeEventListener('change', this.onPartChange);
   }
 
@@ -33,26 +42,30 @@ export abstract class PartObject<T extends Part> extends THREE.Group {
     this.updateChildren();
   };
 
-  protected createChildren(): [THREE.Mesh, THREE.LineSegments] {
-    const meshMaterial = this.getMeshMaterial();
-    const mesh = new THREE.Mesh(undefined, meshMaterial);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+  protected createChildren(): TypedChildren {
+    const faceMaterial = this.getMeshMaterial();
+    const faces = new THREE.Mesh(undefined, faceMaterial);
+    faces.castShadow = true;
+    faces.receiveShadow = true;
 
     const edgesMaterial = this.getEdgesMaterial();
     const edges = new THREE.LineSegments(undefined, edgesMaterial);
 
-    return [mesh, edges];
+    // Vertices are not rendered, but used for raycasting
+    const vertices = new THREE.Points<THREE.BufferGeometry>(
+      undefined,
+      undefined,
+    );
+    vertices.visible = false;
+
+    return { faces, edges, vertices };
   }
 
   protected updateChildren() {
-    // We assume the mesh geometry is managed by the part itself. This may change in the future.
-    this.typedChildren[1].geometry.dispose();
-
-    const meshGeometry = this.getMeshGeometry();
-    const edgesGeometry = this.getEdgesGeometry(meshGeometry);
-    this.typedChildren[0].geometry = meshGeometry;
-    this.typedChildren[1].geometry = edgesGeometry;
+    const geometry = this.part.getGeometry();
+    this.typedChildren.faces.geometry = geometry.faces;
+    this.typedChildren.edges.geometry = geometry.edges;
+    this.typedChildren.vertices.geometry = geometry.vertices;
   }
 
   protected getMeshMaterial() {
@@ -74,14 +87,5 @@ export abstract class PartObject<T extends Part> extends THREE.Group {
       linewidth: 1.5,
     });
     return edgesMaterial;
-  }
-
-  protected getMeshGeometry() {
-    return this.part.getGeometry();
-  }
-
-  protected getEdgesGeometry(meshGeometry: THREE.BufferGeometry) {
-    const edgesGeometry = new THREE.EdgesGeometry(meshGeometry);
-    return edgesGeometry;
   }
 }
