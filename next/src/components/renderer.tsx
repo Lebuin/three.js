@@ -1,5 +1,6 @@
 'use client';
 
+import { initOC } from '@/lib/geom/oc';
 import { Model } from '@/lib/model/model';
 import { Renderer as SceneRenderer } from '@/lib/renderer/renderer';
 import React from 'react';
@@ -9,33 +10,44 @@ export interface RendererProps {
   tool: Tool;
   onTool: (tool: Tool) => void;
 }
+export interface RendererState {
+  ocReady: boolean;
+}
 
 export default function Renderer(props: RendererProps) {
-  const mountRef = React.useRef<HTMLCanvasElement>(null);
+  const [state, setState] = React.useState<RendererState>({ ocReady: false });
   const rendererRef = React.useRef<SceneRenderer | null>(null);
 
   React.useEffect(() => {
-    const mount = mountRef.current;
-    if (!mount) {
-      return;
-    }
+    initOC()
+      .then(() => {
+        setState({ ocReady: true });
+      })
+      .catch((e: unknown) => {
+        console.error(e);
+      });
+  }, []);
 
-    const model = new Model();
-    // void initOC().then(() => {
-    //   const board = new Board(new THREE.Vector3(100, 100, 100));
-    //   // const axes = new Axes(100, new THREE.Vector3(100, 0, 100));
-    //   model.addPart(board);
-    // });
-    const renderer = new SceneRenderer(mount, model);
-    renderer.addEventListener('tool', (event) => {
-      props.onTool.call(null, event.tool);
-    });
-    rendererRef.current = renderer;
+  const mountRef = React.useCallback(
+    (mount: HTMLCanvasElement | null) => {
+      if (!mount) {
+        return;
+      }
 
-    return () => {
-      renderer.dispose();
-    };
-  }, [props.onTool]);
+      const model = new Model();
+
+      const renderer = new SceneRenderer(mount, model);
+      renderer.addEventListener('tool', (event) => {
+        props.onTool.call(null, event.tool);
+      });
+      rendererRef.current = renderer;
+
+      return () => {
+        renderer.dispose();
+      };
+    },
+    [props.onTool],
+  );
 
   React.useEffect(() => {
     const renderer = rendererRef.current;
@@ -45,6 +57,10 @@ export default function Renderer(props: RendererProps) {
 
     renderer.setTool(props.tool);
   }, [props.tool]);
+
+  if (!state.ocReady) {
+    return <></>;
+  }
 
   return (
     <div className="relative flex-1">
