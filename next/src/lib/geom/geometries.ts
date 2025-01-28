@@ -3,17 +3,13 @@ import {
   Handle_Poly_PolygonOnTriangulation,
   Handle_Poly_Triangulation,
   TopLoc_Location,
-  TopoDS_Edge,
-  TopoDS_Face,
-  TopoDS_Shape,
-  TopoDS_Vertex,
 } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import { concatTypedArrays } from '../util/array';
 import { getGeometryLength } from '../util/three';
-import { exploreEdges, exploreFaces, exploreVertices } from './explore';
 import { getOC } from './oc';
+import { Edge, Face, RootShape, Solid, Vertex, Wire } from './shape';
 import { directionToArray, pointToArray } from './util';
 
 export const STRIDE = 3;
@@ -48,15 +44,15 @@ export class Geometries {
 }
 
 export interface OCGeometriesArgs extends GeometriesArgs {
-  faceMap?: TopoDS_Face[];
-  edgeMap?: TopoDS_Edge[];
-  vertexMap?: TopoDS_Vertex[];
+  faceMap?: Face[];
+  edgeMap?: Edge[];
+  vertexMap?: Vertex[];
 }
 
 export class OCGeometries extends Geometries {
-  faceMap: TopoDS_Face[];
-  edgeMap: TopoDS_Edge[];
-  vertexMap: TopoDS_Vertex[];
+  faceMap: Face[];
+  edgeMap: Edge[];
+  vertexMap: Vertex[];
 
   constructor(args: OCGeometriesArgs) {
     super(args);
@@ -90,22 +86,22 @@ interface FaceData {
   position: Float32Array;
   normal: Float32Array;
   index: Uint16Array;
-  map: TopoDS_Face[];
+  map: Face[];
   edgeIndex: Uint16Array;
-  edgeMap: TopoDS_Edge[];
+  edgeMap: Edge[];
 }
-interface EdgeData {
+interface SolidEdgeData {
   index: Uint16Array;
-  map: TopoDS_Edge[];
+  map: Edge[];
 }
 interface WireEdgeData {
   position: Float32Array;
   index: Uint16Array;
-  map: TopoDS_Edge[];
+  map: Edge[];
 }
 interface VertexData {
   position: Float32Array;
-  map: TopoDS_Vertex[];
+  map: Vertex[];
 }
 
 enum FaceOrientation {
@@ -122,7 +118,7 @@ const geometryAttributeStride: Record<GeometryAttribute, number> = {
 } as const;
 
 export class OCGeometriesBuilder {
-  build(shape: TopoDS_Shape) {
+  build(shape: RootShape) {
     const { faces, faceMap, edges, edgeMap } = this.buildFacesAndEdges(shape);
     const { vertices, vertexMap } = this.buildVertices(shape);
     const geometries = new OCGeometries({
@@ -139,21 +135,21 @@ export class OCGeometriesBuilder {
   ///
   // Explore subshapes and merge them into a single BufferGeometry
 
-  private buildFacesAndEdges(shape: TopoDS_Shape) {
-    const faces = exploreFaces(shape);
-    if (faces.length > 0) {
-      return this.buildSolidFacesAndEdges(shape, faces);
-    } else {
+  private buildFacesAndEdges(shape: RootShape) {
+    if (shape instanceof Solid) {
+      return this.buildSolidFacesAndEdges(shape);
+    } else if (shape instanceof Wire) {
       return this.buildWireFacesAndEdges(shape);
+    } else {
+      throw new Error('Unsupported shape type');
     }
   }
 
-  private buildSolidFacesAndEdges(shape: TopoDS_Shape, faces: TopoDS_Face[]) {
-    this.mesh(shape);
+  private buildSolidFacesAndEdges(solid: Solid) {
+    this.mesh(solid);
 
-    const handledEdges: TopoDS_Edge[] = [];
-    const allFaceData = faces
-      .map((face) => this.getFaceData(face, handledEdges))
+    const allFaceData = solid.faces
+      .map((face) => this.getFaceData(face))
       .filter((faceData) => faceData !== undefined);
     const faceData = this.mergeFaceData(allFaceData);
 
@@ -178,9 +174,8 @@ export class OCGeometriesBuilder {
   /**
    * This method currently only works for straight edges.
    */
-  private buildWireFacesAndEdges(shape: TopoDS_Shape) {
-    const edges = exploreEdges(shape);
-    const allEdgeData = edges
+  private buildWireFacesAndEdges(shape: Wire) {
+    const allEdgeData = shape.edges
       .map((edge) => this.getWireEdgeData(edge))
       .filter((edgeData) => edgeData !== undefined);
     const edgeData = this.mergeWireEdgeData(allEdgeData);
@@ -191,22 +186,15 @@ export class OCGeometriesBuilder {
     });
 
     return {
-      faces: new THREE.BufferGeometry(),
+      faces: emptyGeometry,
       faceMap: [],
       edges: edgeGeometry,
       edgeMap: edgeData.map,
     };
   }
 
-  private buildVertices(shape: TopoDS_Shape) {
-    const vertices = exploreVertices(shape);
-    const uniqueVertices = [];
-    for (const vertex of vertices) {
-      if (!this.isHandled(vertex, uniqueVertices)) {
-        uniqueVertices.push(vertex);
-      }
-    }
-    const vertexData = this.getVertexData(uniqueVertices);
+  private buildVertices(shape: RootShape) {
+    const vertexData = this.getVertexData(shape.vertices);
 
     const geometry = this.createBufferGeometry({
       position: vertexData.position,
@@ -248,7 +236,7 @@ export class OCGeometriesBuilder {
     };
   }
 
-  private mergeEdgeData(allEdgeData: EdgeData[]) {
+  private mergeSolidEdgeData(allEdgeData: SolidEdgeData[]) {
     const index = concatTypedArrays(
       new Uint16Array(),
       ..._.map(allEdgeData, 'index'),
@@ -296,15 +284,16 @@ export class OCGeometriesBuilder {
   ///
   // Build the geometry data for a single subshape
 
-  private getFaceData(
-    face: TopoDS_Face,
-    handledEdges: TopoDS_Edge[],
-  ): FaceData | void {
+  private getFaceData(face: Face): FaceData | void {
     const oc = getOC();
     const location = new oc.TopLoc_Location_1();
-    const triangulationHandle = oc.BRep_Tool.Triangulation(face, location, 0);
+    const triangulationHandle = oc.BRep_Tool.Triangulation(
+      face.shape,
+      location,
+      0,
+    );
     if (triangulationHandle.IsNull()) {
-      return;
+      throw new Error('Triangulation failed');
     }
 
     const transformation = location.Transformation();
@@ -322,16 +311,13 @@ export class OCGeometriesBuilder {
     const index = this.getFaceIndexArray(face, triangulationHandle);
     const map = this.getFaceMap(face, triangulationHandle);
 
-    const edges = exploreEdges(face);
-    const newEdges = edges.filter(
-      (edge) => !this.isHandled(edge, handledEdges),
-    );
-    handledEdges.push(...newEdges);
-
-    const allEdgeData = newEdges
-      .map((edge) => this.getEdgeData(edge, triangulationHandle, location))
+    // Multiple faces can share the same edge. That's why we don't directly access face.edges,
+    // but use solid.edges, which is guaranteed to only contain every edge once.
+    const edges = face.parent!.edges.filter((edge) => edge.parent === face);
+    const allEdgeData = edges
+      .map((edge) => this.getSolidEdgeData(edge, triangulationHandle, location))
       .filter((edgeData) => edgeData !== undefined);
-    const edgeData = this.mergeEdgeData(allEdgeData);
+    const edgeData = this.mergeSolidEdgeData(allEdgeData);
 
     return {
       position,
@@ -344,7 +330,7 @@ export class OCGeometriesBuilder {
   }
 
   private getFacePositionArray(
-    _face: TopoDS_Face,
+    _face: Face,
     triangulationHandle: Handle_Poly_Triangulation,
     transformation: gp_Trsf,
   ): Float32Array {
@@ -360,7 +346,7 @@ export class OCGeometriesBuilder {
   }
 
   private getFaceNormalArray(
-    face: TopoDS_Face,
+    face: Face,
     triangulationHandle: Handle_Poly_Triangulation,
     transformation: gp_Trsf,
   ): Float32Array {
@@ -371,7 +357,7 @@ export class OCGeometriesBuilder {
 
     const normals = new oc.TColgp_Array1OfDir_2(1, numNodes);
     const polyConnect = new oc.Poly_Connect_2(triangulationHandle);
-    oc.StdPrs_ToolTriangulatedShape.Normal(face, polyConnect, normals);
+    oc.StdPrs_ToolTriangulatedShape.Normal(face.shape, polyConnect, normals);
 
     const normalArray = new Float32Array(numNodes * 3);
     for (let i = 0; i < numNodes; i++) {
@@ -383,7 +369,7 @@ export class OCGeometriesBuilder {
   }
 
   private getFaceIndexArray(
-    face: TopoDS_Face,
+    face: Face,
     triangulationHandle: Handle_Poly_Triangulation,
   ) {
     const triangulation = triangulationHandle.get();
@@ -401,36 +387,40 @@ export class OCGeometriesBuilder {
     return indexArray;
   }
 
-  private getFaceOrientation(face: TopoDS_Face): FaceOrientation {
+  private getFaceOrientation(face: Face): FaceOrientation {
     const oc = getOC();
-    return face.Orientation_1() === oc.TopAbs_Orientation.TopAbs_FORWARD
+    return face.shape.Orientation_1() === oc.TopAbs_Orientation.TopAbs_FORWARD
       ? FaceOrientation.FORWARD
       : FaceOrientation.BACKWARD;
   }
 
   private getFaceMap(
-    face: TopoDS_Face,
+    face: Face,
     triangulationHandle: Handle_Poly_Triangulation,
-  ): TopoDS_Face[] {
+  ): Face[] {
     const triangulation = triangulationHandle.get();
     const numTriangles = triangulation.NbTriangles();
     return _.times(numTriangles, () => face);
   }
 
-  private getEdgeData(
-    edge: TopoDS_Edge,
+  private getSolidEdgeData(
+    edge: Edge,
     triangulationHandle: Handle_Poly_Triangulation,
     location: TopLoc_Location,
-  ): EdgeData | void {
+  ): SolidEdgeData | void {
+    if (!edge.parent) {
+      throw new Error('Edge in solid has no parent');
+    }
+
     const oc = getOC();
     const polygonHandle = oc.BRep_Tool.PolygonOnTriangulation_1(
-      edge,
+      edge.shape,
       triangulationHandle,
       location,
     );
 
     if (polygonHandle.IsNull()) {
-      return;
+      throw new Error('Failed to build edge polygon');
     }
 
     const index = this.getEdgeIndexArray(edge, polygonHandle);
@@ -440,7 +430,7 @@ export class OCGeometriesBuilder {
   }
 
   private getEdgeIndexArray(
-    _edge: TopoDS_Edge,
+    _edge: Edge,
     polygonHandle: Handle_Poly_PolygonOnTriangulation,
   ) {
     const polygon = polygonHandle.get();
@@ -456,18 +446,18 @@ export class OCGeometriesBuilder {
   }
 
   private getEdgeMap(
-    edge: TopoDS_Edge,
+    edge: Edge,
     polygonHandle: Handle_Poly_PolygonOnTriangulation,
-  ): TopoDS_Edge[] {
+  ): Edge[] {
     const polygon = polygonHandle.get();
     const numNodes = polygon.NbNodes();
     return _.times(numNodes - 1, () => edge);
   }
 
-  private getWireEdgeData(edge: TopoDS_Edge): WireEdgeData | void {
-    const vertices = exploreVertices(edge);
+  private getWireEdgeData(edge: Edge): WireEdgeData | void {
+    const vertices = edge.vertices;
     if (vertices.length < 2) {
-      return;
+      throw new Error('Edge has less than 2 vertices');
     }
 
     const position = this.getWireEdgePositionArray(edge, vertices);
@@ -480,22 +470,19 @@ export class OCGeometriesBuilder {
     };
   }
 
-  private getWireEdgePositionArray(
-    _edge: TopoDS_Edge,
-    vertices: TopoDS_Vertex[],
-  ) {
+  private getWireEdgePositionArray(_edge: Edge, vertices: Vertex[]) {
     const oc = getOC();
     const numNodes = vertices.length;
     const positionArray = new Float32Array(numNodes * 3);
     for (let i = 0; i < numNodes; i++) {
-      const point = oc.BRep_Tool.Pnt(vertices[i]);
+      const point = oc.BRep_Tool.Pnt(vertices[i].shape);
       const index = i * STRIDE;
       positionArray.set(pointToArray(point), index);
     }
     return positionArray;
   }
 
-  private getWireEdgeIndexArray(_edge: TopoDS_Edge, vertices: TopoDS_Vertex[]) {
+  private getWireEdgeIndexArray(_edge: Edge, vertices: Vertex[]) {
     const numNodes = vertices.length;
     const indexArray = new Uint16Array((numNodes - 1) * 2);
     for (let i = 0; i < numNodes - 1; i++) {
@@ -505,18 +492,18 @@ export class OCGeometriesBuilder {
     return indexArray;
   }
 
-  private getWireEdgeMap(_edge: TopoDS_Edge, vertices: TopoDS_Vertex[]) {
+  private getWireEdgeMap(_edge: Edge, vertices: Vertex[]) {
     const numNodes = vertices.length;
     return _.times(numNodes - 1, () => _edge);
   }
 
-  private getVertexData(vertices: TopoDS_Vertex[]): VertexData {
+  private getVertexData(vertices: Vertex[]): VertexData {
     const oc = getOC();
     const position = new Float32Array(vertices.length * STRIDE);
     const map = vertices;
 
     for (let i = 0; i < vertices.length; i++) {
-      const point = oc.BRep_Tool.Pnt(vertices[i]);
+      const point = oc.BRep_Tool.Pnt(vertices[i].shape);
       position.set(pointToArray(point), i * STRIDE);
     }
 
@@ -529,10 +516,10 @@ export class OCGeometriesBuilder {
   ///
   // Utils
 
-  private mesh(shape: TopoDS_Shape) {
+  private mesh(solid: Solid) {
     const oc = getOC();
     const mesher = new oc.BRepMesh_IncrementalMesh_2(
-      shape,
+      solid.shape,
       1,
       false,
       0.5,
@@ -541,15 +528,6 @@ export class OCGeometriesBuilder {
     if (!mesher.IsDone()) {
       throw new Error('Mesher did not finish');
     }
-  }
-
-  private isHandled<T extends TopoDS_Shape>(shape: T, handledShapes: T[]) {
-    for (const handledShape of handledShapes) {
-      if (handledShape.IsSame(shape)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private createBufferGeometry(

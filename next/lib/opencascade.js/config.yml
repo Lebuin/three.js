@@ -37,6 +37,7 @@ mainBuild:
     - symbol: TColgp_Array1OfDir
     - symbol: TopAbs_Orientation
     - symbol: TopAbs_ShapeEnum
+    - symbol: TopExp
     - symbol: TopExp_Explorer
     - symbol: TopLoc_Location
     - symbol: TopoDS

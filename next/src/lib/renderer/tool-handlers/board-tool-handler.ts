@@ -3,13 +3,13 @@ import { Board } from '@/lib/model/parts/board';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
 import { disposeObject } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
-import { Vector3 } from 'three';
 import { MaterialObject } from '../part-objects/material-object';
 import { Renderer } from '../renderer';
 import { MouseHandler, MouseHandlerEvent } from './mouse-handler';
 import { ToolHandler } from './tool-handler';
+
 interface BoardPoint {
-  point: Vector3;
+  point: THREE.Vector3;
   centerAligned: boolean;
 }
 
@@ -200,11 +200,8 @@ export class BoardToolHandler extends ToolHandler {
 
   private getFleetingBoard() {
     if (!this.fleetingBoard) {
-      this.fleetingBoard = new MaterialObject({
-        faces: new THREE.BufferGeometry(),
-        edges: new THREE.BufferGeometry(),
-        vertices: new THREE.BufferGeometry(),
-      });
+      const geometries = new Geometries({});
+      this.fleetingBoard = new MaterialObject(geometries);
       this.renderer.add(this.fleetingBoard);
     }
     return this.fleetingBoard;
@@ -239,11 +236,11 @@ export class BoardToolHandler extends ToolHandler {
     const faceGeometry = this.getFaceGeometry(size);
     const edgeGeometry = this.getEdgeGeometry(size, faceGeometry);
     const vertexGeometry = new THREE.BufferGeometry();
-    const geometries: Geometries = {
+    const geometries = new Geometries({
       faces: faceGeometry,
       edges: edgeGeometry,
       vertices: vertexGeometry,
-    };
+    });
 
     const fleetingBoard = this.getFleetingBoard();
     fleetingBoard.setGeometries(geometries);

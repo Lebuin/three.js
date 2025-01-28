@@ -1,8 +1,8 @@
 import { Pixels } from '@/lib/util/geometry';
-import { TopoDS_Edge, TopoDS_Face, TopoDS_Vertex } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { OCGeometries } from '../geom/geometries';
 import { projectOnto } from '../geom/projection';
+import { Edge, Face, Vertex } from '../geom/shape';
 import {
   GeometriesObject,
   OCGeometriesObject,
@@ -20,21 +20,21 @@ export interface BaseIntersection<
 export interface FaceIntersection<
   T extends OCGeometriesObject = OCGeometriesObject,
 > extends BaseIntersection<T> {
-  face: TopoDS_Face;
+  face: Face;
   faceIndex: number;
 }
 
 export interface EdgeIntersection<
   T extends OCGeometriesObject = OCGeometriesObject,
 > extends BaseIntersection<T> {
-  edge: TopoDS_Edge;
+  edge: Edge;
   edgeIndex: number;
 }
 
 export interface VertexIntersection<
   T extends OCGeometriesObject = OCGeometriesObject,
 > extends BaseIntersection<T> {
-  vertex: TopoDS_Vertex;
+  vertex: Vertex;
   vertexIndex: number;
 }
 

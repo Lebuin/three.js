@@ -139,7 +139,6 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
       snappedPoint: snappedPoint,
       snappedLine,
     } = this.targetFinder.findTarget(this.mouseEvent);
-    this.targetFinder.getTargetPlane(target);
 
     this.renderer.setMouseTarget(target);
     this.renderer.render();

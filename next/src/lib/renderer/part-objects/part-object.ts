@@ -8,7 +8,7 @@ export class PartObject<
   protected _part: T;
 
   constructor(part: T) {
-    super(part.getGeometries());
+    super(part.shape.geometries);
     this._part = part;
 
     this.part.addEventListener('change', this.onPartChange);
@@ -24,6 +24,6 @@ export class PartObject<
   }
 
   protected onPartChange = () => {
-    this.setGeometries(this.part.getGeometries());
+    this.setGeometries(this.part.shape.geometries);
   };
 }

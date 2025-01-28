@@ -1,10 +1,11 @@
 import { OCGeometries, STRIDE } from '@/lib/geom/geometries';
-import { getIntersections } from '@/lib/geom/projection';
-import { pointFromVector, vertexFromPoint } from '@/lib/geom/util';
+import { getIntersections, ShapeIntersection } from '@/lib/geom/projection';
+import { Vertex } from '@/lib/geom/shape';
+import { pointToVector, vertexFromPoint } from '@/lib/geom/util';
 import { Axes } from '@/lib/model/parts/axes';
 import { axisDirections, distanceToLine } from '@/lib/util/geometry';
 import { disposeObject, getIndexedAttribute3 } from '@/lib/util/three';
-import { TopoDS_Vertex } from '@lib/opencascade.js';
+import { TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import {
   GeometriesObject,
@@ -19,6 +20,7 @@ export interface Target {
   snappedPoint?: THREE.Vector3;
   snappedLine?: THREE.Line3;
   plane?: THREE.Plane;
+  shape?: TopoDS_Shape;
 }
 
 /**
@@ -149,23 +151,22 @@ export class TargetFinder {
     axes: PartObject,
     objects: PartObject[],
   ): OCGeometriesObject {
-    const points: THREE.Vector3[] = [];
-    const axesShape = axes.part.getOCShape();
+    const intersections: ShapeIntersection[] = [];
     for (const object of objects) {
       const intersections = getIntersections(
-        axesShape,
-        object.part.getOCShape(),
+        axes.part.shape,
+        object.part.shape,
       );
-      points.push(...intersections);
+      intersections.push(...intersections);
     }
 
-    const position = new Float32Array(points.length * 3);
-    const vertexMap: TopoDS_Vertex[] = [];
-    for (let i = 0; i < points.length; i++) {
-      const point = points[i];
-      const vertex = vertexFromPoint(pointFromVector(point));
-      position.set(point.toArray(), i * STRIDE);
-      vertexMap[i] = vertex;
+    const position = new Float32Array(intersections.length * 3);
+    const vertexMap: Vertex[] = [];
+    for (let i = 0; i < intersections.length; i++) {
+      const intersection = intersections[i];
+      const vertex = vertexFromPoint(intersection.point);
+      position.set(pointToVector(intersection.point).toArray(), i * STRIDE);
+      vertexMap[i] = new Vertex(vertex);
     }
     const vertices = new THREE.BufferGeometry();
     vertices.setAttribute(
@@ -247,6 +248,7 @@ export class TargetFinder {
       );
       return {
         target: point.clone(),
+        snappedPoint: point.clone(),
         plane: plane,
       };
     } else {

@@ -1,5 +1,5 @@
-import { OCGeometries, OCGeometriesBuilder } from '@/lib/geom/geometries';
 import { getOC } from '@/lib/geom/oc';
+import { RootShape, shapeFactory } from '@/lib/geom/shape';
 import { quaternionFromQuaternion, vectorFromVector } from '@/lib/geom/util';
 import { TopLoc_Location, TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
@@ -11,8 +11,7 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   private _position: THREE.Vector3;
   private _quaternion: THREE.Quaternion;
 
-  protected shape?: TopoDS_Shape;
-  protected geometries?: OCGeometries;
+  protected _shape?: RootShape;
 
   constructor(position?: THREE.Vector3, quaternion?: THREE.Quaternion) {
     super();
@@ -20,8 +19,12 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
     this._quaternion = quaternion ?? new THREE.Quaternion();
   }
 
+  dispose() {
+    this.invalidateShape();
+  }
+
   protected onChange() {
-    this.invalidateOCShape();
+    this.invalidateShape();
     this.dispatchEvent({ type: 'change' });
   }
 
@@ -41,31 +44,20 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
     this.onChange();
   }
 
-  protected invalidateOCShape() {
-    if (this.shape) {
-      this.shape = undefined;
-    }
-    if (this.geometries) {
-      this.geometries.dispose();
-      this.geometries = undefined;
+  protected invalidateShape() {
+    if (this._shape) {
+      this._shape.dispose();
+      this._shape = undefined;
     }
   }
 
-  public getOCShape() {
-    if (!this.shape) {
-      this.shape = this.buildOCShape();
-      this.locateOCShape(this.shape);
+  get shape() {
+    if (!this._shape) {
+      const shape = this.buildOCShape();
+      this.locateOCShape(shape);
+      this._shape = shapeFactory(shape);
     }
-    return this.shape;
-  }
-
-  public getGeometries() {
-    if (!this.geometries) {
-      const shape = this.getOCShape();
-      const builder = new OCGeometriesBuilder();
-      this.geometries = builder.build(shape);
-    }
-    return this.geometries;
+    return this._shape;
   }
 
   protected abstract buildOCShape(): TopoDS_Shape;
