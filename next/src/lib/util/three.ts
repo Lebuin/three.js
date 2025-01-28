@@ -55,3 +55,81 @@ export function disposeObject(
     }
   });
 }
+
+export function getIndexedAttribute(
+  geometry: THREE.BufferGeometry,
+  attribute: string,
+  index: number,
+  stride: number,
+): THREE.Vector2 | THREE.Vector3 | THREE.Quaternion {
+  const geomIndex = geometry.getIndex();
+  const attrIndex = geomIndex ? geomIndex.array[index] : index;
+  const geomAttribute = geometry.getAttribute(attribute);
+
+  if (stride !== geomAttribute.itemSize) {
+    throw new Error(
+      `Stride "${stride}" does not match itemSize "${geomAttribute.itemSize}"`,
+    );
+  }
+
+  if (stride === 2) {
+    return new THREE.Vector2(
+      geomAttribute.getX(attrIndex),
+      geomAttribute.getY(attrIndex),
+    );
+  } else if (stride === 3) {
+    return new THREE.Vector3(
+      geomAttribute.getX(attrIndex),
+      geomAttribute.getY(attrIndex),
+      geomAttribute.getZ(attrIndex),
+    );
+  } else if (stride === 4) {
+    return new THREE.Quaternion(
+      geomAttribute.getX(attrIndex),
+      geomAttribute.getY(attrIndex),
+      geomAttribute.getZ(attrIndex),
+      geomAttribute.getW(attrIndex),
+    );
+  } else {
+    throw new Error(`Invalid stride: ${stride}`);
+  }
+}
+
+export function getIndexedAttribute2(
+  geometry: THREE.BufferGeometry,
+  attribute: string,
+  index: number,
+): THREE.Vector2 {
+  return getIndexedAttribute(geometry, attribute, index, 2) as THREE.Vector2;
+}
+
+export function getIndexedAttribute3(
+  geometry: THREE.BufferGeometry,
+  attribute: string,
+  index: number,
+): THREE.Vector3 {
+  return getIndexedAttribute(geometry, attribute, index, 3) as THREE.Vector3;
+}
+
+export function getIndexedAttribute4(
+  geometry: THREE.BufferGeometry,
+  attribute: string,
+  index: number,
+): THREE.Quaternion {
+  return getIndexedAttribute(geometry, attribute, index, 4) as THREE.Quaternion;
+}
+
+export function getGeometryLength(geometry: THREE.BufferGeometry): number {
+  if (geometry.index) {
+    return geometry.index.count;
+  } else {
+    const attribute = geometry.getAttribute('position') as
+      | THREE.BufferAttribute
+      | undefined;
+    if (attribute) {
+      return attribute.count;
+    } else {
+      return 0;
+    }
+  }
+}

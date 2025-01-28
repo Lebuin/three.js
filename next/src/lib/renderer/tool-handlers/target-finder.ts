@@ -1,18 +1,22 @@
+import { OCGeometries, STRIDE } from '@/lib/geom/geometries';
+import { getIntersections } from '@/lib/geom/projection';
+import { pointFromVector, vertexFromPoint } from '@/lib/geom/util';
 import { Axes } from '@/lib/model/parts/axes';
 import { axisDirections, distanceToLine } from '@/lib/util/geometry';
-import { disposeObject } from '@/lib/util/three';
+import { disposeObject, getIndexedAttribute3 } from '@/lib/util/three';
+import { TopoDS_Vertex } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
+import {
+  GeometriesObject,
+  OCGeometriesObject,
+} from '../part-objects/geometries-object';
 import { PartObject } from '../part-objects/part-object';
 import Raycaster, { Intersection } from '../raycaster';
 import { Renderer } from '../renderer';
-interface SnapPoint {
-  point: THREE.Vector3;
-  lines?: THREE.Line3[];
-}
 
 export interface Target {
   target?: THREE.Vector3;
-  snapPoint?: SnapPoint;
+  snappedPoint?: THREE.Vector3;
   snappedLine?: THREE.Line3;
   plane?: THREE.Plane;
 }
@@ -39,7 +43,8 @@ export class TargetFinder {
   private _constraintLine?: THREE.Line3;
 
   private snapObjects: PartObject[] = [];
-  private snapHelperObjects: PartObject[] = [];
+  private mainAxes: PartObject;
+  private snapHelperObjects: OCGeometriesObject[] = [];
   private snapHelpers: THREE.Group;
 
   // When determining the plane to constrain to, the XZ plane is given a preference, meaning that
@@ -50,6 +55,9 @@ export class TargetFinder {
 
   constructor(renderer: Renderer) {
     this.renderer = renderer;
+
+    const mainAxes = new Axes(this.renderer.groundPlaneSize);
+    this.mainAxes = new PartObject(mainAxes);
 
     this.snapHelpers = new THREE.Group();
     this.snapHelpers.visible = false;
@@ -112,76 +120,65 @@ export class TargetFinder {
     this.snapObjects = this.renderer.partObjects;
 
     disposeObject(this.snapHelpers);
-    const snapHelpers = this.getSnapAxes();
-    this.snapHelperObjects = snapHelpers.map((helper) => {
-      return new PartObject(helper);
-    });
+    this.snapHelperObjects = this.getSnapHelperObjects();
 
     this.snapHelpers.children = [];
-    if (this.snapHelperObjects.length > 0) {
-      this.snapHelpers.add(...this.snapHelperObjects);
-    }
+    this.snapHelpers.add(this.mainAxes, ...this.snapHelperObjects);
     this.snapHelpers.updateMatrixWorld();
   }
 
-  private getSnapPlanes(): THREE.Plane[] {
-    if (!this.constraintLine && !this.constraintPlane) {
+  private getSnapHelperObjects(): OCGeometriesObject[] {
+    if (!this.neighborPoint) {
       return [];
     }
 
-    const snapPlanes: THREE.Plane[] = [
-      ...this.getAxesSnapPlanes(),
-      ...this.getAxesSnapPlanes(this.neighborPoint),
-    ];
+    const axes = this.getAxesWithOrigin(this.neighborPoint);
+    const intersections = this.getAxesIntersections(axes, [
+      ...this.snapObjects,
+      this.mainAxes,
+    ]);
+    return [axes, intersections];
+  }
 
-    if (this.constraintPlane) {
-      snapPlanes.push(
-        ...this.getSnapPlanesForPlane(
-          this.constraintPlane,
-          this.neighborPoint!,
-        ),
+  private getAxesWithOrigin(origin = new THREE.Vector3()): PartObject {
+    const axes = new Axes(this.renderer.groundPlaneSize, origin);
+    return new PartObject(axes);
+  }
+
+  private getAxesIntersections(
+    axes: PartObject,
+    objects: PartObject[],
+  ): OCGeometriesObject {
+    const points: THREE.Vector3[] = [];
+    const axesShape = axes.part.getOCShape();
+    for (const object of objects) {
+      const intersections = getIntersections(
+        axesShape,
+        object.part.getOCShape(),
       );
+      points.push(...intersections);
     }
 
-    return snapPlanes;
-  }
-
-  getAxesSnapPlanes(origin = new THREE.Vector3()): THREE.Plane[] {
-    const snapPlanes = Object.values(axisDirections).map((direction) => {
-      return new THREE.Plane().setFromNormalAndCoplanarPoint(direction, origin);
-    });
-    return snapPlanes;
-  }
-
-  private getSnapPlanesForPlane(
-    constraintPlane: THREE.Plane,
-    neighborPoint: THREE.Vector3,
-  ): THREE.Plane[] {
-    // Add the plan that has a normal which is orthogonal to the Y axis. When intersected with the
-    // constraint plane in a later step, this will give a constraint line that points upwards.
-    const yAxis = new THREE.Vector3(0, 1, 0);
-    const sideways = yAxis.clone().cross(constraintPlane.normal);
-    if (sideways.lengthSq() < 1e-6) {
-      return [];
+    const position = new Float32Array(points.length * 3);
+    const vertexMap: TopoDS_Vertex[] = [];
+    for (let i = 0; i < points.length; i++) {
+      const point = points[i];
+      const vertex = vertexFromPoint(pointFromVector(point));
+      position.set(point.toArray(), i * STRIDE);
+      vertexMap[i] = vertex;
     }
-
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      sideways,
-      neighborPoint,
+    const vertices = new THREE.BufferGeometry();
+    vertices.setAttribute(
+      'position',
+      new THREE.BufferAttribute(position, STRIDE),
     );
-    return [plane];
-  }
 
-  private getSnapAxes(): Axes[] {
-    const snapAxes = [this.getAxesWithOrigin()];
-    if (this.neighborPoint) {
-      snapAxes.push(this.getAxesWithOrigin(this.neighborPoint));
-    }
-    return snapAxes;
-  }
-
-  private getAxesWithOrigin(origin = new THREE.Vector3()): Axes {
-    return new Axes(this.renderer.groundPlaneSize, origin);
+    const geometries = new OCGeometries({
+      vertices,
+      vertexMap,
+    });
+    const geometriesObject = new GeometriesObject(geometries);
+    return geometriesObject;
   }
 
   ///
@@ -192,8 +189,10 @@ export class TargetFinder {
 
     const intersection = this.renderer.raycaster.castSnapping([
       ...this.snapObjects,
+      this.mainAxes,
       ...this.snapHelperObjects,
     ]);
+
     if (intersection) {
       return this.createTargetFromIntersection(intersection);
     }
@@ -213,35 +212,45 @@ export class TargetFinder {
     }
   }
 
-  private createTargetFromIntersection(
-    intersection: Intersection<PartObject>,
-  ): Target {
-    const point = intersection.point;
+  private createTargetFromIntersection(intersection: Intersection): Target {
     const object = intersection.object;
     if (object.parent === this.snapHelpers) {
-      if (object.part instanceof Axes) {
-        const snappedLine = new THREE.Line3(
-          object.part.position.clone(),
-          point.clone(),
-        );
-        return {
-          target: point,
-          snappedLine: snappedLine,
-          plane: this.constraintPlane,
-        };
-      } else {
-        throw new Error(
-          `Unexpected part in snap helpers group: ${object.part.constructor.name}`,
-        );
-      }
-    } else {
+      return this.createTargetFromSnapHelper(intersection);
+    }
+
+    const point = intersection.point;
+    return {
+      target: point.clone(),
+      snappedPoint: point.clone(),
+      plane: this.getTargetPlane(point),
+    };
+  }
+
+  private createTargetFromSnapHelper(intersection: Intersection): Target {
+    const point = intersection.point;
+    if ('vertex' in intersection) {
       return {
-        target: point,
-        snapPoint: {
-          point,
-        },
-        plane: this.constraintPlane,
+        target: point.clone(),
+        snappedPoint: point.clone(),
+        plane: this.getTargetPlane(point),
       };
+    } else if ('edge' in intersection) {
+      const startPoint = getIndexedAttribute3(
+        intersection.object.edges.geometry,
+        'position',
+        intersection.edgeIndex * 2,
+      );
+      const plane = new THREE.Plane().setFromCoplanarPoints(
+        startPoint.clone(),
+        point.clone(),
+        this.neighborPoint ?? new THREE.Vector3(),
+      );
+      return {
+        target: point.clone(),
+        plane: plane,
+      };
+    } else {
+      throw new Error('Unexpected intersection with snap helper face');
     }
   }
 
@@ -266,20 +275,6 @@ export class TargetFinder {
     raycaster: Raycaster,
     point: THREE.Vector3,
   ): Target {
-    const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      planeNormal,
-      point,
-    );
-    const target =
-      raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
-    return {
-      target,
-      plane,
-    };
-  }
-
-  getTargetOnAxisPlane(raycaster: Raycaster, point: THREE.Vector3): Target {
     const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
       planeNormal,
@@ -322,5 +317,23 @@ export class TargetFinder {
 
     const minAngle = Math.min(...angles);
     return normals[angles.indexOf(minAngle)];
+  }
+
+  getTargetPlane(point: THREE.Vector3): THREE.Plane | undefined {
+    if (this.constraintPlane) {
+      return this.constraintPlane;
+    }
+    if (!this.neighborPoint) {
+      return;
+    }
+
+    const direction = point.clone().sub(this.neighborPoint);
+    for (let i = 0; i < 3; i++) {
+      if (direction.getComponent(i) === 0) {
+        const normal = new THREE.Vector3();
+        normal.setComponent(i, 1);
+        return new THREE.Plane().setFromNormalAndCoplanarPoint(normal, point);
+      }
+    }
   }
 }

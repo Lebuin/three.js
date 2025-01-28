@@ -4,6 +4,7 @@ import {
   gp_Pnt,
   gp_Quaternion,
   gp_Vec,
+  TopoDS_Vertex,
 } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { axisDirections } from '../util/geometry';
@@ -45,6 +46,17 @@ export function vectorToVector(vector: gp_Vec): THREE.Vector3 {
 
 export function vectorToArray(vector: gp_Vec): [number, number, number] {
   return [vector.X(), vector.Y(), vector.Z()];
+}
+
+export function vertexFromPoint(point: gp_Pnt): TopoDS_Vertex {
+  const oc = getOC();
+  const builder = new oc.BRepBuilderAPI_MakeVertex(point);
+  return builder.Vertex();
+}
+
+export function vertexToPoint(vertex: TopoDS_Vertex): gp_Pnt {
+  const oc = getOC();
+  return oc.BRep_Tool.Pnt(vertex);
 }
 
 export function axesFromVectorQuaternion(

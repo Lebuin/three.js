@@ -10,7 +10,7 @@ export class LineHelper extends THREE.Group {
   private material: LineMaterial;
   private line: Line2;
 
-  constructor(lineWidth: number, color = new Color4()) {
+  constructor(lineWidth = 1, color = new Color4()) {
     super();
     const geometry = new LineGeometry();
     geometry.setPositions([0, 0, 0, 0, 0, 1]);
@@ -39,6 +39,11 @@ export class LineHelper extends THREE.Group {
   public setColor(color: Color4) {
     this.material.color = color;
     this.material.opacity = color.a;
+    this.material.needsUpdate = true;
+  }
+
+  public setLineWidth(lineWidth: number) {
+    this.material.linewidth = lineWidth;
     this.material.needsUpdate = true;
   }
 }

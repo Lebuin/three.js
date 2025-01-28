@@ -256,7 +256,6 @@ describe('vectorsAreParallel', () => {
   test('should return false for vectors that are not parallel within a tolerance', () => {
     const vector1 = new THREE.Vector3(1, 0, 0);
     const vector2 = new THREE.Vector3(1, 0.01, 0);
-    console.log(new THREE.Vector3().crossVectors(vector1, vector2).lengthSq());
 
     expect(geometry.vectorsAreParallel(vector1, vector2)).toBe(false);
   });

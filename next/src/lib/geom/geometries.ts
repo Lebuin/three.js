@@ -11,9 +11,81 @@ import {
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import { concatTypedArrays } from '../util/array';
+import { getGeometryLength } from '../util/three';
 import { exploreEdges, exploreFaces, exploreVertices } from './explore';
 import { getOC } from './oc';
 import { directionToArray, pointToArray } from './util';
+
+export const STRIDE = 3;
+const emptyGeometry = new THREE.BufferGeometry();
+emptyGeometry.setAttribute(
+  'position',
+  new THREE.BufferAttribute(new Float32Array(), 3),
+);
+
+export interface GeometriesArgs {
+  faces?: THREE.BufferGeometry;
+  edges?: THREE.BufferGeometry;
+  vertices?: THREE.BufferGeometry;
+}
+
+export class Geometries {
+  faces: THREE.BufferGeometry;
+  edges: THREE.BufferGeometry;
+  vertices: THREE.BufferGeometry;
+
+  constructor(args: GeometriesArgs) {
+    this.faces = args.faces ?? emptyGeometry;
+    this.edges = args.edges ?? emptyGeometry;
+    this.vertices = args.vertices ?? emptyGeometry;
+  }
+
+  dispose() {
+    this.faces.dispose();
+    this.edges.dispose();
+    this.vertices.dispose();
+  }
+}
+
+export interface OCGeometriesArgs extends GeometriesArgs {
+  faceMap?: TopoDS_Face[];
+  edgeMap?: TopoDS_Edge[];
+  vertexMap?: TopoDS_Vertex[];
+}
+
+export class OCGeometries extends Geometries {
+  faceMap: TopoDS_Face[];
+  edgeMap: TopoDS_Edge[];
+  vertexMap: TopoDS_Vertex[];
+
+  constructor(args: OCGeometriesArgs) {
+    super(args);
+    this.faceMap = args.faceMap ?? [];
+    this.edgeMap = args.edgeMap ?? [];
+    this.vertexMap = args.vertexMap ?? [];
+
+    const numFacePositions = getGeometryLength(this.faces);
+    const numEdgePositions = getGeometryLength(this.edges);
+    const numVertexPositions = getGeometryLength(this.vertices);
+    const numTriangles = numFacePositions / 3;
+    const numEdges = numEdgePositions / 2;
+    const numVertices = numVertexPositions;
+
+    if (numTriangles !== this.faceMap.length) {
+      throw new Error('Face map length does not match face position count');
+    }
+    if (numEdges !== this.edgeMap.length) {
+      throw new Error('Edge map length does not match edge position count');
+    }
+    if (numVertices !== this.vertexMap.length) {
+      throw new Error('Vertex map length does not match vertex position count');
+    }
+  }
+}
+
+///
+// Build an OCGeometries object from a TopoDS_Shape
+
 interface FaceData {
   position: Float32Array;
   normal: Float32Array;
@@ -35,7 +107,6 @@ interface VertexData {
   position: Float32Array;
   map: TopoDS_Vertex[];
 }
-export const STRIDE = 3;
 
 enum FaceOrientation {
   BACKWARD,
@@ -50,96 +121,35 @@ const geometryAttributeStride: Record<GeometryAttribute, number> = {
   index: 1,
 } as const;
 
-export interface Geometries {
-  faces: THREE.BufferGeometry;
-  edges: THREE.BufferGeometry;
-  vertices: THREE.BufferGeometry;
-}
-
-export class OCGeometries {
-  private shape: TopoDS_Shape;
-
-  private _faces?: THREE.BufferGeometry;
-  private _edges?: THREE.BufferGeometry;
-  private _vertices?: THREE.BufferGeometry;
-  private _faceMap?: TopoDS_Face[];
-  private _edgeMap?: TopoDS_Edge[];
-  private _vertexMap?: TopoDS_Vertex[];
-
-  constructor(shape: TopoDS_Shape) {
-    this.shape = shape;
-  }
-
-  dispose() {
-    if (this._faces) {
-      this._faces.dispose();
-    }
-    if (this._edges) {
-      this._edges.dispose();
-    }
-    if (this._vertices) {
-      this._vertices.dispose();
-    }
-  }
-
-  get faces() {
-    if (!this._faces) {
-      this.build();
-    }
-    return this._faces!;
-  }
-  getFace(index: number) {
-    if (!this._faceMap) {
-      this.build();
-    }
-    return this._faceMap![index];
-  }
-
-  get edges() {
-    if (!this._edges) {
-      this.build();
-    }
-    return this._edges!;
-  }
-  getEdge(index: number) {
-    if (!this._edgeMap) {
-      this.build();
-    }
-    return this._edgeMap![index];
-  }
-
-  get vertices() {
-    if (!this._vertices) {
-      this.build();
-    }
-    return this._vertices!;
-  }
-  getVertex(index: number) {
-    if (!this._vertexMap) {
-      this.build();
-    }
-    return this._vertexMap![index];
+export class OCGeometriesBuilder {
+  build(shape: TopoDS_Shape) {
+    const { faces, faceMap, edges, edgeMap } = this.buildFacesAndEdges(shape);
+    const { vertices, vertexMap } = this.buildVertices(shape);
+    const geometries = new OCGeometries({
+      faces,
+      faceMap,
+      edges,
+      edgeMap,
+      vertices,
+      vertexMap,
+    });
+    return geometries;
   }
 
   ///
   // Explore subshapes and merge them into a single BufferGeometry
 
-  private build() {
-    this.buildFacesAndEdges();
-    this.buildVertices();
-  }
-
-  private buildFacesAndEdges() {
-    const faces = exploreFaces(this.shape);
+  private buildFacesAndEdges(shape: TopoDS_Shape) {
+    const faces = exploreFaces(shape);
     if (faces.length > 0) {
-      this.buildSolidFacesAndEdges(faces);
+      return this.buildSolidFacesAndEdges(shape, faces);
     } else {
-      this.buildWireFacesAndEdges();
+      return this.buildWireFacesAndEdges(shape);
     }
   }
 
-  private buildSolidFacesAndEdges(faces: TopoDS_Face[]) {
-    this.mesh();
+  private buildSolidFacesAndEdges(shape: TopoDS_Shape, faces: TopoDS_Face[]) {
+    this.mesh(shape);
 
     const handledEdges: TopoDS_Edge[] = [];
     const allFaceData = faces
@@ -157,17 +167,19 @@ export class OCGeometries {
       index: faceData.edgeIndex,
     });
 
-    this._faces = faceGeometry;
-    this._faceMap = faceData.map;
-    this._edges = edgeGeometry;
-    this._edgeMap = faceData.edgeMap;
+    return {
+      faces: faceGeometry,
+      faceMap: faceData.map,
+      edges: edgeGeometry,
+      edgeMap: faceData.edgeMap,
+    };
   }
 
   /**
    * This method currently only works for straight edges.
    */
-  private buildWireFacesAndEdges() {
-    const edges = exploreEdges(this.shape);
+  private buildWireFacesAndEdges(shape: TopoDS_Shape) {
+    const edges = exploreEdges(shape);
     const allEdgeData = edges
       .map((edge) => this.getWireEdgeData(edge))
       .filter((edgeData) => edgeData !== undefined);
@@ -178,14 +190,16 @@ export class OCGeometries {
       index: edgeData.index,
     });
 
-    this._faces = new THREE.BufferGeometry();
-    this._faceMap = [];
-    this._edges = edgeGeometry;
-    this._edgeMap = edgeData.map;
+    return {
+      faces: new THREE.BufferGeometry(),
+      faceMap: [],
+      edges: edgeGeometry,
+      edgeMap: edgeData.map,
+    };
   }
 
-  private buildVertices() {
-    const vertices = exploreVertices(this.shape);
+  private buildVertices(shape: TopoDS_Shape) {
+    const vertices = exploreVertices(shape);
     const uniqueVertices = [];
     for (const vertex of vertices) {
       if (!this.isHandled(vertex, uniqueVertices)) {
@@ -198,8 +212,10 @@ export class OCGeometries {
       position: vertexData.position,
     });
 
-    this._vertices = geometry;
-    this._vertexMap = vertexData.map;
+    return {
+      vertices: geometry,
+      vertexMap: vertexData.map,
+    };
   }
 
   private mergeFaceData(allFaceData: FaceData[]) {
@@ -513,10 +529,10 @@ export class OCGeometries {
   ///
   // Utils
 
-  private mesh() {
+  private mesh(shape: TopoDS_Shape) {
     const oc = getOC();
     const mesher = new oc.BRepMesh_IncrementalMesh_2(
-      this.shape,
+      shape,
       1,
       false,
       0.5,

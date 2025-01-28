@@ -3,22 +3,45 @@ import { TopoDS_Edge, TopoDS_Face, TopoDS_Vertex } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { OCGeometries } from '../geom/geometries';
 import { projectOnto } from '../geom/projection';
-import { GeometriesObject } from './part-objects/geometries-object';
+import {
+  GeometriesObject,
+  OCGeometriesObject,
+} from './part-objects/geometries-object';
 import { Renderer } from './renderer';
 
-type OCGeometriesObject = GeometriesObject<OCGeometries>;
-
-export interface Intersection<
+export interface BaseIntersection<
   T extends OCGeometriesObject = OCGeometriesObject,
 > {
   point: THREE.Vector3;
   distance: number;
-
   object: T;
-  face?: TopoDS_Face;
-  edge?: TopoDS_Edge;
-  vertex?: TopoDS_Vertex;
 }
+
+export interface FaceIntersection<
+  T extends OCGeometriesObject = OCGeometriesObject,
+> extends BaseIntersection<T> {
+  face: TopoDS_Face;
+  faceIndex: number;
+}
+
+export interface EdgeIntersection<
+  T extends OCGeometriesObject = OCGeometriesObject,
+> extends BaseIntersection<T> {
+  edge: TopoDS_Edge;
+  edgeIndex: number;
+}
+
+export interface VertexIntersection<
+  T extends OCGeometriesObject = OCGeometriesObject,
+> extends BaseIntersection<T> {
+  vertex: TopoDS_Vertex;
+  vertexIndex: number;
+}
+
+export type Intersection<T extends OCGeometriesObject = OCGeometriesObject> =
+  | FaceIntersection<T>
+  | EdgeIntersection<T>
+  | VertexIntersection<T>;
 
 export default class Raycaster {
   private renderer: Renderer;
@@ -101,37 +124,47 @@ export default class Raycaster {
     if (!(geometriesObject instanceof GeometriesObject)) {
       throw new Error('Invalid object: not an instance of GeometriesObject');
     }
+    const geometries = geometriesObject.geometries as OCGeometries;
 
-    const geometries = geometriesObject.geometries as unknown;
-    if (!(geometries instanceof OCGeometries)) {
-      throw new Error('Invalid object: not a OCGeometries');
-    }
-
-    const intersection: Intersection = {
+    const baseIntersection: BaseIntersection = {
       point: threeIntersection.point,
       distance: threeIntersection.distance,
       object: geometriesObject as OCGeometriesObject,
     };
 
+    let extra;
     if (this.isFace(object)) {
       if (threeIntersection.faceIndex == null) {
         throw new Error('Invalid face index');
       }
-      intersection.face = geometries.getFace(threeIntersection.faceIndex);
+      extra = {
+        face: geometries.faceMap[threeIntersection.faceIndex],
+        faceIndex: threeIntersection.faceIndex,
+      };
     } else if (this.isEdge(object)) {
       if (threeIntersection.index == null) {
         throw new Error('Invalid edge index');
       }
-      intersection.edge = geometries.getEdge(threeIntersection.index);
+      extra = {
+        edge: geometries.edgeMap[threeIntersection.index],
+        edgeIndex: threeIntersection.index,
+      };
     } else if (this.isVertex(object)) {
       if (threeIntersection.index == null) {
         throw new Error('Invalid vertex index');
       }
-      intersection.vertex = geometries.getVertex(threeIntersection.index);
+      extra = {
+        vertex: geometries.vertexMap[threeIntersection.index],
+        vertexIndex: threeIntersection.index,
+      };
     } else {
       throw new Error('Invalid object type');
     }
-    return intersection;
+
+    return {
+      ...baseIntersection,
+      ...extra,
+    };
   }
 
   private isFace(object: THREE.Object3D) {
@@ -149,7 +182,13 @@ export default class Raycaster {
   ): Intersection<T> {
     const point = intersection.point;
     const subShape =
-      intersection.face ?? intersection.edge ?? intersection.vertex;
+      'face' in intersection
+        ? intersection.face
+        : 'edge' in intersection
+        ? intersection.edge
+        : 'vertex' in intersection
+        ? intersection.vertex
+        : undefined;
     if (subShape == null) {
       throw new Error('Intersection does not have a subshape');
     }
@@ -165,7 +204,7 @@ export default class Raycaster {
     closestIntersection: Intersection<T>,
     intersections: Intersection<T>[],
   ): Intersection<T> {
-    if (closestIntersection.vertex) {
+    if ('vertex' in closestIntersection) {
       return closestIntersection;
     }
 
@@ -178,7 +217,7 @@ export default class Raycaster {
       return nearbyVertexIntersection;
     }
 
-    if (closestIntersection.face) {
+    if ('face' in closestIntersection) {
       const closerEdgeIntersection = this.snapToIntersectionsOfType(
         closestIntersection,
         intersections,
@@ -208,7 +247,7 @@ export default class Raycaster {
       ) {
         return;
       }
-      if (!intersection[type]) {
+      if (!(type in intersection)) {
         continue;
       }
       if (this.isVisible(intersection.point, objectsToCheckForVisibility)) {

@@ -32,8 +32,10 @@ export default tseslint.config(
     },
     rules: {
       'no-constant-condition': 'off',
+      // We disable quite a few stylistic rules here, as they are already covered by Prettier.
       '@stylistic/arrow-parens': 'off',
-      '@stylistic/brace-style': ['error', '1tbs'],
+      '@stylistic/brace-style': 'off',
+      '@stylistic/indent': 'off',
       '@stylistic/indent-binary-ops': 'off',
       '@stylistic/lines-between-class-members': 'off',
       '@stylistic/operator-linebreak': 'off',

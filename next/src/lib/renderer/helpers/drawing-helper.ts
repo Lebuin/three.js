@@ -23,7 +23,9 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
   constructor() {
     super();
     this.planeHelper = new PlaneHelper();
+    this.planeHelper.visible = false;
     this.pointHelper = new PointHelper(12, 2, new Color4(0.01, 0.01, 0.01));
+    this.pointHelper.visible = false;
     this.add(this.planeHelper, this.pointHelper);
   }
 
@@ -35,10 +37,6 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
 
   update(renderer: Renderer) {
     this.pointHelper.update(renderer);
-  }
-
-  private helperIsVisible(helper: THREE.Object3D) {
-    return helper.parent !== null;
   }
 
   ///
@@ -125,7 +123,7 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
 
   setLines(lines: THREE.Line3[], target: THREE.Vector3) {
     while (lines.length > this.lineHelpers.length) {
-      const lineHelper = new LineHelper(3);
+      const lineHelper = new LineHelper(2);
       this.lineHelpers.push(lineHelper);
       this.add(lineHelper);
     }
@@ -142,7 +140,9 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
       const lineHelper = this.lineHelpers[i];
       lineHelper.setPoints(line.start, target);
       const color = this.getLineColor(line);
+      const lineWidth = this.getLineWidth(line);
       lineHelper.setColor(color);
+      lineHelper.setLineWidth(lineWidth);
     }
   }
 
@@ -153,6 +153,30 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
       return new Color4(0, 0, 0);
     } else {
       return settings.axesColors[axis].primary;
+    }
+  }
+
+  private getLineWidth(line: THREE.Line3) {
+    const defaultLineWidth = 2;
+    const axisLineWidth = 2.5;
+
+    const direction = line.delta(new THREE.Vector3());
+    const axis = isAxis(direction);
+    if (axis == null) {
+      return defaultLineWidth;
+    } else {
+      const origin = new THREE.Vector3();
+      const projectedOrigin = line.closestPointToPoint(
+        origin,
+        false,
+        new THREE.Vector3(),
+      );
+      const distance = projectedOrigin.distanceTo(origin);
+      if (distance < 1e-6) {
+        return axisLineWidth;
+      } else {
+        return defaultLineWidth;
+      }
     }
   }
 }

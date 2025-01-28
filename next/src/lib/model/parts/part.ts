@@ -1,4 +1,4 @@
-import { OCGeometries } from '@/lib/geom/geometries';
+import { OCGeometries, OCGeometriesBuilder } from '@/lib/geom/geometries';
 import { getOC } from '@/lib/geom/oc';
 import { quaternionFromQuaternion, vectorFromVector } from '@/lib/geom/util';
 import { TopLoc_Location, TopoDS_Shape } from '@lib/opencascade.js';
@@ -11,6 +11,7 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   private _position: THREE.Vector3;
   private _quaternion: THREE.Quaternion;
 
+  protected shape?: TopoDS_Shape;
   protected geometries?: OCGeometries;
 
   constructor(position?: THREE.Vector3, quaternion?: THREE.Quaternion) {
@@ -41,17 +42,28 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   }
 
   protected invalidateOCShape() {
+    if (this.shape) {
+      this.shape = undefined;
+    }
     if (this.geometries) {
       this.geometries.dispose();
       this.geometries = undefined;
     }
   }
 
+  public getOCShape() {
+    if (!this.shape) {
+      this.shape = this.buildOCShape();
+      this.locateOCShape(this.shape);
+    }
+    return this.shape;
+  }
+
   public getGeometries() {
     if (!this.geometries) {
-      const shape = this.buildOCShape();
-      this.locateOCShape(shape);
-      this.geometries = new OCGeometries(shape);
+      const shape = this.getOCShape();
+      const builder = new OCGeometriesBuilder();
+      this.geometries = builder.build(shape);
     }
     return this.geometries;
   }

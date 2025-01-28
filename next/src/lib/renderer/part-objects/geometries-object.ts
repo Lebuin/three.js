@@ -6,7 +6,7 @@ interface TypedChildren {
   vertices: THREE.Points;
 }
 
-export abstract class GeometriesObject<
+export class GeometriesObject<
   T extends Geometries = Geometries,
 > extends THREE.Group {
   protected _geometries: T;
@@ -27,7 +27,7 @@ export abstract class GeometriesObject<
   }
 
   dispose() {
-    // Subclasses can override this
+    this._geometries.dispose();
   }
 
   get faces() {
@@ -69,3 +69,5 @@ export abstract class GeometriesObject<
     this.typedChildren.vertices.geometry = this.geometries.vertices;
   }
 }
+
+export type OCGeometriesObject = GeometriesObject<Geometries>;
