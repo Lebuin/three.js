@@ -4,11 +4,20 @@ import {
   gp_Pnt,
   gp_Quaternion,
   gp_Vec,
+  TopoDS_Shape,
   TopoDS_Vertex,
 } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { axisDirections } from '../util/geometry';
 import { getOC } from './oc';
+
+export function getShapeId(ocShape: TopoDS_Shape): number {
+  const tShape = ocShape.TShape_1().get();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+  const ptr = (tShape as any).$$.ptr as number;
+  return ptr;
+}
+
 export function pointFromVector(point: THREE.Vector3): gp_Pnt {
   const oc = getOC();
   return new oc.gp_Pnt_3(point.x, point.y, point.z);

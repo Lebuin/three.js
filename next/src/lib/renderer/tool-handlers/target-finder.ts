@@ -1,5 +1,5 @@
 import { OCGeometries, STRIDE } from '@/lib/geom/geometries';
-import { getIntersections, ShapeIntersection } from '@/lib/geom/projection';
+import { getIntersections } from '@/lib/geom/projection';
 import { Vertex } from '@/lib/geom/shape';
 import { pointToVector, vertexFromPoint } from '@/lib/geom/util';
 import { Axes } from '@/lib/model/parts/axes';
@@ -7,6 +7,7 @@ import { axisDirections, distanceToLine } from '@/lib/util/geometry';
 import { disposeObject, getIndexedAttribute3 } from '@/lib/util/three';
 import { TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
+import _ from 'lodash';
 import {
   GeometriesObject,
   OCGeometriesObject,
@@ -151,14 +152,11 @@ export class TargetFinder {
     axes: PartObject,
     objects: PartObject[],
   ): OCGeometriesObject {
-    const intersections: ShapeIntersection[] = [];
-    for (const object of objects) {
-      const intersections = getIntersections(
-        axes.part.shape,
-        object.part.shape,
-      );
-      intersections.push(...intersections);
-    }
+    const intersections = _.flatten(
+      objects.map((object) => {
+        return getIntersections(axes.part.shape, object.part.shape);
+      }),
+    );
 
     const position = new Float32Array(intersections.length * 3);
     const vertexMap: Vertex[] = [];

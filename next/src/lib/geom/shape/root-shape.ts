@@ -1,5 +1,6 @@
 import { TopoDS_Edge, TopoDS_Shape, TopoDS_Vertex } from '@lib/opencascade.js';
 import { OCGeometries, OCGeometriesBuilder } from '../geometries';
+import { getShapeId } from '../util';
 import { Edge } from './edge';
 import { Face } from './face';
 import { Shape } from './shape';
@@ -10,9 +11,8 @@ export abstract class RootShape<
   T extends TopoDS_Shape = TopoDS_Shape,
 > extends Shape<T, void> {
   edges: Edge[] = [];
-  edgeMap = new Map<TopoDS_Edge, Edge>();
   vertices: Vertex[] = [];
-  vertexMap = new Map<TopoDS_Vertex, Vertex>();
+  shapeMap = new Map<number, Shape>();
 
   _geometries?: OCGeometries;
 
@@ -27,16 +27,6 @@ export abstract class RootShape<
     }
   }
 
-  map(ocShape: TopoDS_Shape): Shape | undefined {
-    if (ocShape instanceof TopoDS_Edge) {
-      return this.edgeMap.get(ocShape);
-    } else if (ocShape instanceof TopoDS_Vertex) {
-      return this.vertexMap.get(ocShape);
-    } else {
-      throw new Error(`Invalid shape type: ${ocShape.constructor.name}`);
-    }
-  }
-
   get geometries() {
     if (!this._geometries) {
       const builder = new OCGeometriesBuilder();
@@ -45,37 +35,47 @@ export abstract class RootShape<
     return this._geometries;
   }
 
-  protected addEdge(ocEdge: TopoDS_Edge, parent: Face | Wire) {
-    let edge = this.edgeMap.get(ocEdge);
-    if (edge) {
-      return edge;
+  protected addShapeToMap(ocShape: TopoDS_Shape, shape: Shape) {
+    const id = getShapeId(ocShape);
+    this.shapeMap.set(id, shape);
+  }
+
+  getSubShape(ocShape: TopoDS_Shape): Shape | undefined {
+    const id = getShapeId(ocShape);
+    return this.shapeMap.get(id);
+  }
+
+  protected addEdge(ocEdge: TopoDS_Edge, parent: Face | Wire): Edge {
+    const existingEdge = this.getSubShape(ocEdge);
+    if (existingEdge) {
+      return existingEdge as Edge;
     }
 
-    edge = this.edges.find((edge) => {
+    let edge = this.edges.find((edge) => {
       return edge.shape.IsSame(ocEdge);
     });
     if (!edge) {
       edge = new Edge(ocEdge, parent);
       this.edges.push(edge);
     }
-    this.edgeMap.set(ocEdge, edge);
+    this.addShapeToMap(ocEdge, edge);
     return edge;
   }
 
   protected addVertex(ocVertex: TopoDS_Vertex, parent: Edge) {
-    let vertex = this.vertexMap.get(ocVertex);
-    if (vertex) {
-      return vertex;
+    const existingVertex = this.getSubShape(ocVertex);
+    if (existingVertex) {
+      return existingVertex as Vertex;
     }
 
-    vertex = this.vertices.find((vertex) => {
+    let vertex = this.vertices.find((vertex) => {
       return vertex.shape.IsEqual(ocVertex);
     });
     if (!vertex) {
       vertex = new Vertex(ocVertex, parent);
       this.vertices.push(vertex);
     }
-    this.vertexMap.set(ocVertex, vertex);
+    this.addShapeToMap(ocVertex, vertex);
     return vertex;
   }
 }

@@ -41,8 +41,9 @@ export function getIntersections(
     }
     const ocSupport1 = distanceTool.SupportOnShape1(i + 1);
     const ocSupport2 = distanceTool.SupportOnShape2(i + 1);
-    const support1 = shape1.map(ocSupport1);
-    const support2 = shape2.map(ocSupport2);
+
+    const support1 = shape1.getSubShape(ocSupport1);
+    const support2 = shape2.getSubShape(ocSupport2);
     if (!support1 || !support2) {
       throw new Error('Support not found');
     }

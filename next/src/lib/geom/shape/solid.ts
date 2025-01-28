@@ -1,7 +1,6 @@
 import {
   TopoDS_Edge,
   TopoDS_Face,
-  TopoDS_Shape,
   TopoDS_Solid,
   TopoDS_Vertex,
 } from '@lib/opencascade.js';
@@ -9,7 +8,6 @@ import { exploreEdges, exploreFaces, exploreVertices } from '../explore';
 import { Edge } from './edge';
 import { Face } from './face';
 import { RootShape } from './root-shape';
-import { Shape } from './shape';
 import { Vertex } from './vertex';
 
 export class Solid extends RootShape<TopoDS_Solid> {
@@ -23,14 +21,6 @@ export class Solid extends RootShape<TopoDS_Solid> {
   constructor(solid: TopoDS_Solid) {
     super(solid);
     this.explore();
-  }
-
-  override map(ocShape: TopoDS_Shape): Shape | undefined {
-    if (ocShape instanceof TopoDS_Face) {
-      return this.faceMap.get(ocShape);
-    } else {
-      return super.map(ocShape);
-    }
   }
 
   private explore() {
@@ -54,12 +44,12 @@ export class Solid extends RootShape<TopoDS_Solid> {
   }
 
   private addFace(ocFace: TopoDS_Face, parent: Solid): Face {
-    let face = this.faceMap.get(ocFace);
-    if (face) {
-      return face;
+    const existingFace = this.getSubShape(ocFace);
+    if (existingFace) {
+      return existingFace as Face;
     }
 
-    face = new Face(ocFace, parent);
+    const face = new Face(ocFace, parent);
     this.faces.push(face);
     this.faceMap.set(ocFace, face);
     return face;

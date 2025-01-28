@@ -18,6 +18,7 @@ mainBuild:
     - symbol: Handle_Poly_Polygon3D
     - symbol: Handle_Poly_PolygonOnTriangulation
     - symbol: Handle_Poly_Triangulation
+    - symbol: Handle_TopoDS_TShape
     - symbol: gp_Ax2
     - symbol: gp_Dir
     - symbol: gp_Lin
@@ -46,6 +47,7 @@ mainBuild:
     - symbol: TopoDS_Shape
     - symbol: TopoDS_Shell
     - symbol: TopoDS_Solid
+    - symbol: TopoDS_TShape
     - symbol: TopoDS_Vertex
     - symbol: TopoDS_Wire
 
