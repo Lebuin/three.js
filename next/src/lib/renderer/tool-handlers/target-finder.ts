@@ -1,11 +1,11 @@
 import { OCGeometries, STRIDE } from '@/lib/geom/geometries';
 import { getIntersections } from '@/lib/geom/projection';
-import { Vertex } from '@/lib/geom/shape';
+import { Edge, Face, Shape, Vertex } from '@/lib/geom/shape';
+import { Collection } from '@/lib/geom/shape/collection';
 import { pointToVector, vertexFromPoint } from '@/lib/geom/util';
 import { Axes } from '@/lib/model/parts/axes';
 import { axisDirections, distanceToLine } from '@/lib/util/geometry';
 import { disposeObject, getIndexedAttribute3 } from '@/lib/util/three';
-import { TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import {
@@ -18,10 +18,11 @@ import { Renderer } from '../renderer';
 
 export interface Target {
   target?: THREE.Vector3;
-  snappedPoint?: THREE.Vector3;
-  snappedLine?: THREE.Line3;
   plane?: THREE.Plane;
-  shape?: TopoDS_Shape;
+
+  face?: Face;
+  edge?: Edge;
+  vertex?: Vertex;
 }
 
 /**
@@ -159,23 +160,29 @@ export class TargetFinder {
     );
 
     const position = new Float32Array(intersections.length * 3);
+    const supports: Shape[] = [];
     const vertexMap: Vertex[] = [];
     for (let i = 0; i < intersections.length; i++) {
       const intersection = intersections[i];
       const vertex = vertexFromPoint(intersection.point);
       position.set(pointToVector(intersection.point).toArray(), i * STRIDE);
       vertexMap[i] = new Vertex(vertex);
+      supports[i] = intersection.support2;
     }
     const vertices = new THREE.BufferGeometry();
     vertices.setAttribute(
       'position',
       new THREE.BufferAttribute(position, STRIDE),
     );
+    vertices.userData.supportMap = supports;
 
     const geometries = new OCGeometries({
       vertices,
       vertexMap,
     });
+    // We don't need to store this shape anywhere, it will be set as the parent of the vertices,
+    // and used to calculate the position of the vertices if rendering them as a snap point.
+    new Collection(geometries);
     const geometriesObject = new GeometriesObject(geometries);
     return geometriesObject;
   }
@@ -220,8 +227,10 @@ export class TargetFinder {
     const point = intersection.point;
     return {
       target: point.clone(),
-      snappedPoint: point.clone(),
       plane: this.getTargetPlane(point),
+      face: 'face' in intersection ? intersection.face : undefined,
+      edge: 'edge' in intersection ? intersection.edge : undefined,
+      vertex: 'vertex' in intersection ? intersection.vertex : undefined,
     };
   }
 
@@ -230,8 +239,8 @@ export class TargetFinder {
     if ('vertex' in intersection) {
       return {
         target: point.clone(),
-        snappedPoint: point.clone(),
         plane: this.getTargetPlane(point),
+        vertex: intersection.vertex,
       };
     } else if ('edge' in intersection) {
       const startPoint = getIndexedAttribute3(
@@ -246,7 +255,6 @@ export class TargetFinder {
       );
       return {
         target: point.clone(),
-        snappedPoint: point.clone(),
         plane: plane,
       };
     } else {

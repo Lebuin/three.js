@@ -133,12 +133,9 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
       return;
     }
 
-    const {
-      target,
-      plane,
-      snappedPoint: snappedPoint,
-      snappedLine,
-    } = this.targetFinder.findTarget(this.mouseEvent);
+    const { target, plane, face, edge, vertex } = this.targetFinder.findTarget(
+      this.mouseEvent,
+    );
 
     this.renderer.setMouseTarget(target);
     this.renderer.render();
@@ -164,12 +161,10 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
       const line = new THREE.Line3(this.targetFinder.neighborPoint, target);
       lines.push(line);
     }
-    if (snappedLine) {
-      lines.push(snappedLine);
-    }
 
-    if (target && snappedPoint) {
-      this.drawingHelper.setPointPosition(snappedPoint);
+    if (vertex) {
+      const point = vertex.getPoint();
+      this.drawingHelper.setPointPosition(point);
     } else {
       this.drawingHelper.hidePoint();
     }

@@ -133,3 +133,27 @@ export function getGeometryLength(geometry: THREE.BufferGeometry): number {
     }
   }
 }
+
+type GeometryAttribute = 'position' | 'normal' | 'uv' | 'index';
+const geometryAttributeStride: Record<GeometryAttribute, number> = {
+  position: 3,
+  normal: 3,
+  uv: 2,
+  index: 1,
+} as const;
+
+export function createBufferGeometry(
+  data: Partial<Record<GeometryAttribute, THREE.TypedArray>>,
+) {
+  const geometry = new THREE.BufferGeometry();
+  for (const [key, array] of Object.entries(data)) {
+    const stride = geometryAttributeStride[key as GeometryAttribute];
+    const bufferAttribute = new THREE.BufferAttribute(array, stride);
+    if (key === 'index') {
+      geometry.setIndex(bufferAttribute);
+    } else {
+      geometry.setAttribute(key, bufferAttribute);
+    }
+  }
+  return geometry;
+}

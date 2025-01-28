@@ -1,19 +1,27 @@
-import { TopoDS_Edge, TopoDS_Shape, TopoDS_Vertex } from '@lib/opencascade.js';
+import {
+  TopoDS_Edge,
+  TopoDS_Face,
+  TopoDS_Shape,
+  TopoDS_Vertex,
+} from '@lib/opencascade.js';
 import { OCGeometries, OCGeometriesBuilder } from '../geometries';
 import { getShapeId } from '../util';
 import { Edge } from './edge';
 import { Face } from './face';
 import { Shape } from './shape';
+import { Solid } from './solid';
 import { Vertex } from './vertex';
 import { Wire } from './wire';
 
 export abstract class RootShape<
   T extends TopoDS_Shape = TopoDS_Shape,
 > extends Shape<T, void> {
+  faces: Face[] = [];
   edges: Edge[] = [];
   vertices: Vertex[] = [];
   shapeMap = new Map<number, Shape>();
 
+  isRoot = true;
   _geometries?: OCGeometries;
 
   constructor(shape: T) {
@@ -43,6 +51,18 @@ export abstract class RootShape<
   getSubShape(ocShape: TopoDS_Shape): Shape | undefined {
     const id = getShapeId(ocShape);
     return this.shapeMap.get(id);
+  }
+
+  protected addFace(ocFace: TopoDS_Face, parent: Solid): Face {
+    const existingFace = this.getSubShape(ocFace);
+    if (existingFace) {
+      return existingFace as Face;
+    }
+
+    const face = new Face(ocFace, parent);
+    this.faces.push(face);
+    this.addShapeToMap(ocFace, face);
+    return face;
   }
 
   protected addEdge(ocEdge: TopoDS_Edge, parent: Face | Wire): Edge {

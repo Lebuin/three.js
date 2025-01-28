@@ -42,6 +42,7 @@ export default tseslint.config(
       '@stylistic/quotes': ['warn', 'single', { avoidEscape: true }],
       '@typescript-eslint/no-empty-interface': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-this-alias': 'off',
       '@typescript-eslint/no-unnecessary-condition': [
         'error',
         {

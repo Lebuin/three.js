@@ -7,7 +7,7 @@ import {
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import { concatTypedArrays } from '../util/array';
-import { getGeometryLength } from '../util/three';
+import { createBufferGeometry, getGeometryLength } from '../util/three';
 import { getOC } from './oc';
 import { Edge, Face, RootShape, Solid, Vertex, Wire } from './shape';
 import { directionToArray, pointToArray } from './util';
@@ -77,6 +77,35 @@ export class OCGeometries extends Geometries {
       throw new Error('Vertex map length does not match vertex position count');
     }
   }
+
+  getVertexGeometry(vertex: Vertex) {
+    const index = this.vertexMap.indexOf(vertex);
+    if (index === -1) {
+      throw new Error('Vertex not found in geometries');
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', this.vertices.getAttribute('position'));
+    geometry.setDrawRange(index, 1);
+
+    return geometry;
+  }
+
+  getVertexPoint(vertex: Vertex) {
+    const index = this.vertexMap.indexOf(vertex);
+    if (index === -1) {
+      throw new Error('Vertex not found in geometries');
+    }
+
+    const position = this.vertices.getAttribute('position');
+    const point = new THREE.Vector3(
+      position.getX(index),
+      position.getY(index),
+      position.getZ(index),
+    );
+
+    return point;
+  }
 }
 
 ///
@@ -108,14 +137,6 @@ enum FaceOrientation {
   BACKWARD,
   FORWARD,
 }
-
-type GeometryAttribute = 'position' | 'normal' | 'uv' | 'index';
-const geometryAttributeStride: Record<GeometryAttribute, number> = {
-  position: 3,
-  normal: 3,
-  uv: 2,
-  index: 1,
-} as const;
 
 export class OCGeometriesBuilder {
   build(shape: RootShape) {
@@ -153,12 +174,12 @@ export class OCGeometriesBuilder {
       .filter((faceData) => faceData !== undefined);
     const faceData = this.mergeFaceData(allFaceData);
 
-    const faceGeometry = this.createBufferGeometry({
+    const faceGeometry = createBufferGeometry({
       position: faceData.position,
       normal: faceData.normal,
       index: faceData.index,
     });
-    const edgeGeometry = this.createBufferGeometry({
+    const edgeGeometry = createBufferGeometry({
       position: faceData.position,
       index: faceData.edgeIndex,
     });
@@ -180,7 +201,7 @@ export class OCGeometriesBuilder {
       .filter((edgeData) => edgeData !== undefined);
     const edgeData = this.mergeWireEdgeData(allEdgeData);
 
-    const edgeGeometry = this.createBufferGeometry({
+    const edgeGeometry = createBufferGeometry({
       position: edgeData.position,
       index: edgeData.index,
     });
@@ -196,7 +217,7 @@ export class OCGeometriesBuilder {
   private buildVertices(shape: RootShape) {
     const vertexData = this.getVertexData(shape.vertices);
 
-    const geometry = this.createBufferGeometry({
+    const geometry = createBufferGeometry({
       position: vertexData.position,
     });
 
@@ -528,21 +549,5 @@ export class OCGeometriesBuilder {
     if (!mesher.IsDone()) {
       throw new Error('Mesher did not finish');
     }
-  }
-
-  private createBufferGeometry(
-    data: Partial<Record<GeometryAttribute, THREE.TypedArray>>,
-  ) {
-    const geometry = new THREE.BufferGeometry();
-    for (const [key, array] of Object.entries(data)) {
-      const stride = geometryAttributeStride[key as GeometryAttribute];
-      const bufferAttribute = new THREE.BufferAttribute(array, stride);
-      if (key === 'index') {
-        geometry.setIndex(bufferAttribute);
-      } else {
-        geometry.setAttribute(key, bufferAttribute);
-      }
-    }
-    return geometry;
   }
 }
