@@ -1,7 +1,7 @@
 import { getOC } from '@/lib/geom/oc';
 import { RootShape, shapeFactory } from '@/lib/geom/shape';
 import { quaternionFromQuaternion, vectorFromVector } from '@/lib/geom/util';
-import { TopLoc_Location, TopoDS_Shape } from '@lib/opencascade.js';
+import { gp_Trsf, TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 interface PartEvents {
   change: object;
@@ -54,8 +54,8 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   get shape() {
     if (!this._shape) {
       const shape = this.buildOCShape();
-      this.locateOCShape(shape);
-      this._shape = shapeFactory(shape);
+      const locatedShape = this.locateOCShape(shape);
+      this._shape = shapeFactory(locatedShape);
     }
     return this._shape;
   }
@@ -63,17 +63,26 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   protected abstract buildOCShape(): TopoDS_Shape;
 
   protected locateOCShape(shape: TopoDS_Shape) {
-    const location = this.getOCLocation();
-    shape.Location_2(location, true);
+    const oc = getOC();
+    // It should be possible, and way more efficient, to use shape.Located(location), but for some
+    // reason OCCT doesn't always respect the local coordinate system of the shape, e.g. when using
+    // BRepExtrema_DistShapeShape.
+    const transform = this.getOCTransform();
+    const transformer = new oc.BRepBuilderAPI_Transform_2(
+      shape,
+      transform,
+      true,
+    );
+    const locatedShape = transformer.Shape();
+    return locatedShape;
   }
 
-  getOCLocation(): TopLoc_Location {
+  getOCTransform(): gp_Trsf {
     const oc = getOC();
     const transform = new oc.gp_Trsf_1();
     const quaternion = quaternionFromQuaternion(this.quaternion);
     const translation = vectorFromVector(this.position);
     transform.SetTransformation_3(quaternion, translation);
-    const location = new oc.TopLoc_Location_2(transform);
-    return location;
+    return transform;
   }
 }

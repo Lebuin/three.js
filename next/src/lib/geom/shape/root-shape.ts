@@ -4,14 +4,13 @@ import {
   TopoDS_Shape,
   TopoDS_Vertex,
 } from '@lib/opencascade.js';
+import { exploreEdges, exploreFaces, exploreVertices } from '../explore';
 import { OCGeometries, OCGeometriesBuilder } from '../geometries';
 import { getShapeId } from '../util';
 import { Edge } from './edge';
 import { Face } from './face';
 import { Shape } from './shape';
-import { Solid } from './solid';
 import { Vertex } from './vertex';
-import { Wire } from './wire';
 
 export abstract class RootShape<
   T extends TopoDS_Shape = TopoDS_Shape,
@@ -26,6 +25,7 @@ export abstract class RootShape<
 
   constructor(shape: T) {
     super(shape);
+    this.explore();
   }
 
   dispose() {
@@ -45,18 +45,64 @@ export abstract class RootShape<
 
   protected addShapeToMap(ocShape: TopoDS_Shape, shape: Shape) {
     const id = getShapeId(ocShape);
+    if (id == null) {
+      throw new Error('Shape is null');
+    }
     this.shapeMap.set(id, shape);
   }
 
-  getSubShape(ocShape: TopoDS_Shape): Shape | undefined {
+  getSubShape(ocShape: TopoDS_Shape): Shape | null {
     const id = getShapeId(ocShape);
-    return this.shapeMap.get(id);
+    if (id == null) {
+      return null;
+    }
+    return this.shapeMap.get(id) ?? null;
+  }
+  getFace(ocFace: TopoDS_Face): Face | null {
+    return this.getSubShape(ocFace) as Face | null;
+  }
+  getEdge(ocEdge: TopoDS_Edge): Edge | null {
+    return this.getSubShape(ocEdge) as Edge | null;
+  }
+  getVertex(ocVertex: TopoDS_Vertex): Vertex | null {
+    return this.getSubShape(ocVertex) as Vertex | null;
   }
 
-  protected addFace(ocFace: TopoDS_Face, parent: Solid): Face {
-    const existingFace = this.getSubShape(ocFace);
+  protected explore() {
+    const ocFaces = exploreFaces(this.shape);
+    if (ocFaces.length > 0) {
+      for (const ocFace of ocFaces) {
+        const face = this.addFace(ocFace, this);
+        this.exploreEdges(face);
+      }
+    } else {
+      this.exploreEdges(this);
+    }
+  }
+
+  protected exploreEdges(parent: RootShape | Face) {
+    const ocEdges = exploreEdges(parent.shape);
+    for (const ocEdge of ocEdges) {
+      const edge = this.addEdge(ocEdge, parent);
+      if (parent instanceof Face) {
+        parent.edges.push(edge);
+      }
+
+      const ocVertices = exploreVertices(ocEdge);
+      for (const ocVertex of ocVertices) {
+        const vertex = this.addVertex(ocVertex, edge);
+        edge.vertices.push(vertex);
+        if (parent instanceof Face) {
+          parent.vertices.push(vertex);
+        }
+      }
+    }
+  }
+
+  protected addFace(ocFace: TopoDS_Face, parent: RootShape): Face {
+    const existingFace = this.getFace(ocFace);
     if (existingFace) {
-      return existingFace as Face;
+      return existingFace;
     }
 
     const face = new Face(ocFace, parent);
@@ -65,10 +111,10 @@ export abstract class RootShape<
     return face;
   }
 
-  protected addEdge(ocEdge: TopoDS_Edge, parent: Face | Wire): Edge {
-    const existingEdge = this.getSubShape(ocEdge);
+  protected addEdge(ocEdge: TopoDS_Edge, parent: RootShape | Face): Edge {
+    const existingEdge = this.getEdge(ocEdge);
     if (existingEdge) {
-      return existingEdge as Edge;
+      return existingEdge;
     }
 
     let edge = this.edges.find((edge) => {
@@ -83,9 +129,9 @@ export abstract class RootShape<
   }
 
   protected addVertex(ocVertex: TopoDS_Vertex, parent: Edge) {
-    const existingVertex = this.getSubShape(ocVertex);
+    const existingVertex = this.getVertex(ocVertex);
     if (existingVertex) {
-      return existingVertex as Vertex;
+      return existingVertex;
     }
 
     let vertex = this.vertices.find((vertex) => {

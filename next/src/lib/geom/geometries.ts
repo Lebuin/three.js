@@ -202,12 +202,10 @@ export class OCGeometriesBuilder {
   // Explore subshapes and merge them into a single BufferGeometry
 
   private buildFacesAndEdges(shape: RootShape) {
-    if (shape instanceof Solid) {
+    if (shape.faces.length > 0) {
       return this.buildSolidFacesAndEdges(shape);
-    } else if (shape instanceof Wire) {
-      return this.buildWireFacesAndEdges(shape);
     } else {
-      throw new Error('Unsupported shape type');
+      return this.buildWireFacesAndEdges(shape);
     }
   }
 

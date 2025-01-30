@@ -1,14 +1,13 @@
 import { TopoDS_Edge } from '@lib/opencascade.js';
-import { Collection } from './collection';
 import { Face } from './face';
+import { RootShape } from './root-shape';
 import { Shape } from './shape';
 import { Vertex } from './vertex';
-import { Wire } from './wire';
 
-export class Edge extends Shape<TopoDS_Edge, Face | Wire | Collection> {
+export class Edge extends Shape<TopoDS_Edge, RootShape | Face> {
   vertices: Vertex[] = [];
 
-  constructor(edge: TopoDS_Edge, parent?: Face | Wire | Collection) {
+  constructor(edge: TopoDS_Edge, parent?: RootShape | Face) {
     super(edge, parent);
   }
 

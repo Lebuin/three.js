@@ -1,13 +1,19 @@
-import { OCGeometries, STRIDE } from '@/lib/geom/geometries';
-import { getIntersections } from '@/lib/geom/projection';
-import { Edge, Face, Shape, Vertex } from '@/lib/geom/shape';
-import { Collection } from '@/lib/geom/shape/collection';
-import { pointToVector, vertexFromPoint } from '@/lib/geom/util';
+import {
+  EdgeSupport,
+  getIntersections as makeIntersection,
+  VertexSupport,
+} from '@/lib/geom/projection';
+import { Edge, Face, Vertex } from '@/lib/geom/shape';
 import { Axes } from '@/lib/model/parts/axes';
-import { axisDirections, distanceToLine } from '@/lib/util/geometry';
+import { Line } from '@/lib/model/parts/line';
+import { Plane } from '@/lib/model/parts/plane';
+import {
+  axisDirections,
+  distanceToLine,
+  getQuaternionFromNormal,
+} from '@/lib/util/geometry';
 import { disposeObject } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
-import _ from 'lodash';
 import {
   GeometriesObject,
   OCGeometriesObject,
@@ -26,8 +32,9 @@ export interface Target {
   vertex?: Vertex;
 }
 
-interface AxesIntersectionUserData {
-  supportMap: Shape[];
+interface ConstraintIntersectionUserData {
+  edgeSupportMap: EdgeSupport[] | undefined;
+  vertexSupportMap: VertexSupport[] | undefined;
 }
 
 /**
@@ -53,8 +60,8 @@ export class TargetFinder {
 
   private snapObjects: PartObject[] = [];
   private mainAxes: PartObject;
-  private neighborPointAxes?: PartObject;
-  private axesIntersections?: OCGeometriesObject;
+  private constraintObject?: PartObject;
+  private constraintIntersections: OCGeometriesObject[] = [];
   private snapHelpers: THREE.Group;
 
   // When determining the plane to constrain to, the XZ plane is given a preference, meaning that
@@ -66,8 +73,7 @@ export class TargetFinder {
   constructor(renderer: Renderer) {
     this.renderer = renderer;
 
-    const mainAxes = new Axes(this.renderer.groundPlaneSize);
-    this.mainAxes = new PartObject(mainAxes);
+    this.mainAxes = this.getAxesWithOrigin(new THREE.Vector3());
 
     this.snapHelpers = new THREE.Group();
     this.snapHelpers.visible = false;
@@ -131,67 +137,99 @@ export class TargetFinder {
 
     disposeObject(this.snapHelpers);
     this.snapHelpers.children = [];
-    this.neighborPointAxes = undefined;
-    this.axesIntersections = undefined;
+    this.constraintObject = undefined;
+    this.constraintIntersections = [];
+
     this.snapHelpers.add(this.mainAxes);
 
-    if (this.neighborPoint) {
-      this.neighborPointAxes = this.getAxesWithOrigin(this.neighborPoint);
-      this.axesIntersections = this.getAxesIntersections(
-        this.neighborPointAxes,
+    this.constraintObject = this.getConstraintObject();
+    if (this.constraintObject) {
+      this.constraintIntersections = this.getConstraintIntersections(
+        this.constraintObject,
         [this.mainAxes, ...this.snapObjects],
       );
-      this.snapHelpers.add(this.neighborPointAxes, this.axesIntersections);
+      if (this.shouldSnapToConstraintObject) {
+        this.snapHelpers.add(this.constraintObject);
+      }
+      this.snapHelpers.add(...this.constraintIntersections);
     }
 
     this.snapHelpers.updateMatrixWorld();
   }
 
-  private getAxesWithOrigin(origin = new THREE.Vector3()): PartObject {
-    const axes = new Axes(this.renderer.groundPlaneSize, origin);
-    return new PartObject(axes);
+  private get shouldSnapToConstraintObject() {
+    return this.constraintPlane == null && this.constraintLine == null;
   }
 
-  private getAxesIntersections(
-    axes: PartObject,
-    objects: PartObject[],
-  ): OCGeometriesObject {
-    const intersections = _.flatten(
-      objects.map((object) => {
-        return getIntersections(axes.part.shape, object.part.shape);
-      }),
-    );
-
-    const position = new Float32Array(intersections.length * 3);
-    const supportMap: Shape[] = [];
-    const vertexMap: Vertex[] = [];
-    for (let i = 0; i < intersections.length; i++) {
-      const intersection = intersections[i];
-      const vertex = vertexFromPoint(intersection.point);
-      const point = pointToVector(intersection.point);
-      position.set(point.toArray(), i * STRIDE);
-      vertexMap[i] = new Vertex(vertex);
-      supportMap[i] = intersection.support2;
+  private getConstraintObject(): PartObject | undefined {
+    if (this.constraintPlane) {
+      return this.getPlaneConstraintObject(
+        this.constraintPlane,
+        this.neighborPoint!,
+      );
+    } else if (this.constraintLine) {
+      return this.getLineConstraintObject(this.constraintLine);
+    } else if (this.neighborPoint) {
+      // This is not a hard constraint: the target does not have to lie on the axes, but it will
+      // snap to them.
+      return this.getAxesWithOrigin(this.neighborPoint);
+    } else {
+      return undefined;
     }
-    const vertices = new THREE.BufferGeometry();
-    vertices.setAttribute(
-      'position',
-      new THREE.BufferAttribute(position, STRIDE),
+  }
+
+  private getPlaneConstraintObject(
+    plane: THREE.Plane,
+    point: THREE.Vector3,
+  ): PartObject {
+    const quaternion = getQuaternionFromNormal(plane.normal);
+    const planePart = new Plane(
+      this.renderer.groundPlaneSize,
+      point,
+      quaternion,
     );
+    const object = new PartObject(planePart);
+    return object;
+  }
 
-    const userData: AxesIntersectionUserData = {
-      supportMap: supportMap,
-    };
-    vertices.userData = userData;
+  private getLineConstraintObject(line: THREE.Line3) {
+    const direction = line.delta(new THREE.Vector3());
+    const quaternion = getQuaternionFromNormal(direction);
+    const linePart = new Line(direction.length(), line.start, quaternion);
+    const object = new PartObject(linePart);
+    return object;
+  }
 
-    const geometries = new OCGeometries({
-      vertices,
-      vertexMap,
+  private getAxesWithOrigin(origin: THREE.Vector3): PartObject {
+    const axes = new Axes(this.renderer.groundPlaneSize, origin);
+    const object = new PartObject(axes);
+    return object;
+  }
+
+  private getConstraintIntersections(
+    constraintObject: PartObject,
+    sceneObjects: PartObject[],
+  ): OCGeometriesObject[] {
+    return sceneObjects.map((sceneObject) => {
+      return this.getConstraintIntersection(constraintObject, sceneObject);
     });
-    // We don't need to store this shape anywhere, it will be set as the parent of the vertices,
-    // and used to calculate the position of the vertices if rendering them as a snap point.
-    new Collection(geometries);
-    const geometriesObject = new GeometriesObject(geometries);
+  }
+
+  private getConstraintIntersection(
+    constraintObject: PartObject,
+    sceneObject: PartObject,
+  ): OCGeometriesObject {
+    const {
+      shape,
+      edgeSupportMap2: edgeSupportMap,
+      vertexSupportMap2: vertexSupportMap,
+    } = makeIntersection(constraintObject.part.shape, sceneObject.part.shape);
+    const userData: ConstraintIntersectionUserData = {
+      vertexSupportMap,
+      edgeSupportMap,
+    };
+    const geometriesObject = new GeometriesObject(shape.geometries);
+    geometriesObject.userData = userData;
     return geometriesObject;
   }
 
@@ -225,12 +263,10 @@ export class TargetFinder {
     const snapObjects: OCGeometriesObject[] = [
       this.mainAxes,
       ...this.snapObjects,
+      ...this.constraintIntersections,
     ];
-    if (this.neighborPointAxes) {
-      snapObjects.push(this.neighborPointAxes);
-    }
-    if (this.axesIntersections) {
-      snapObjects.push(this.axesIntersections);
+    if (this.constraintObject && this.shouldSnapToConstraintObject) {
+      snapObjects.push(this.constraintObject);
     }
     const intersection = this.renderer.raycaster.castSnapping(snapObjects);
     return intersection;
@@ -244,23 +280,7 @@ export class TargetFinder {
       plane: this.getPlaneFromIntersection(intersection),
     };
 
-    if (object === this.axesIntersections) {
-      if (!('vertex' in intersection && 'vertexIndex' in intersection)) {
-        throw new Error('Expected vertex intersection');
-      }
-
-      target.vertex = intersection.vertex;
-      const vertexGeometry = intersection.object.vertices.geometry;
-      const userData = vertexGeometry.userData as AxesIntersectionUserData;
-      const support = userData.supportMap[intersection.vertexIndex];
-      if (support instanceof Edge) {
-        target.edge = support;
-      } else if (support instanceof Face) {
-        target.face = support;
-      } else {
-        throw new Error(`Unexpected support: ${support.constructor.name}`);
-      }
-    } else if (object !== this.neighborPointAxes) {
+    if (object !== this.constraintObject) {
       if ('vertex' in intersection) {
         target.vertex = intersection.vertex;
       }
@@ -269,6 +289,34 @@ export class TargetFinder {
       }
       if ('face' in intersection) {
         target.face = intersection.face;
+      }
+    }
+
+    if (this.constraintIntersections.includes(object)) {
+      const userData = intersection.object
+        .userData as ConstraintIntersectionUserData;
+      let index: number, supportMap: VertexSupport[] | undefined;
+      if ('vertex' in intersection) {
+        index = intersection.vertexIndex;
+        supportMap = userData.vertexSupportMap;
+      } else if ('edge' in intersection) {
+        index = intersection.edgeIndex;
+        supportMap = userData.edgeSupportMap;
+      } else {
+        throw new Error('Expected a vertex or edge intersection');
+      }
+
+      if (supportMap == null) {
+        throw new Error('No support map found for intersection');
+      }
+
+      const support = supportMap[index];
+      if (support instanceof Vertex) {
+        target.vertex = support;
+      } else if (support instanceof Edge) {
+        target.edge = support;
+      } else {
+        target.face = support;
       }
     }
 

@@ -1,5 +1,7 @@
 import { TopoDS_Shape } from '@lib/opencascade.js';
 import { getOC } from '../oc';
+import { Compound } from './compound';
+import { Shell } from './shell';
 import { Solid } from './solid';
 import { Wire } from './wire';
 
@@ -16,9 +18,13 @@ export function shapeFactory(shape: TopoDS_Shape) {
   const shapeType = shape.ShapeType();
   if (shapeType === oc.TopAbs_ShapeEnum.TopAbs_SOLID) {
     return new Solid(shape);
+  } else if (shapeType === oc.TopAbs_ShapeEnum.TopAbs_SHELL) {
+    return new Shell(shape);
   } else if (shapeType === oc.TopAbs_ShapeEnum.TopAbs_WIRE) {
     return new Wire(shape);
+  } else if (shapeType === oc.TopAbs_ShapeEnum.TopAbs_COMPOUND) {
+    return new Compound(shape);
   } else {
-    throw new Error('Unsupported shape type');
+    throw new Error(`Unsupported shape type: ${shapeType.constructor.name}`);
   }
 }

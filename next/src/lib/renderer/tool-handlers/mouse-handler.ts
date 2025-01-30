@@ -188,13 +188,13 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
     this.drawingHelper.setFaces(faces);
     this.drawingHelper.visible = true;
 
+    this.renderer.setMouseTarget(constrainedTarget);
+    this.renderer.render();
+
     this.dispatchEvent({
       type,
       point: constrainedTarget,
       ctrlPressed: this.ctrlPressed,
     });
-
-    this.renderer.setMouseTarget(constrainedTarget);
-    this.renderer.render();
   }
 }

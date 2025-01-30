@@ -1,7 +1,12 @@
 mainBuild:
   name: maqet-occt.js
   bindings:
+    - symbol: BRep_Builder
     - symbol: BRep_Tool
+    - symbol: BRepAlgoAPI_Algo
+    - symbol: BRepAlgoAPI_BooleanOperation
+    - symbol: BRepAlgoAPI_BuilderAlgo
+    - symbol: BRepAlgoAPI_Section
     - symbol: BRepBuilderAPI_Command
     - symbol: BRepBuilderAPI_EdgeError
     - symbol: BRepBuilderAPI_MakeEdge
@@ -11,6 +16,7 @@ mainBuild:
     - symbol: BRepBuilderAPI_MakeWire
     - symbol: BRepBuilderAPI_ModifyShape
     - symbol: BRepBuilderAPI_MakeShape
+    - symbol: BRepBuilderAPI_Transform
     - symbol: BRepExtrema_DistShapeShape
     - symbol: BRepMesh_DiscretRoot
     - symbol: BRepMesh_IncrementalMesh
@@ -20,9 +26,11 @@ mainBuild:
     - symbol: Handle_Poly_Triangulation
     - symbol: Handle_TopoDS_TShape
     - symbol: gp_Ax2
+    - symbol: gp_Ax3
     - symbol: gp_Dir
     - symbol: gp_Lin
     - symbol: gp_Pnt
+    - symbol: gp_Pln
     - symbol: gp_Quaternion
     - symbol: gp_Trsf
     - symbol: gp_Vec
@@ -42,6 +50,7 @@ mainBuild:
     - symbol: TopExp_Explorer
     - symbol: TopLoc_Location
     - symbol: TopoDS
+    - symbol: TopoDS_Compound
     - symbol: TopoDS_Edge
     - symbol: TopoDS_Face
     - symbol: TopoDS_Shape

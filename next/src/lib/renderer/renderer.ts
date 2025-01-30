@@ -166,13 +166,17 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     return camera;
   }
 
-  public add(object: THREE.Object3D) {
-    this.scene.add(object);
+  public add(...objects: THREE.Object3D[]) {
+    for (const object of objects) {
+      this.scene.add(object);
+    }
     this.render();
   }
 
-  public remove(object: THREE.Object3D) {
-    this.scene.remove(object);
+  public remove(...objects: THREE.Object3D[]) {
+    for (const object of objects) {
+      this.scene.remove(object);
+    }
     this.render();
   }
 

@@ -11,11 +11,11 @@ import { THREE } from '@lib/three.js';
 import { axisDirections } from '../util/geometry';
 import { getOC } from './oc';
 
-export function getShapeId(ocShape: TopoDS_Shape): number {
+export function getShapeId(ocShape: TopoDS_Shape): number | null {
   const tShape = ocShape.TShape_1().get();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-  const ptr = (tShape as any).$$.ptr as number;
-  return ptr;
+  const ptr = (tShape as any)?.$$?.ptr as number | undefined;
+  return ptr ?? null;
 }
 
 export function pointFromVector(point: THREE.Vector3): gp_Pnt {
