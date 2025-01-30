@@ -31,6 +31,10 @@ export abstract class BasePointHelper<
     disposeMaterial(this.sprite.material);
   }
 
+  setPoint(point: THREE.Vector3) {
+    this.position.copy(point);
+  }
+
   private createTexture(options: T) {
     const canvas = document.createElement('canvas');
     canvas.width = options.size;

@@ -114,6 +114,7 @@ export class OCGeometries extends Geometries {
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', this.edges.getAttribute('position'));
+    geometry.setIndex(this.edges.index);
     geometry.setDrawRange(startIndex * 2, (endIndex - startIndex) * 2);
 
     return geometry;
@@ -133,6 +134,22 @@ export class OCGeometries extends Geometries {
     }
 
     return points;
+  }
+
+  getFaceGeometry(face: Face) {
+    const startIndex = this.faceMap.indexOf(face);
+    const endIndex = this.faceMap.lastIndexOf(face) + 1;
+    if (startIndex === -1) {
+      throw new Error('Face not found in geometries');
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', this.faces.getAttribute('position'));
+    geometry.setAttribute('normal', this.faces.getAttribute('normal'));
+    geometry.setIndex(this.faces.index);
+    geometry.setDrawRange(startIndex * 3, (endIndex - startIndex) * 3);
+
+    return geometry;
   }
 }
 

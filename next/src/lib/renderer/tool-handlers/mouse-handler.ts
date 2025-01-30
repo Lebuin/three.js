@@ -1,4 +1,4 @@
-import { Edge, Vertex } from '@/lib/geom/shape';
+import { Edge, Face, Vertex } from '@/lib/geom/shape';
 import { mouseButtonPressed } from '@/lib/util';
 import { EventDispatcher } from '@/lib/util/event-dispatcher';
 import { Axis } from '@/lib/util/geometry';
@@ -152,10 +152,21 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
     const lines: THREE.Line3[] = [];
     const edges: Edge[] = [];
     const planes: PlaneHelperRect[] = [];
+    const faces: Face[] = [];
 
     if (this.targetFinder.neighborPoint) {
       const line = new THREE.Line3(this.targetFinder.neighborPoint, target);
       lines.push(line);
+    }
+
+    if (target && plane) {
+      const origin = this.targetFinder.neighborPoint ?? new THREE.Vector3();
+      const planeRect: PlaneHelperRect = {
+        start: origin,
+        end: target,
+        normal: plane.normal,
+      };
+      planes.push(planeRect);
     }
 
     if (vertex) {
@@ -169,14 +180,8 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
       }
     }
 
-    if (target && plane) {
-      const origin = this.targetFinder.neighborPoint ?? new THREE.Vector3();
-      const planeRect: PlaneHelperRect = {
-        start: origin,
-        end: target,
-        normal: plane.normal,
-      };
-      planes.push(planeRect);
+    if (face) {
+      faces.push(face);
     }
 
     this.drawingHelper.setPoints(points);
@@ -184,6 +189,7 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
     this.drawingHelper.setLines(lines);
     this.drawingHelper.setEdges(edges);
     this.drawingHelper.setPlanes(planes);
+    this.drawingHelper.setFaces(faces);
     this.drawingHelper.visible = true;
 
     this.renderer.setMouseTarget(target);

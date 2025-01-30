@@ -1,4 +1,4 @@
-import { Edge, Vertex } from '@/lib/geom/shape';
+import { Edge, Face, Vertex } from '@/lib/geom/shape';
 import { LineHelper } from '@/lib/renderer/helpers/line-helper';
 import {
   PlaneHelper,
@@ -13,28 +13,39 @@ import { Color4 } from '@/lib/util/color4';
 import { Axis, isAxis } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
+import { EdgeHelper } from './edge-helper';
+import { FaceHelper } from './face-helper';
+import { VertexHelper } from './vertex-helper';
 
-type Helper = PlaneHelper | LineHelper | PointHelper;
+type Helper =
+  | PointHelper
+  | LineHelper
+  | PlaneHelper
+  | VertexHelper
+  | EdgeHelper
+  | FaceHelper;
 interface Helpers {
-  plane: PlaneHelper[];
-  line: LineHelper[];
-  edge: LineHelper[];
   point: PointHelper[];
-  vertex: PointHelper[];
+  line: LineHelper[];
+  plane: PlaneHelper[];
+
+  vertex: VertexHelper[];
+  edge: EdgeHelper[];
+  face: FaceHelper[];
 }
 
 /**
- * A collection of a PlaneHelper, PointHelper and LineHelpers that aid in drawing.
- *
- * Each helper can be shown or hidden, and can be individually moved.
+ * A collection of a helpers that aid in drawing.
  */
 export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
   private helpers: Helpers = {
-    plane: [],
-    line: [],
-    edge: [],
     point: [],
+    line: [],
+    plane: [],
+
     vertex: [],
+    edge: [],
+    face: [],
   };
 
   dispose() {
@@ -89,7 +100,7 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     for (let i = 0; i < points.length; i++) {
       const point = points[i];
       const pointHelper = helpers[i];
-      pointHelper.position.copy(point);
+      pointHelper.setPoint(point);
     }
   }
 
@@ -105,18 +116,14 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     const helpers = this.resizeHelpers(
       this.helpers.vertex,
       vertices.length,
-      () => new PointHelper(vertexHelperOptions),
+      () => new VertexHelper(vertexHelperOptions),
     );
 
     for (let i = 0; i < vertices.length; i++) {
-      const point = this.getVertexPoint(vertices[i]);
-      const pointHelper = helpers[i];
-      pointHelper.position.copy(point);
+      const vertex = vertices[i];
+      const vertexHelper = helpers[i];
+      vertexHelper.setVertex(vertex);
     }
-  }
-
-  private getVertexPoint(point: Vertex) {
-    return point.getPoint();
   }
 
   ///
@@ -188,25 +195,20 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     const helpers = this.resizeHelpers(
       this.helpers.edge,
       edges.length,
-      () => new LineHelper(),
+      () => new EdgeHelper(),
     );
 
     for (let i = 0; i < edges.length; i++) {
       const edge = edges[i];
-      const lineHelper = helpers[i];
+      const edgeHelper = helpers[i];
 
-      const points = this.getEdgePoints(edge);
       const color = this.getEdgeColor(edge);
       const lineWidth = this.getEdgeWidth(edge);
 
-      lineHelper.setPoints(points);
-      lineHelper.setColor(color);
-      lineHelper.setLineWidth(lineWidth);
+      edgeHelper.setEdge(edge);
+      edgeHelper.setColor(color);
+      edgeHelper.setLineWidth(lineWidth);
     }
-  }
-
-  private getEdgePoints(edge: Edge) {
-    return edge.getPoints();
   }
 
   private getEdgeColor(_edge: Edge) {
@@ -279,5 +281,36 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
         .lerp(settings.axesColors[axisZ].plane, 0.5)
         .setA(0.15);
     }
+  }
+
+  ///
+  // Face helpers
+
+  setFaces(faces: Face[]) {
+    const helpers = this.resizeHelpers(
+      this.helpers.face,
+      faces.length,
+      () => new FaceHelper(),
+    );
+
+    for (let i = 0; i < faces.length; i++) {
+      const face = faces[i];
+      const faceHelper = helpers[i];
+
+      const color = this.getFaceColor(face);
+
+      faceHelper.setFace(face);
+      faceHelper.setColor(color);
+    }
+  }
+
+  private getFaceColor(_face: Face) {
+    const defaultColor = new Color4().setHSLA(
+      186 / 360,
+      90 / 100,
+      40 / 100,
+      0.1,
+    );
+    return defaultColor;
   }
 }

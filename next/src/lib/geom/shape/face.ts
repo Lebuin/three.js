@@ -12,4 +12,8 @@ export class Face extends Shape<TopoDS_Face, Solid | Collection> {
   constructor(face: TopoDS_Face, parent?: Solid | Collection) {
     super(face, parent);
   }
+
+  getGeometry() {
+    return this.getRootGeometries().getFaceGeometry(this);
+  }
 }

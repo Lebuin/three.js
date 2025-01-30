@@ -38,8 +38,8 @@ export class MaterialObject<
       roughness: 0.6,
       metalness: 0.2,
       polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1,
+      polygonOffsetFactor: 2,
+      polygonOffsetUnits: 2,
       side: THREE.DoubleSide,
     });
     return meshMaterial;

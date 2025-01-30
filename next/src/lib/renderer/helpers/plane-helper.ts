@@ -45,8 +45,8 @@ export class PlaneHelper extends THREE.Group {
       side: THREE.DoubleSide,
       transparent: true,
       polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 2,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     });
     this.mesh = new THREE.Mesh(planeGeometry, this.meshMaterial);
     group.add(this.mesh);
