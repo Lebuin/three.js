@@ -75,10 +75,15 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
   // Point helper
 
   setPoints(points: THREE.Vector3[]) {
+    const pointHelperOptions = {
+      size: 10,
+      strokeColor: new Color4().setHSLA(186 / 360, 94 / 100, 26 / 100, 1),
+      fillColor: new Color4().setHSLA(186 / 360, 94 / 100, 26 / 100, 0.8),
+    };
     const helpers = this.resizeHelpers(
       this.helpers.point,
       points.length,
-      () => new PointHelper(12, 2, new Color4(0.01, 0.01, 0.01)),
+      () => new PointHelper(pointHelperOptions),
     );
 
     for (let i = 0; i < points.length; i++) {
@@ -92,10 +97,15 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
   // Vertex helper
 
   setVertices(vertices: Vertex[]) {
+    const vertexHelperOptions = {
+      size: 10,
+      strokeColor: new Color4().setHSLA(186 / 360, 94 / 100, 26 / 100, 1),
+      fillColor: new Color4().setHSLA(186 / 360, 94 / 100, 26 / 100, 0.8),
+    };
     const helpers = this.resizeHelpers(
       this.helpers.vertex,
       vertices.length,
-      () => new PointHelper(12, 2, new Color4(0.01, 0.01, 0.01)),
+      () => new PointHelper(vertexHelperOptions),
     );
 
     for (let i = 0; i < vertices.length; i++) {
