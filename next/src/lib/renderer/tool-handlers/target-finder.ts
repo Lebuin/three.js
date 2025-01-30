@@ -198,20 +198,7 @@ export class TargetFinder {
   // Find targets
 
   findTarget(mouseEvent: MouseEvent): Target {
-    this.renderer.raycaster.setFromEvent(mouseEvent);
-
-    const snapObjects: OCGeometriesObject[] = [
-      this.mainAxes,
-      ...this.snapObjects,
-    ];
-    if (this.neighborPointAxes) {
-      snapObjects.push(this.neighborPointAxes);
-    }
-    if (this.axesIntersections) {
-      snapObjects.push(this.axesIntersections);
-    }
-    const intersection = this.renderer.raycaster.castSnapping(snapObjects);
-
+    const intersection = this.findIntersection(mouseEvent);
     if (intersection) {
       return this.createTargetFromIntersection(intersection);
     }
@@ -231,21 +218,29 @@ export class TargetFinder {
     }
   }
 
+  private findIntersection(mouseEvent: MouseEvent): Intersection | undefined {
+    this.renderer.raycaster.setFromEvent(mouseEvent);
+
+    const snapObjects: OCGeometriesObject[] = [
+      this.mainAxes,
+      ...this.snapObjects,
+    ];
+    if (this.neighborPointAxes) {
+      snapObjects.push(this.neighborPointAxes);
+    }
+    if (this.axesIntersections) {
+      snapObjects.push(this.axesIntersections);
+    }
+    const intersection = this.renderer.raycaster.castSnapping(snapObjects);
+    return intersection;
+  }
+
   private createTargetFromIntersection(intersection: Intersection): Target {
     const object = intersection.object;
     const target: Target = {
-      target: intersection.point.clone(),
+      target: this.getTargetPointFromIntersection(intersection),
+      plane: this.getTargetPlaneFromIntersection(intersection),
     };
-
-    if (object === this.mainAxes && this.neighborPoint) {
-      target.plane = new THREE.Plane().setFromCoplanarPoints(
-        new THREE.Vector3(),
-        intersection.point,
-        this.neighborPoint,
-      );
-    } else {
-      target.plane = this.getTargetPlane(intersection.point);
-    }
 
     if (object === this.axesIntersections) {
       if (!('vertex' in intersection && 'vertexIndex' in intersection)) {
@@ -276,6 +271,56 @@ export class TargetFinder {
     }
 
     return target;
+  }
+
+  private getTargetPointFromIntersection(
+    intersection: Intersection,
+  ): THREE.Vector3 {
+    if (this.constraintPlane) {
+      return this.constraintPlane.projectPoint(
+        intersection.point,
+        new THREE.Vector3(),
+      );
+    } else if (this.constraintLine) {
+      return this.constraintLine.closestPointToPoint(
+        intersection.point,
+        false,
+        new THREE.Vector3(),
+      );
+    } else {
+      return intersection.point.clone();
+    }
+  }
+
+  private getTargetPlaneFromIntersection(
+    intersection: Intersection,
+  ): THREE.Plane | undefined {
+    if (this.constraintPlane) {
+      return this.constraintPlane;
+    } else if (this.constraintLine) {
+      return undefined;
+    } else if (!this.neighborPoint) {
+      return undefined;
+    } else if (intersection.object === this.mainAxes) {
+      return new THREE.Plane().setFromCoplanarPoints(
+        new THREE.Vector3(),
+        intersection.point,
+        this.neighborPoint,
+      );
+    } else {
+      const direction = intersection.point.clone().sub(this.neighborPoint);
+      for (let i = 0; i < 3; i++) {
+        if (direction.getComponent(i) === 0) {
+          const normal = new THREE.Vector3();
+          normal.setComponent(i, 1);
+          return new THREE.Plane().setFromNormalAndCoplanarPoint(
+            normal,
+            this.neighborPoint,
+          );
+        }
+      }
+      return undefined;
+    }
   }
 
   private getTargetOnLine(raycaster: Raycaster, line: THREE.Line3): Target {
@@ -341,23 +386,5 @@ export class TargetFinder {
 
     const minAngle = Math.min(...angles);
     return normals[angles.indexOf(minAngle)];
-  }
-
-  getTargetPlane(point: THREE.Vector3): THREE.Plane | undefined {
-    if (this.constraintPlane) {
-      return this.constraintPlane;
-    }
-    if (!this.neighborPoint) {
-      return;
-    }
-
-    const direction = point.clone().sub(this.neighborPoint);
-    for (let i = 0; i < 3; i++) {
-      if (direction.getComponent(i) === 0) {
-        const normal = new THREE.Vector3();
-        normal.setComponent(i, 1);
-        return new THREE.Plane().setFromNormalAndCoplanarPoint(normal, point);
-      }
-    }
   }
 }
