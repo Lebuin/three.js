@@ -17,7 +17,8 @@ import Raycaster, { Intersection } from '../raycaster';
 import { Renderer } from '../renderer';
 
 export interface Target {
-  target?: THREE.Vector3;
+  target: THREE.Vector3;
+  constrainedTarget: THREE.Vector3;
   plane?: THREE.Plane;
 
   face?: Face;
@@ -197,7 +198,7 @@ export class TargetFinder {
   ///
   // Find targets
 
-  findTarget(mouseEvent: MouseEvent): Target {
+  findTarget(mouseEvent: MouseEvent): Target | null {
     const intersection = this.findIntersection(mouseEvent);
     if (intersection) {
       return this.createTargetFromIntersection(intersection);
@@ -238,8 +239,9 @@ export class TargetFinder {
   private createTargetFromIntersection(intersection: Intersection): Target {
     const object = intersection.object;
     const target: Target = {
-      target: this.getTargetPointFromIntersection(intersection),
-      plane: this.getTargetPlaneFromIntersection(intersection),
+      target: intersection.point.clone(),
+      constrainedTarget: this.getConstrainedFromIntersection(intersection),
+      plane: this.getPlaneFromIntersection(intersection),
     };
 
     if (object === this.axesIntersections) {
@@ -273,7 +275,7 @@ export class TargetFinder {
     return target;
   }
 
-  private getTargetPointFromIntersection(
+  private getConstrainedFromIntersection(
     intersection: Intersection,
   ): THREE.Vector3 {
     if (this.constraintPlane) {
@@ -292,7 +294,7 @@ export class TargetFinder {
     }
   }
 
-  private getTargetPlaneFromIntersection(
+  private getPlaneFromIntersection(
     intersection: Intersection,
   ): THREE.Plane | undefined {
     if (this.constraintPlane) {
@@ -325,17 +327,23 @@ export class TargetFinder {
 
   private getTargetOnLine(raycaster: Raycaster, line: THREE.Line3): Target {
     const target = new THREE.Vector3();
-    distanceToLine(raycaster.ray, line, undefined, target);
+    const constrainedTarget = new THREE.Vector3();
+    distanceToLine(raycaster.ray, line, target, constrainedTarget);
     return {
       target,
+      constrainedTarget,
     };
   }
 
-  getTargetOnPlane(raycaster: Raycaster, plane: THREE.Plane): Target {
-    const target =
-      raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
+  getTargetOnPlane(raycaster: Raycaster, plane: THREE.Plane): Target | null {
+    const target = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+    if (!target) {
+      return null;
+    }
+
     return {
       target,
+      constrainedTarget: target,
       plane,
     };
   }
@@ -343,16 +351,20 @@ export class TargetFinder {
   private getTargetNearPoint(
     raycaster: Raycaster,
     point: THREE.Vector3,
-  ): Target {
+  ): Target | null {
     const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
       planeNormal,
       point,
     );
-    const target =
-      raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? undefined;
+    const target = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+    if (!target) {
+      return null;
+    }
+
     return {
       target,
+      constrainedTarget: target,
       plane,
     };
   }

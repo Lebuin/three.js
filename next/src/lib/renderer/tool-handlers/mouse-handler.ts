@@ -135,17 +135,12 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
       return;
     }
 
-    const { target, plane, face, edge, vertex } = this.targetFinder.findTarget(
-      this.mouseEvent,
-    );
-
-    if (target) {
-      this.dispatchEvent({
-        type,
-        point: target,
-        ctrlPressed: this.ctrlPressed,
-      });
+    const fullTarget = this.targetFinder.findTarget(this.mouseEvent);
+    if (!fullTarget) {
+      return;
     }
+
+    const { target, constrainedTarget, plane, face, edge, vertex } = fullTarget;
 
     const points: THREE.Vector3[] = [];
     const vertices: Vertex[] = [];
@@ -155,15 +150,18 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
     const faces: Face[] = [];
 
     if (this.targetFinder.neighborPoint) {
-      const line = new THREE.Line3(this.targetFinder.neighborPoint, target);
+      const line = new THREE.Line3(
+        this.targetFinder.neighborPoint,
+        constrainedTarget,
+      );
       lines.push(line);
     }
 
-    if (target && plane) {
+    if (plane) {
       const origin = this.targetFinder.neighborPoint ?? new THREE.Vector3();
       const planeRect: PlaneHelperRect = {
         start: origin,
-        end: target,
+        end: constrainedTarget,
         normal: plane.normal,
       };
       planes.push(planeRect);
@@ -175,9 +173,7 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
 
     if (edge) {
       edges.push(edge);
-      if (target) {
-        points.push(target);
-      }
+      points.push(target);
     }
 
     if (face) {
@@ -192,7 +188,13 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
     this.drawingHelper.setFaces(faces);
     this.drawingHelper.visible = true;
 
-    this.renderer.setMouseTarget(target);
+    this.dispatchEvent({
+      type,
+      point: constrainedTarget,
+      ctrlPressed: this.ctrlPressed,
+    });
+
+    this.renderer.setMouseTarget(constrainedTarget);
     this.renderer.render();
   }
 }
