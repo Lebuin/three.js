@@ -7,7 +7,11 @@ import {
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import { concatTypedArrays } from '../util/array';
-import { createBufferGeometry, getGeometryLength } from '../util/three';
+import {
+  createBufferGeometry,
+  getGeometryLength,
+  getIndexedAttribute3,
+} from '../util/three';
 import { getOC } from './oc';
 import { Edge, Face, RootShape, Solid, Vertex, Wire } from './shape';
 import { directionToArray, pointToArray } from './util';
@@ -97,14 +101,38 @@ export class OCGeometries extends Geometries {
       throw new Error('Vertex not found in geometries');
     }
 
-    const position = this.vertices.getAttribute('position');
-    const point = new THREE.Vector3(
-      position.getX(index),
-      position.getY(index),
-      position.getZ(index),
-    );
-
+    const point = getIndexedAttribute3(this.vertices, 'position', index);
     return point;
+  }
+
+  getEdgeGeometry(edge: Edge) {
+    const startIndex = this.edgeMap.indexOf(edge);
+    const endIndex = this.edgeMap.lastIndexOf(edge) + 1;
+    if (startIndex === -1) {
+      throw new Error('Edge not found in geometries');
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', this.edges.getAttribute('position'));
+    geometry.setDrawRange(startIndex * 2, (endIndex - startIndex) * 2);
+
+    return geometry;
+  }
+
+  getEdgePoints(edge: Edge) {
+    const startIndex = this.edgeMap.indexOf(edge);
+    const endIndex = this.edgeMap.lastIndexOf(edge) + 1;
+    if (startIndex === -1) {
+      throw new Error('Edge not found in geometries');
+    }
+
+    const points = [];
+    for (let i = startIndex * 2; i < endIndex * 2; i++) {
+      const point = getIndexedAttribute3(this.edges, 'position', i);
+      points.push(point);
+    }
+
+    return points;
   }
 }
 

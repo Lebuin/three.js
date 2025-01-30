@@ -11,4 +11,12 @@ export class Edge extends Shape<TopoDS_Edge, Face | Wire | Collection> {
   constructor(edge: TopoDS_Edge, parent?: Face | Wire | Collection) {
     super(edge, parent);
   }
+
+  getGeometry() {
+    return this.getRootGeometries().getEdgeGeometry(this);
+  }
+
+  getPoints() {
+    return this.getRootGeometries().getEdgePoints(this);
+  }
 }

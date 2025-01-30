@@ -5,7 +5,7 @@ import { Collection } from '@/lib/geom/shape/collection';
 import { pointToVector, vertexFromPoint } from '@/lib/geom/util';
 import { Axes } from '@/lib/model/parts/axes';
 import { axisDirections, distanceToLine } from '@/lib/util/geometry';
-import { disposeObject, getIndexedAttribute3 } from '@/lib/util/three';
+import { disposeObject } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import {
@@ -23,6 +23,10 @@ export interface Target {
   face?: Face;
   edge?: Edge;
   vertex?: Vertex;
+}
+
+interface AxesIntersectionUserData {
+  supportMap: Shape[];
 }
 
 /**
@@ -48,7 +52,8 @@ export class TargetFinder {
 
   private snapObjects: PartObject[] = [];
   private mainAxes: PartObject;
-  private snapHelperObjects: OCGeometriesObject[] = [];
+  private neighborPointAxes?: PartObject;
+  private axesIntersections?: OCGeometriesObject;
   private snapHelpers: THREE.Group;
 
   // When determining the plane to constrain to, the XZ plane is given a preference, meaning that
@@ -124,24 +129,21 @@ export class TargetFinder {
     this.snapObjects = this.renderer.partObjects;
 
     disposeObject(this.snapHelpers);
-    this.snapHelperObjects = this.getSnapHelperObjects();
-
     this.snapHelpers.children = [];
-    this.snapHelpers.add(this.mainAxes, ...this.snapHelperObjects);
-    this.snapHelpers.updateMatrixWorld();
-  }
+    this.neighborPointAxes = undefined;
+    this.axesIntersections = undefined;
+    this.snapHelpers.add(this.mainAxes);
 
-  private getSnapHelperObjects(): OCGeometriesObject[] {
-    if (!this.neighborPoint) {
-      return [];
+    if (this.neighborPoint) {
+      this.neighborPointAxes = this.getAxesWithOrigin(this.neighborPoint);
+      this.axesIntersections = this.getAxesIntersections(
+        this.neighborPointAxes,
+        [this.mainAxes, ...this.snapObjects],
+      );
+      this.snapHelpers.add(this.neighborPointAxes, this.axesIntersections);
     }
 
-    const axes = this.getAxesWithOrigin(this.neighborPoint);
-    const intersections = this.getAxesIntersections(axes, [
-      ...this.snapObjects,
-      this.mainAxes,
-    ]);
-    return [axes, intersections];
+    this.snapHelpers.updateMatrixWorld();
   }
 
   private getAxesWithOrigin(origin = new THREE.Vector3()): PartObject {
@@ -160,21 +162,26 @@ export class TargetFinder {
     );
 
     const position = new Float32Array(intersections.length * 3);
-    const supports: Shape[] = [];
+    const supportMap: Shape[] = [];
     const vertexMap: Vertex[] = [];
     for (let i = 0; i < intersections.length; i++) {
       const intersection = intersections[i];
       const vertex = vertexFromPoint(intersection.point);
-      position.set(pointToVector(intersection.point).toArray(), i * STRIDE);
+      const point = pointToVector(intersection.point);
+      position.set(point.toArray(), i * STRIDE);
       vertexMap[i] = new Vertex(vertex);
-      supports[i] = intersection.support2;
+      supportMap[i] = intersection.support2;
     }
     const vertices = new THREE.BufferGeometry();
     vertices.setAttribute(
       'position',
       new THREE.BufferAttribute(position, STRIDE),
     );
-    vertices.userData.supportMap = supports;
+
+    const userData: AxesIntersectionUserData = {
+      supportMap: supportMap,
+    };
+    vertices.userData = userData;
 
     const geometries = new OCGeometries({
       vertices,
@@ -193,11 +200,17 @@ export class TargetFinder {
   findTarget(mouseEvent: MouseEvent): Target {
     this.renderer.raycaster.setFromEvent(mouseEvent);
 
-    const intersection = this.renderer.raycaster.castSnapping([
-      ...this.snapObjects,
+    const snapObjects: OCGeometriesObject[] = [
       this.mainAxes,
-      ...this.snapHelperObjects,
-    ]);
+      ...this.snapObjects,
+    ];
+    if (this.neighborPointAxes) {
+      snapObjects.push(this.neighborPointAxes);
+    }
+    if (this.axesIntersections) {
+      snapObjects.push(this.axesIntersections);
+    }
+    const intersection = this.renderer.raycaster.castSnapping(snapObjects);
 
     if (intersection) {
       return this.createTargetFromIntersection(intersection);
@@ -220,46 +233,49 @@ export class TargetFinder {
 
   private createTargetFromIntersection(intersection: Intersection): Target {
     const object = intersection.object;
-    if (object.parent === this.snapHelpers) {
-      return this.createTargetFromSnapHelper(intersection);
-    }
-
-    const point = intersection.point;
-    return {
-      target: point.clone(),
-      plane: this.getTargetPlane(point),
-      face: 'face' in intersection ? intersection.face : undefined,
-      edge: 'edge' in intersection ? intersection.edge : undefined,
-      vertex: 'vertex' in intersection ? intersection.vertex : undefined,
+    const target: Target = {
+      target: intersection.point.clone(),
     };
-  }
 
-  private createTargetFromSnapHelper(intersection: Intersection): Target {
-    const point = intersection.point;
-    if ('vertex' in intersection) {
-      return {
-        target: point.clone(),
-        plane: this.getTargetPlane(point),
-        vertex: intersection.vertex,
-      };
-    } else if ('edge' in intersection) {
-      const startPoint = getIndexedAttribute3(
-        intersection.object.edges.geometry,
-        'position',
-        intersection.edgeIndex * 2,
+    if (object === this.mainAxes && this.neighborPoint) {
+      target.plane = new THREE.Plane().setFromCoplanarPoints(
+        new THREE.Vector3(),
+        intersection.point,
+        this.neighborPoint,
       );
-      const plane = new THREE.Plane().setFromCoplanarPoints(
-        startPoint.clone(),
-        point.clone(),
-        this.neighborPoint ?? new THREE.Vector3(),
-      );
-      return {
-        target: point.clone(),
-        plane: plane,
-      };
     } else {
-      throw new Error('Unexpected intersection with snap helper face');
+      target.plane = this.getTargetPlane(intersection.point);
     }
+
+    if (object === this.axesIntersections) {
+      if (!('vertex' in intersection && 'vertexIndex' in intersection)) {
+        throw new Error('Expected vertex intersection');
+      }
+
+      target.vertex = intersection.vertex;
+      const vertexGeometry = intersection.object.vertices.geometry;
+      const userData = vertexGeometry.userData as AxesIntersectionUserData;
+      const support = userData.supportMap[intersection.vertexIndex];
+      if (support instanceof Edge) {
+        target.edge = support;
+      } else if (support instanceof Face) {
+        target.face = support;
+      } else {
+        throw new Error(`Unexpected support: ${support.constructor.name}`);
+      }
+    } else if (object !== this.neighborPointAxes) {
+      if ('vertex' in intersection) {
+        target.vertex = intersection.vertex;
+      }
+      if ('edge' in intersection) {
+        target.edge = intersection.edge;
+      }
+      if ('face' in intersection) {
+        target.face = intersection.face;
+      }
+    }
+
+    return target;
   }
 
   private getTargetOnLine(raycaster: Raycaster, line: THREE.Line3): Target {

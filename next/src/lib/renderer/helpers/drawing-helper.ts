@@ -1,7 +1,9 @@
+import { Edge, Vertex } from '@/lib/geom/shape';
 import { LineHelper } from '@/lib/renderer/helpers/line-helper';
 import {
   PlaneHelper,
   PlaneHelperColors,
+  PlaneHelperRect,
 } from '@/lib/renderer/helpers/plane-helper';
 import { PointHelper } from '@/lib/renderer/helpers/point-helper';
 import { UpdatingObjectMixin } from '@/lib/renderer/helpers/updating-object-mixin';
@@ -10,54 +12,225 @@ import * as settings from '@/lib/renderer/settings';
 import { Color4 } from '@/lib/util/color4';
 import { Axis, isAxis } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
+import _ from 'lodash';
+
+type Helper = PlaneHelper | LineHelper | PointHelper;
+interface Helpers {
+  plane: PlaneHelper[];
+  line: LineHelper[];
+  edge: LineHelper[];
+  point: PointHelper[];
+  vertex: PointHelper[];
+}
+
 /**
  * A collection of a PlaneHelper, PointHelper and LineHelpers that aid in drawing.
  *
  * Each helper can be shown or hidden, and can be individually moved.
  */
 export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
-  private planeHelper: PlaneHelper;
-  private lineHelpers: LineHelper[] = [];
-  private pointHelper: PointHelper;
-
-  constructor() {
-    super();
-    this.planeHelper = new PlaneHelper();
-    this.planeHelper.visible = false;
-    this.pointHelper = new PointHelper(12, 2, new Color4(0.01, 0.01, 0.01));
-    this.pointHelper.visible = false;
-    this.add(this.planeHelper, this.pointHelper);
-  }
+  private helpers: Helpers = {
+    plane: [],
+    line: [],
+    edge: [],
+    point: [],
+    vertex: [],
+  };
 
   dispose() {
-    this.planeHelper.dispose();
-    this.pointHelper.dispose();
-    this.lineHelpers.forEach((lineHelper) => lineHelper.dispose());
+    _.values(this.helpers).forEach((helpers) => {
+      helpers.forEach((helper) => helper.dispose());
+    });
   }
 
   update(renderer: Renderer) {
-    this.pointHelper.update(renderer);
+    this.helpers.point.forEach((pointHelper) => {
+      pointHelper.update(renderer);
+    });
+    this.helpers.vertex.forEach((vertexHelper) => {
+      vertexHelper.update(renderer);
+    });
+  }
+
+  private resizeHelpers<T extends Helper>(
+    helpers: T[],
+    length: number,
+    createCallback: () => T,
+  ): T[] {
+    while (helpers.length > length) {
+      const helper = helpers.pop()!;
+      this.remove(helper);
+      helper.dispose();
+    }
+    while (helpers.length < length) {
+      const helper = createCallback();
+      this.add(helper);
+      helpers.push(helper);
+    }
+
+    return helpers;
+  }
+
+  ///
+  // Point helper
+
+  setPoints(points: THREE.Vector3[]) {
+    const helpers = this.resizeHelpers(
+      this.helpers.point,
+      points.length,
+      () => new PointHelper(12, 2, new Color4(0.01, 0.01, 0.01)),
+    );
+
+    for (let i = 0; i < points.length; i++) {
+      const point = points[i];
+      const pointHelper = helpers[i];
+      pointHelper.position.copy(point);
+    }
+  }
+
+  ///
+  // Vertex helper
+
+  setVertices(vertices: Vertex[]) {
+    const helpers = this.resizeHelpers(
+      this.helpers.vertex,
+      vertices.length,
+      () => new PointHelper(12, 2, new Color4(0.01, 0.01, 0.01)),
+    );
+
+    for (let i = 0; i < vertices.length; i++) {
+      const point = this.getVertexPoint(vertices[i]);
+      const pointHelper = helpers[i];
+      pointHelper.position.copy(point);
+    }
+  }
+
+  private getVertexPoint(point: Vertex) {
+    return point.getPoint();
+  }
+
+  ///
+  // Line helpers
+
+  setLines(lines: THREE.Line3[]) {
+    const helpers = this.resizeHelpers(
+      this.helpers.line,
+      lines.length,
+      () => new LineHelper(),
+    );
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineHelper = helpers[i];
+
+      const points = this.getLinePoints(line);
+      const color = this.getLineColor(line);
+      const lineWidth = this.getLineWidth(line);
+
+      lineHelper.setPoints(points);
+      lineHelper.setColor(color);
+      lineHelper.setLineWidth(lineWidth);
+    }
+  }
+
+  private getLinePoints(line: THREE.Line3): THREE.Vector3[] {
+    return [line.start, line.end];
+  }
+
+  private getLineColor(line: THREE.Line3) {
+    const direction = line.delta(new THREE.Vector3());
+    const axis = isAxis(direction);
+    if (axis == null) {
+      return new Color4(0, 0, 0);
+    } else {
+      return settings.axesColors[axis].primary;
+    }
+  }
+
+  private getLineWidth(line: THREE.Line3) {
+    const defaultLineWidth = 2;
+    const axisLineWidth = 2.5;
+
+    const direction = line.delta(new THREE.Vector3());
+    const axis = isAxis(direction);
+    if (axis == null) {
+      return defaultLineWidth;
+    } else {
+      const origin = new THREE.Vector3();
+      const projectedOrigin = line.closestPointToPoint(
+        origin,
+        false,
+        new THREE.Vector3(),
+      );
+      const distance = projectedOrigin.distanceTo(origin);
+      if (distance < 1e-6) {
+        return axisLineWidth;
+      } else {
+        return defaultLineWidth;
+      }
+    }
+  }
+
+  ///
+  // Edge helpers
+
+  setEdges(edges: Edge[]) {
+    const helpers = this.resizeHelpers(
+      this.helpers.edge,
+      edges.length,
+      () => new LineHelper(),
+    );
+
+    for (let i = 0; i < edges.length; i++) {
+      const edge = edges[i];
+      const lineHelper = helpers[i];
+
+      const points = this.getEdgePoints(edge);
+      const color = this.getEdgeColor(edge);
+      const lineWidth = this.getEdgeWidth(edge);
+
+      lineHelper.setPoints(points);
+      lineHelper.setColor(color);
+      lineHelper.setLineWidth(lineWidth);
+    }
+  }
+
+  private getEdgePoints(edge: Edge) {
+    return edge.getPoints();
+  }
+
+  private getEdgeColor(_edge: Edge) {
+    const defaultColor = new Color4().setHSLA(
+      186 / 360,
+      90 / 100,
+      40 / 100,
+      0.6,
+    );
+    return defaultColor;
+  }
+
+  private getEdgeWidth(_edge: Edge) {
+    return 3;
   }
 
   ///
   // Plane helper
 
-  hidePlane() {
-    this.planeHelper.visible = false;
-  }
+  setPlanes(planes: PlaneHelperRect[]) {
+    const helpers = this.resizeHelpers(
+      this.helpers.plane,
+      planes.length,
+      () => new PlaneHelper(),
+    );
 
-  setPlanePosition(
-    origin: THREE.Vector3,
-    target: THREE.Vector3,
-    plane: THREE.Plane,
-  ) {
-    this.planeHelper.visible = true;
-    this.planeHelper.setOrigin(origin);
-    this.planeHelper.setNormal(plane.normal);
-    this.planeHelper.setPoint(target);
+    for (let i = 0; i < planes.length; i++) {
+      const plane = planes[i];
+      const planeHelper = helpers[i];
+      planeHelper.setRect(plane);
 
-    const colors = this.getPlaneColors(this.planeHelper.quaternion);
-    this.planeHelper.setColors(colors);
+      const colors = this.getPlaneColors(planeHelper.quaternion);
+      planeHelper.setColors(colors);
+    }
   }
 
   private getPlaneColors(quaternion: THREE.Quaternion): PlaneHelperColors {
@@ -95,88 +268,6 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
         .clone()
         .lerp(settings.axesColors[axisZ].plane, 0.5)
         .setA(0.15);
-    }
-  }
-
-  ///
-  // Point helper
-
-  hidePoint() {
-    this.pointHelper.visible = false;
-  }
-
-  setPointPosition(position: THREE.Vector3) {
-    this.pointHelper.visible = true;
-    this.pointHelper.position.copy(position);
-  }
-
-  ///
-  // Line helpers
-
-  hideLines() {
-    for (const lineHelper of this.lineHelpers) {
-      this.remove(lineHelper);
-      lineHelper.dispose();
-    }
-    this.lineHelpers = [];
-  }
-
-  setLines(lines: THREE.Line3[], target: THREE.Vector3) {
-    while (lines.length > this.lineHelpers.length) {
-      const lineHelper = new LineHelper(2);
-      this.lineHelpers.push(lineHelper);
-      this.add(lineHelper);
-    }
-    while (this.lineHelpers.length > lines.length) {
-      const lineHelper = this.lineHelpers.pop();
-      if (lineHelper) {
-        this.remove(lineHelper);
-        lineHelper.dispose();
-      }
-    }
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lineHelper = this.lineHelpers[i];
-      lineHelper.setPoints(line.start, target);
-      const color = this.getLineColor(line);
-      const lineWidth = this.getLineWidth(line);
-      lineHelper.setColor(color);
-      lineHelper.setLineWidth(lineWidth);
-    }
-  }
-
-  private getLineColor(line: THREE.Line3) {
-    const direction = line.end.clone().sub(line.start);
-    const axis = isAxis(direction);
-    if (axis == null) {
-      return new Color4(0, 0, 0);
-    } else {
-      return settings.axesColors[axis].primary;
-    }
-  }
-
-  private getLineWidth(line: THREE.Line3) {
-    const defaultLineWidth = 2;
-    const axisLineWidth = 2.5;
-
-    const direction = line.delta(new THREE.Vector3());
-    const axis = isAxis(direction);
-    if (axis == null) {
-      return defaultLineWidth;
-    } else {
-      const origin = new THREE.Vector3();
-      const projectedOrigin = line.closestPointToPoint(
-        origin,
-        false,
-        new THREE.Vector3(),
-      );
-      const distance = projectedOrigin.distanceTo(origin);
-      if (distance < 1e-6) {
-        return axisLineWidth;
-      } else {
-        return defaultLineWidth;
-      }
     }
   }
 }

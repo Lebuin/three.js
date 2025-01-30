@@ -1,8 +1,10 @@
+import { Edge, Vertex } from '@/lib/geom/shape';
 import { mouseButtonPressed } from '@/lib/util';
 import { EventDispatcher } from '@/lib/util/event-dispatcher';
 import { Axis } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import { DrawingHelper } from '../helpers/drawing-helper';
+import { PlaneHelperRect } from '../helpers/plane-helper';
 import { Renderer } from '../renderer';
 import { TargetFinder } from './target-finder';
 export interface MouseHandlerEvent {
@@ -137,9 +139,6 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
       this.mouseEvent,
     );
 
-    this.renderer.setMouseTarget(target);
-    this.renderer.render();
-
     if (target) {
       this.dispatchEvent({
         type,
@@ -148,31 +147,46 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
       });
     }
 
-    this.drawingHelper.visible = true;
-    if (target && plane) {
-      const origin = this.targetFinder.neighborPoint ?? new THREE.Vector3();
-      this.drawingHelper.setPlanePosition(origin, target, plane);
-    } else {
-      this.drawingHelper.hidePlane();
-    }
-
+    const points: THREE.Vector3[] = [];
+    const vertices: Vertex[] = [];
     const lines: THREE.Line3[] = [];
+    const edges: Edge[] = [];
+    const planes: PlaneHelperRect[] = [];
+
     if (this.targetFinder.neighborPoint) {
       const line = new THREE.Line3(this.targetFinder.neighborPoint, target);
       lines.push(line);
     }
 
     if (vertex) {
-      const point = vertex.getPoint();
-      this.drawingHelper.setPointPosition(point);
-    } else {
-      this.drawingHelper.hidePoint();
+      vertices.push(vertex);
     }
 
-    if (target && lines.length > 0) {
-      this.drawingHelper.setLines(lines, target);
-    } else {
-      this.drawingHelper.hideLines();
+    if (edge) {
+      edges.push(edge);
+      if (target) {
+        points.push(target);
+      }
     }
+
+    if (target && plane) {
+      const origin = this.targetFinder.neighborPoint ?? new THREE.Vector3();
+      const planeRect: PlaneHelperRect = {
+        start: origin,
+        end: target,
+        normal: plane.normal,
+      };
+      planes.push(planeRect);
+    }
+
+    this.drawingHelper.setPoints(points);
+    this.drawingHelper.setVertices(vertices);
+    this.drawingHelper.setLines(lines);
+    this.drawingHelper.setEdges(edges);
+    this.drawingHelper.setPlanes(planes);
+    this.drawingHelper.visible = true;
+
+    this.renderer.setMouseTarget(target);
+    this.renderer.render();
   }
 }

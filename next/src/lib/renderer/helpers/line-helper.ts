@@ -1,39 +1,46 @@
 import { Color4 } from '@/lib/util/color4';
-import { disposeMaterial } from '@/lib/util/three';
+import { disposeObject } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
 import {
-  Line2,
   LineGeometry,
   LineMaterial,
+  LineSegments2,
 } from 'three/examples/jsm/Addons.js';
 export class LineHelper extends THREE.Group {
   private material: LineMaterial;
-  private line: Line2;
+  private lineSegments: LineSegments2;
 
-  constructor(lineWidth = 1, color = new Color4()) {
+  constructor() {
     super();
     const geometry = new LineGeometry();
-    geometry.setPositions([0, 0, 0, 0, 0, 1]);
     this.material = new LineMaterial({
-      color: color,
-      linewidth: lineWidth,
+      transparent: true,
       polygonOffset: true,
       polygonOffsetFactor: -1,
       polygonOffsetUnits: -1,
     });
-    this.line = new Line2(geometry, this.material);
-    this.add(this.line);
+    this.lineSegments = new LineSegments2(geometry, this.material);
+    this.add(this.lineSegments);
   }
 
   dispose() {
-    this.line.geometry.dispose();
-    disposeMaterial(this.line.material);
+    disposeObject(this.lineSegments);
   }
 
-  public setPoints(start: THREE.Vector3, end: THREE.Vector3): void {
-    this.position.copy(start);
-    this.scale.setZ(start.distanceTo(end));
-    this.lookAt(end);
+  public setPoints(points: THREE.Vector3[]): void {
+    const numSegments = points.length - 1;
+    const positions = new Float32Array(numSegments * 2 * 3);
+    for (let i = 0; i < numSegments; i++) {
+      const start = points[i];
+      const end = points[i + 1];
+      positions[i * 2 * 3 + 0] = start.x;
+      positions[i * 2 * 3 + 1] = start.y;
+      positions[i * 2 * 3 + 2] = start.z;
+      positions[i * 2 * 3 + 3] = end.x;
+      positions[i * 2 * 3 + 4] = end.y;
+      positions[i * 2 * 3 + 5] = end.z;
+    }
+    this.lineSegments.geometry.setPositions(positions);
   }
 
   public setColor(color: Color4) {

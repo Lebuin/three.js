@@ -217,15 +217,22 @@ export default class Raycaster {
       return nearbyVertexIntersection;
     }
 
-    if ('face' in closestIntersection) {
-      const closerEdgeIntersection = this.snapToIntersectionsOfType(
+    if ('edge' in closestIntersection) {
+      return closestIntersection;
+    }
+
+    const nearbyEdgeIntersection = this.snapToIntersectionsOfType(
+      closestIntersection,
+      intersections,
+      'edge',
+    );
+    if (nearbyEdgeIntersection) {
+      this.snapToIntersectionsOfType(
         closestIntersection,
         intersections,
         'edge',
       );
-      if (closerEdgeIntersection) {
-        return closerEdgeIntersection;
-      }
+      return nearbyEdgeIntersection;
     }
 
     return closestIntersection;
@@ -258,7 +265,7 @@ export default class Raycaster {
 
   private isVisible(point: THREE.Vector3, objects: Set<THREE.Mesh>): boolean {
     const raycaster = new THREE.Raycaster();
-    raycaster.set(this.raycaster.ray.origin, point);
+    raycaster.set(this.ray.origin, point.clone().sub(this.ray.origin));
     const faceIntersections = raycaster.intersectObjects(
       Array.from(objects),
       false,

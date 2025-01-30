@@ -35,6 +35,21 @@ export function getQuaternionFromAxes(
   return quaternion;
 }
 
+export function getQuaternionFromNormal(
+  normal: THREE.Vector3,
+): THREE.Quaternion {
+  const axisToConstructX = vectorsAreParallel(
+    normal,
+    new THREE.Vector3(0, 1, 0),
+  )
+    ? new THREE.Vector3(0, 0, 1)
+    : new THREE.Vector3(0, 1, 0);
+
+  const axisX = new THREE.Vector3().crossVectors(normal, axisToConstructX);
+  const quaternion = getQuaternionFromAxes(axisX, normal, undefined);
+  return quaternion;
+}
+
 /**
  * Calculate the intersection of two planes as a line, or undefined if the planes are parallel.
  *

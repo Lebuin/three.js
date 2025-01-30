@@ -1,9 +1,16 @@
-import { getQuaternionFromAxes, vectorsAreParallel } from '@/lib/util/geometry';
+import { getQuaternionFromNormal } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import { Color4 } from '../../util/color4';
-import { disposeMaterial } from '../../util/three';
+import { disposeObject } from '../../util/three';
 import * as settings from '../settings';
+
+export interface PlaneHelperRect {
+  start: THREE.Vector3;
+  end: THREE.Vector3;
+  normal: THREE.Vector3;
+}
+
 export interface PlaneHelperColors {
   plane: Color4;
   edgeX: Color4;
@@ -22,15 +29,9 @@ export class PlaneHelper extends THREE.Group {
   private lineSegmentsMaterial: THREE.LineBasicMaterial;
   private lineSegments: THREE.LineSegments;
 
-  private point = new THREE.Vector3(0, 0, 0);
   private colors: PlaneHelperColors = defaultColorRepresentations;
 
-  constructor(
-    quaternion: THREE.Quaternion = new THREE.Quaternion(),
-    origin: THREE.Vector3 = new THREE.Vector3(),
-    point: THREE.Vector3 = new THREE.Vector3(),
-    colors: Partial<PlaneHelperColors> = {},
-  ) {
+  constructor() {
     super();
 
     const group = new THREE.Group();
@@ -60,46 +61,21 @@ export class PlaneHelper extends THREE.Group {
       this.lineSegmentsMaterial,
     );
     group.add(this.lineSegments);
-
-    this.setColors(colors);
-    this.setOrigin(origin);
-    this.setQuaternion(quaternion);
-    this.setPoint(point);
   }
 
   dispose() {
-    this.mesh.geometry.dispose();
-    disposeMaterial(this.mesh.material);
-    this.lineSegments.geometry.dispose();
-    disposeMaterial(this.lineSegments.material);
+    disposeObject(this.mesh);
+    disposeObject(this.lineSegments);
   }
 
-  setOrigin(origin: THREE.Vector3) {
-    this.position.copy(origin);
-    this.setPoint(this.point);
-  }
+  setRect(rect: PlaneHelperRect) {
+    this.position.copy(rect.start);
 
-  setQuaternion(quaternion: THREE.Quaternion) {
+    const quaternion = getQuaternionFromNormal(rect.normal);
     this.quaternion.copy(quaternion);
-    this.setPoint(this.point);
-  }
 
-  setNormal(normal: THREE.Vector3) {
-    const axisToConstructX = vectorsAreParallel(
-      normal,
-      new THREE.Vector3(0, 1, 0),
-    )
-      ? new THREE.Vector3(0, 0, 1)
-      : new THREE.Vector3(0, 1, 0);
-
-    const axisX = new THREE.Vector3().crossVectors(normal, axisToConstructX);
-    const quaternion = getQuaternionFromAxes(axisX, normal, undefined);
-    this.setQuaternion(quaternion);
-  }
-
-  setPoint(point: THREE.Vector3) {
     this.scale.set(1, 1, 1);
-    const projectedPoint = this.worldToLocal(point.clone());
+    const projectedPoint = this.worldToLocal(rect.end.clone());
     this.scale.set(projectedPoint.x, 1, projectedPoint.z);
   }
 
