@@ -152,7 +152,9 @@ function testPoint( point, index, localThresholdSq, matrixWorld, raycaster, inte
 
 			distance: distance,
 			distanceToRay: Math.sqrt( rayPointDistanceSq ),
-			point: intersectPoint,
+			// Maqet patch: we want the intersection to be the point itself, not the point on the ray.
+			// This is consistent with other intersections.
+			point: point.clone(),
 			index: index,
 			face: null,
 			faceIndex: null,
