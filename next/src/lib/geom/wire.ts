@@ -1,6 +1,5 @@
-import { TopoDS_Shape } from '@lib/opencascade.js';
+import { getOC, TopoDS_Shape } from '@lib/opencascade.js';
 import { exploreEdges } from './explore';
-import { getOC } from './oc';
 
 export function makeWire(shape: TopoDS_Shape) {
   // TODO: this works, but it returns an inefficient representation: e.g. in a cube every edge is

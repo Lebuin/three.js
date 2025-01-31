@@ -1,7 +1,6 @@
-import { getOC } from '@/lib/geom/oc';
 import { RootShape, shapeFactory } from '@/lib/geom/shape';
 import { quaternionFromQuaternion, vectorFromVector } from '@/lib/geom/util';
-import { gp_Trsf, TopoDS_Shape } from '@lib/opencascade.js';
+import { getOC, gp_Trsf, TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 interface PartEvents {
   change: object;

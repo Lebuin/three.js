@@ -1,11 +1,11 @@
 import {
+  getOC,
   TopAbs_ShapeEnum,
   TopoDS_Edge,
   TopoDS_Face,
   TopoDS_Shape,
   TopoDS_Vertex,
 } from '@lib/opencascade.js';
-import { getOC } from './oc';
 
 export type ShapeType =
   | { name: 'face'; type: TopoDS_Face }

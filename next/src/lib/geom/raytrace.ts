@@ -1,4 +1,5 @@
 import {
+  getOC,
   TopoDS_Edge,
   TopoDS_Face,
   TopoDS_Shape,
@@ -6,7 +7,6 @@ import {
 } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { explore, ShapeType } from './explore';
-import { getOC } from './oc';
 import { pointFromVector, pointToVector } from './util';
 export interface Intersection {
   shape: TopoDS_Shape;

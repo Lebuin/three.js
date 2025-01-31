@@ -1,5 +1,4 @@
-import { TopoDS_Shape } from '@lib/opencascade.js';
-import { getOC } from '../oc';
+import { getOC, TopoDS_Shape } from '@lib/opencascade.js';
 import { Compound } from './compound';
 import { Shell } from './shell';
 import { Solid } from './solid';

@@ -1,8 +1,8 @@
 'use client';
 
-import { initOC } from '@/lib/geom/oc';
 import { Model } from '@/lib/model/model';
 import { Renderer as SceneRenderer } from '@/lib/renderer/renderer';
+import { initOC } from '@lib/opencascade.js';
 import React from 'react';
 import { Tool, toolInfo } from './toolbar';
 

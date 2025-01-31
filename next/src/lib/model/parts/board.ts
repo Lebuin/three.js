@@ -1,4 +1,4 @@
-import { getOC } from '@/lib/geom/oc';
+import { getOC } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { Part } from './part';
 export class Board extends Part {

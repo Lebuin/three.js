@@ -1,4 +1,5 @@
 import {
+  getOC,
   gp_Ax2,
   gp_Dir,
   gp_Pnt,
@@ -9,7 +10,6 @@ import {
 } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { axisDirections } from '../util/geometry';
-import { getOC } from './oc';
 
 export function getShapeId(ocShape: TopoDS_Shape): number | null {
   const tShape = ocShape.TShape_1().get();

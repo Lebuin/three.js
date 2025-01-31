@@ -1,7 +1,6 @@
-import { getOC } from '@/lib/geom/oc';
 import { pointFromVector } from '@/lib/geom/util';
 import { axisDirections } from '@/lib/util/geometry';
-import { TopoDS_Shape } from '@lib/opencascade.js';
+import { getOC, TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { Part } from './part';
 

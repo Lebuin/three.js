@@ -1,6 +1,6 @@
+import { getOC } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { OCGeometries, STRIDE } from './geometries';
-import { getOC } from './oc';
 import {
   Edge,
   Face,

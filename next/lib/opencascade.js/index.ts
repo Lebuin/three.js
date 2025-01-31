@@ -3,10 +3,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as env from '@/lib/env';
-import { OpenCascadeInstance } from '@lib/opencascade.js';
 import ocJS from '@lib/opencascade.js/maqet-occt.js';
 import ocWasm from '@lib/opencascade.js/maqet-occt.wasm';
 import _ from 'lodash';
+import { OpenCascadeInstance } from './maqet-occt.d';
 // Sometimes it's useful to debug a problem with our custom build by importing the full build.
 // import ocJS from 'opencascade.js/dist/opencascade.full.js';
 // import ocWasm from 'opencascade.js/dist/opencascade.full.wasm';

@@ -1,6 +1,5 @@
-import { TopoDS_Shape } from '@lib/opencascade.js';
+import { getOC, TopoDS_Shape } from '@lib/opencascade.js';
 import { OCGeometries } from '../geometries';
-import { getOC } from '../oc';
 import { RootShape } from './root-shape';
 
 export class Collection extends RootShape<TopoDS_Shape> {

@@ -1,4 +1,5 @@
 import {
+  getOC,
   gp_Trsf,
   Handle_Poly_PolygonOnTriangulation,
   Handle_Poly_Triangulation,
@@ -12,7 +13,6 @@ import {
   getGeometryLength,
   getIndexedAttribute3,
 } from '../util/three';
-import { getOC } from './oc';
 import { Edge, Face, RootShape, Solid, Vertex, Wire } from './shape';
 import { directionToArray, pointToArray } from './util';
 
