@@ -126,10 +126,7 @@ export class BoardToolHandler extends ToolHandler {
       false,
     );
 
-    if (
-      Math.abs(signedDistance) < materialThickness ||
-      this.isCenterAligned(event)
-    ) {
+    if (this.isCenterAligned(event)) {
       const point = this.points[2].point
         .clone()
         .add(zAxis.clone().multiplyScalar(materialThickness / 2));
