@@ -4,23 +4,34 @@ import { axisDirections } from '@/lib/util/geometry';
 import { TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { Part } from './part';
+
+export type AxesInclude = 'x' | 'y' | 'z' | 'xy' | 'xz' | 'yz' | 'xyz';
+export interface AxesOptions {
+  length: number;
+  include: AxesInclude;
+}
+const defaultAxesOptions: AxesOptions = {
+  length: 100,
+  include: 'xyz',
+};
+
 export class Axes extends Part {
-  private _length: number;
+  private options: AxesOptions;
 
   constructor(
-    length: number,
+    options: Partial<AxesOptions> = {},
     position?: THREE.Vector3,
     quaternion?: THREE.Quaternion,
   ) {
     super(position, quaternion);
-    this._length = length;
+    this.options = { ...defaultAxesOptions, ...options };
   }
 
   get length() {
-    return this._length;
+    return this.options.length;
   }
   set length(length: number) {
-    this._length = length;
+    this.options.length = length;
     this.onChange();
   }
 
@@ -29,7 +40,11 @@ export class Axes extends Part {
     const wireMaker = new oc.BRepBuilderAPI_MakeWire_1();
     const origin = pointFromVector(new THREE.Vector3());
 
-    for (const axisDirection of Object.values(axisDirections)) {
+    for (const [axis, axisDirection] of Object.entries(axisDirections)) {
+      if (!this.options.include.includes(axis)) {
+        continue;
+      }
+
       for (const direction of [1, -1]) {
         const vector = axisDirection
           .clone()

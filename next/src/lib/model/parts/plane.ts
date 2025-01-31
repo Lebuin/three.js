@@ -3,6 +3,7 @@ import { directionFromVector, pointFromVector } from '@/lib/geom/util';
 import { TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { Part } from './part';
+
 export class Plane extends Part {
   private _size: number;
 

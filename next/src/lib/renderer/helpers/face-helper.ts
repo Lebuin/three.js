@@ -12,8 +12,8 @@ export class FaceHelper extends THREE.Group {
       color: 0x000000,
       transparent: true,
       polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     });
     this.mesh = new THREE.Mesh(undefined, this.material);
     this.add(this.mesh);

@@ -4,7 +4,7 @@ import {
   VertexSupport,
 } from '@/lib/geom/projection';
 import { Edge, Face, Vertex } from '@/lib/geom/shape';
-import { Axes } from '@/lib/model/parts/axes';
+import { Axes, AxesInclude } from '@/lib/model/parts/axes';
 import { Line } from '@/lib/model/parts/line';
 import { Plane } from '@/lib/model/parts/plane';
 import {
@@ -60,6 +60,7 @@ export class TargetFinder {
 
   private snapObjects: PartObject[] = [];
   private mainAxes: PartObject;
+  private constraintPlaneAxes: PartObject;
   private constraintObject?: PartObject;
   private constraintIntersections: OCGeometriesObject[] = [];
   private snapHelpers: THREE.Group;
@@ -74,6 +75,10 @@ export class TargetFinder {
     this.renderer = renderer;
 
     this.mainAxes = this.getAxesWithOrigin(new THREE.Vector3());
+    this.constraintPlaneAxes = this.getAxesWithOrigin(
+      new THREE.Vector3(),
+      'xz',
+    );
 
     this.snapHelpers = new THREE.Group();
     this.snapHelpers.visible = false;
@@ -148,10 +153,18 @@ export class TargetFinder {
         this.constraintObject,
         [this.mainAxes, ...this.snapObjects],
       );
-      if (this.shouldSnapToConstraintObject) {
-        this.snapHelpers.add(this.constraintObject);
-      }
-      this.snapHelpers.add(...this.constraintIntersections);
+      this.snapHelpers.add(
+        this.constraintObject,
+        ...this.constraintIntersections,
+      );
+    }
+
+    if (this.constraintPlane) {
+      this.constraintPlaneAxes.part.position = this.neighborPoint!.clone();
+      this.constraintPlaneAxes.part.quaternion = getQuaternionFromNormal(
+        this.constraintPlane.normal,
+      );
+      this.snapHelpers.add(this.constraintPlaneAxes);
     }
 
     this.snapHelpers.updateMatrixWorld();
@@ -200,8 +213,14 @@ export class TargetFinder {
     return object;
   }
 
-  private getAxesWithOrigin(origin: THREE.Vector3): PartObject {
-    const axes = new Axes(this.renderer.groundPlaneSize, origin);
+  private getAxesWithOrigin(
+    origin: THREE.Vector3,
+    include: AxesInclude = 'xyz',
+  ): PartObject {
+    const axes = new Axes(
+      { length: this.renderer.groundPlaneSize, include },
+      origin,
+    );
     const object = new PartObject(axes);
     return object;
   }
@@ -268,6 +287,9 @@ export class TargetFinder {
     if (this.constraintObject && this.shouldSnapToConstraintObject) {
       snapObjects.push(this.constraintObject);
     }
+    if (this.constraintPlane) {
+      snapObjects.push(this.constraintPlaneAxes);
+    }
     const intersection = this.renderer.raycaster.castSnapping(snapObjects);
     return intersection;
   }
@@ -280,7 +302,10 @@ export class TargetFinder {
       plane: this.getPlaneFromIntersection(intersection),
     };
 
-    if (object !== this.constraintObject) {
+    if (
+      object !== this.constraintObject &&
+      object !== this.constraintPlaneAxes
+    ) {
       if ('vertex' in intersection) {
         target.vertex = intersection.vertex;
       }
