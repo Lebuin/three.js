@@ -13,6 +13,7 @@ import {
   getGeometryLength,
   getIndexedAttribute3,
 } from '../util/three';
+import { getOrientation, Orientation } from './orientation';
 import { Edge, Face, RootShape, Solid, Vertex, Wire } from './shape';
 import { directionToArray, pointToArray } from './util';
 
@@ -170,11 +171,6 @@ interface WireEdgeData {
 interface VertexData {
   position: Float32Array;
   map: Vertex[];
-}
-
-enum FaceOrientation {
-  BACKWARD,
-  FORWARD,
 }
 
 export class OCGeometriesBuilder {
@@ -433,23 +429,16 @@ export class OCGeometriesBuilder {
     const triangulation = triangulationHandle.get();
     const numTriangles = triangulation.NbTriangles();
     const indexArray = new Uint16Array(numTriangles * 3);
-    const orientation = this.getFaceOrientation(face);
+    const orientation = getOrientation(face.shape);
     for (let i = 0; i < numTriangles; i++) {
       const t = triangulation.Triangle(i + 1);
-      const n1 = t.Value(orientation == FaceOrientation.FORWARD ? 1 : 2) - 1;
-      const n2 = t.Value(orientation == FaceOrientation.FORWARD ? 2 : 1) - 1;
+      const n1 = t.Value(orientation == Orientation.FORWARD ? 1 : 2) - 1;
+      const n2 = t.Value(orientation == Orientation.FORWARD ? 2 : 1) - 1;
       const n3 = t.Value(3) - 1;
       const index = i * STRIDE;
       indexArray.set([n1, n2, n3], index);
     }
     return indexArray;
-  }
-
-  private getFaceOrientation(face: Face): FaceOrientation {
-    const oc = getOC();
-    return face.shape.Orientation_1() === oc.TopAbs_Orientation.TopAbs_FORWARD
-      ? FaceOrientation.FORWARD
-      : FaceOrientation.BACKWARD;
   }
 
   private getFaceMap(

@@ -7,6 +7,7 @@ import ocJS from '@lib/opencascade.js/maqet-occt.js';
 import ocWasm from '@lib/opencascade.js/maqet-occt.wasm';
 import _ from 'lodash';
 import { OpenCascadeInstance } from './maqet-occt.d';
+export * from './maqet-occt';
 // Sometimes it's useful to debug a problem with our custom build by importing the full build.
 // import ocJS from 'opencascade.js/dist/opencascade.full.js';
 // import ocWasm from 'opencascade.js/dist/opencascade.full.wasm';
@@ -60,7 +61,7 @@ function wrapOCTo(
 ): void {
   for (const [key, value] of Object.entries(object)) {
     if (typeof value === 'function') {
-      const proxied = new Proxy(value, ocProxyHandler);
+      const proxied = new Proxy(value, ocFunctionProxyHandler);
       wrapOCTo(value as object, proxied as object);
       target[key] = proxied;
     } else {
@@ -71,23 +72,71 @@ function wrapOCTo(
 
 type AnyFunction = (...args: any[]) => any;
 
-const ocProxyHandler: ProxyHandler<AnyFunction> = {
+const ocFunctionProxyHandler: ProxyHandler<AnyFunction> = {
   apply(target: any, thisArg: any, args: any[]): any {
-    const value = target.call(thisArg, ...args);
-    if (isDeletable(value)) {
-      return proxyDeletable(value);
+    try {
+      const value = Reflect.apply(target, thisArg, args);
+      return proxyValue(value);
+    } catch (e: unknown) {
+      throw parseError(e);
     }
-    return value;
   },
 
   construct(target: any, args: any[]): any {
-    const value = new target(...args);
-    if (isDeletable(value)) {
-      return proxyDeletable(value);
+    try {
+      const value = Reflect.construct(target, args);
+      return proxyValue(value);
+    } catch (e: unknown) {
+      throw parseError(e);
     }
-    return value;
   },
 };
+
+const ocInstanceProxyHandler: ProxyHandler<any> = {
+  get(target: Deletable, prop: string): any {
+    const value = Reflect.get(target, prop);
+
+    const descriptor = Reflect.getOwnPropertyDescriptor(target, prop);
+    if (descriptor && !descriptor.configurable) {
+      if (descriptor.set && !descriptor.get) {
+        return undefined;
+      }
+      if (descriptor.writable === false) {
+        return value;
+      }
+    }
+
+    if (prop === 'delete' && typeof value === 'function') {
+      return () => {
+        unregisterDeletable(target);
+        target.delete();
+      };
+    } else {
+      return proxyValue(value);
+    }
+  },
+};
+
+function proxyFunction<T extends AnyFunction>(value: T): T {
+  return new Proxy<T>(value, ocFunctionProxyHandler);
+}
+
+function proxyInstance<T extends object>(instance: T): T {
+  const proxy = new Proxy<T>(instance, ocInstanceProxyHandler);
+  if (isDeletable(instance)) {
+    registerDeletable(proxy as Deletable, instance);
+  }
+  return proxy;
+}
+
+function proxyValue<T extends any>(value: T): T {
+  if (typeof value === 'function') {
+    return proxyFunction(value as AnyFunction) as T;
+  } else if (typeof value === 'object' && value != null) {
+    return proxyInstance(value);
+  }
+  return value;
+}
 
 ///
 // Garbage collect OpenCascade objects
@@ -101,30 +150,14 @@ const finalizationRegistry = new FinalizationRegistry<Deletable>(
   },
 );
 
-const deletableProxyHandler: ProxyHandler<Deletable> = {
-  get(target: Deletable, prop: string): any {
-    if (prop === 'delete') {
-      return () => {
-        unregisterDeletable(target);
-        target.delete();
-      };
-    }
-    return (target as any)[prop];
-  },
-};
-
 function isDeletable(value: unknown): value is Deletable {
   return !!value && typeof (value as Deletable).delete === 'function';
 }
 
-function proxyDeletable<T extends Deletable>(deletable: T): T {
-  if (!ENABLE_GC) {
-    return deletable;
+function registerDeletable(proxy: Deletable, deletable: Deletable) {
+  if (ENABLE_GC) {
+    finalizationRegistry.register(proxy, deletable, deletable);
   }
-
-  const proxied = new Proxy(deletable, deletableProxyHandler) as T;
-  finalizationRegistry.register(proxied, deletable, deletable);
-  return proxied;
 }
 
 function unregisterDeletable(deletable: Deletable) {
