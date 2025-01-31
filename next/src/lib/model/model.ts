@@ -1,4 +1,4 @@
-import { EventDispatcher } from 'three';
+import { EventDispatcher } from '../util/event-dispatcher';
 import { Part } from './parts/part';
 
 interface ModelEvents {
@@ -6,7 +6,7 @@ interface ModelEvents {
   removePart: { part: Part };
 }
 
-export class Model extends EventDispatcher<ModelEvents> {
+export class Model extends EventDispatcher<ModelEvents>() {
   parts: Part[] = [];
 
   addPart(...parts: Part[]) {

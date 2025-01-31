@@ -1,25 +1,21 @@
 import { Color4 } from '@/lib/util/color4';
 import { disposeObject } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
-import {
-  LineGeometry,
-  LineMaterial,
-  LineSegments2,
-} from 'three/examples/jsm/Addons.js';
+
 export class LineHelper extends THREE.Group {
-  private material: LineMaterial;
-  private lineSegments: LineSegments2;
+  private material: THREE.LineMaterial;
+  private lineSegments: THREE.LineSegments2;
 
   constructor() {
     super();
-    const geometry = new LineGeometry();
-    this.material = new LineMaterial({
+    const geometry = new THREE.LineGeometry();
+    this.material = new THREE.LineMaterial({
       transparent: true,
       polygonOffset: true,
       polygonOffsetFactor: -1,
       polygonOffsetUnits: -1,
     });
-    this.lineSegments = new LineSegments2(geometry, this.material);
+    this.lineSegments = new THREE.LineSegments2(geometry, this.material);
     this.add(this.lineSegments);
   }
 

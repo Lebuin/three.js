@@ -1,0 +1,3 @@
+[submodule "next/lib/three.js/three.js"]
+	path = next/lib/three.js/three.js
+	url = git@github.com:Lebuin/three.js.git

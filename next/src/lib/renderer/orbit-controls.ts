@@ -1,5 +1,4 @@
 import { THREE } from '@lib/three.js';
-import { OrbitControls as DefaultOrbitControls } from 'three/examples/jsm/Addons.js';
 import { axisDirections } from '../util/geometry';
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -31,7 +30,7 @@ declare module 'three/examples/jsm/Addons.js' {
  * calculating a new camera position and angle. We don't support most of the options for tweaking
  * the original algorithm, like min/maxDistance, min/maxZoom,...
  */
-export class OrbitControls extends DefaultOrbitControls {
+export class OrbitControls extends THREE.OrbitControls {
   mouseButtons = {
     LEFT: null,
     MIDDLE: THREE.MOUSE.PAN,

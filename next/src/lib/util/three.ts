@@ -1,4 +1,5 @@
 import { THREE } from '@lib/three.js';
+
 export function forMaterial(
   material: THREE.Material | THREE.Material[],
   callback: (material: THREE.Material) => void,

@@ -145,9 +145,11 @@ export default class Raycaster {
       if (threeIntersection.index == null) {
         throw new Error('Invalid edge index');
       }
+      const step = 2;
+      const index = threeIntersection.index / step;
       extra = {
-        edge: geometries.edgeMap[threeIntersection.index],
-        edgeIndex: threeIntersection.index,
+        edge: geometries.edgeMap[index],
+        edgeIndex: index,
       };
     } else if (this.isVertex(object)) {
       if (threeIntersection.index == null) {
