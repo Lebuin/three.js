@@ -28,13 +28,6 @@ export abstract class RootShape<
     this.explore();
   }
 
-  dispose() {
-    if (this._geometries) {
-      this._geometries.dispose();
-      this._geometries = undefined;
-    }
-  }
-
   get geometries() {
     if (!this._geometries) {
       const builder = new OCGeometriesBuilder();

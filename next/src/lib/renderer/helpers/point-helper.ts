@@ -1,5 +1,4 @@
 import { Color4 } from '@/lib/util/color4';
-import { disposeMaterial } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
 import { Renderer } from '../renderer';
 import { UpdatingObjectMixin } from './updating-object-mixin';
@@ -24,11 +23,6 @@ export abstract class BasePointHelper<
     });
     this.sprite = new THREE.Sprite(material);
     this.add(this.sprite);
-  }
-
-  dispose() {
-    this.sprite.geometry.dispose();
-    disposeMaterial(this.sprite.material);
   }
 
   setPoint(point: THREE.Vector3) {

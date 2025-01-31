@@ -12,7 +12,6 @@ import {
   distanceToLine,
   getQuaternionFromNormal,
 } from '@/lib/util/geometry';
-import { disposeObject } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
 import {
   GeometriesObject,
@@ -87,9 +86,8 @@ export class TargetFinder {
     this.updateSnapObjects();
   }
 
-  dispose() {
+  delete() {
     this.renderer.remove(this.snapHelpers);
-    disposeObject(this.snapHelpers);
   }
 
   ///
@@ -140,7 +138,6 @@ export class TargetFinder {
   private updateSnapObjects() {
     this.snapObjects = this.renderer.partObjects;
 
-    disposeObject(this.snapHelpers);
     this.snapHelpers.children = [];
     this.constraintObject = undefined;
     this.constraintIntersections = [];

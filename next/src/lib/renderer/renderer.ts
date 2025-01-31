@@ -97,12 +97,12 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.canvas.addEventListener('contextmenu', this.onContextMenu);
   }
 
-  dispose() {
+  delete() {
     this.removeAllParts();
-    this.toolHandler?.dispose();
+    this.toolHandler?.delete();
 
     this.controls.removeEventListener('change', this.onControlsChange);
-    this.controls.dispose();
+    this.controls.disconnect();
     window.removeEventListener('resize', this.onResizeThrottled);
     window.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('contextmenu', this.onContextMenu);
@@ -212,7 +212,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
       );
       if (partObject) {
         this.remove(partObject);
-        partObject.dispose();
+        partObject.delete();
         part.removeEventListener('change', this.render);
       }
     });
@@ -351,7 +351,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   /// Tools
 
   setTool(tool: Tool) {
-    this.toolHandler?.dispose();
+    this.toolHandler?.delete();
     this.toolHandler = createToolHandler(tool, this);
     this.dispatchEvent({ type: 'tool', tool });
   }

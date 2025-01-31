@@ -1,7 +1,6 @@
 import { Geometries } from '@/lib/geom/geometries';
 import { Board } from '@/lib/model/parts/board';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
-import { disposeObject } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
 import { MaterialObject } from '../part-objects/material-object';
 import { Renderer } from '../renderer';
@@ -28,9 +27,9 @@ export class BoardToolHandler extends ToolHandler {
     this.setupListeners();
   }
 
-  dispose() {
-    super.dispose();
-    this.mouseHandler.dispose();
+  delete() {
+    super.delete();
+    this.mouseHandler.delete();
     this.removeFleetingBoard();
     this.removeListeners();
   }
@@ -209,7 +208,6 @@ export class BoardToolHandler extends ToolHandler {
 
   private removeFleetingBoard() {
     if (this.fleetingBoard) {
-      disposeObject(this.fleetingBoard);
       this.renderer.remove(this.fleetingBoard);
       this.fleetingBoard = undefined;
     }

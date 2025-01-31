@@ -19,10 +19,6 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
     this._quaternion = quaternion ?? new THREE.Quaternion();
   }
 
-  dispose() {
-    this.invalidateShape();
-  }
-
   protected onChange() {
     this.invalidateShape();
     this.dispatchEvent({ type: 'change' });
@@ -45,10 +41,7 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   }
 
   protected invalidateShape() {
-    if (this._shape) {
-      this._shape.dispose();
-      this._shape = undefined;
-    }
+    this._shape = undefined;
   }
 
   get shape() {

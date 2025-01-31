@@ -1,4 +1,3 @@
-import { disposeMaterial } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import { Color4 } from '../../util/color4';
@@ -70,10 +69,5 @@ export class AxesHelper extends THREE.LineSegments {
     super(geometry, material);
 
     this.computeLineDistances();
-  }
-
-  dispose() {
-    this.geometry.dispose();
-    disposeMaterial(this.material);
   }
 }

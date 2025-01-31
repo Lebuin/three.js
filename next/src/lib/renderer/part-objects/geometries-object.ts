@@ -26,10 +26,6 @@ export class GeometriesObject<
     this.onGeometriesChange();
   }
 
-  dispose() {
-    this._geometries.dispose();
-  }
-
   get faces() {
     return this.typedChildren.faces;
   }

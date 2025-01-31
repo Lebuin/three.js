@@ -19,10 +19,6 @@ export class FaceHelper extends THREE.Group {
     this.add(this.mesh);
   }
 
-  dispose() {
-    this.material.dispose();
-  }
-
   setFace(face: Face) {
     this.mesh.geometry = face.getGeometry();
   }

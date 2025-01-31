@@ -39,12 +39,6 @@ export class Geometries {
     this.edges = args.edges ?? emptyGeometry;
     this.vertices = args.vertices ?? emptyGeometry;
   }
-
-  dispose() {
-    this.faces.dispose();
-    this.edges.dispose();
-    this.vertices.dispose();
-  }
 }
 
 export interface OCGeometriesArgs extends GeometriesArgs {

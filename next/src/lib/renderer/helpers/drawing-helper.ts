@@ -12,7 +12,6 @@ import * as settings from '@/lib/renderer/settings';
 import { Color4 } from '@/lib/util/color4';
 import { Axis, isAxis } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
-import _ from 'lodash';
 import { EdgeHelper } from './edge-helper';
 import { FaceHelper } from './face-helper';
 import { VertexHelper } from './vertex-helper';
@@ -48,12 +47,6 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     face: [],
   };
 
-  dispose() {
-    _.values(this.helpers).forEach((helpers) => {
-      helpers.forEach((helper) => helper.dispose());
-    });
-  }
-
   update(renderer: Renderer) {
     this.helpers.point.forEach((pointHelper) => {
       pointHelper.update(renderer);
@@ -71,7 +64,6 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     while (helpers.length > length) {
       const helper = helpers.pop()!;
       this.remove(helper);
-      helper.dispose();
     }
     while (helpers.length < length) {
       const helper = createCallback();

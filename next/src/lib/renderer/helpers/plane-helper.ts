@@ -2,7 +2,6 @@ import { getQuaternionFromNormal } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import { Color4 } from '../../util/color4';
-import { disposeObject } from '../../util/three';
 import * as settings from '../settings';
 
 export interface PlaneHelperRect {
@@ -61,11 +60,6 @@ export class PlaneHelper extends THREE.Group {
       this.lineSegmentsMaterial,
     );
     group.add(this.lineSegments);
-  }
-
-  dispose() {
-    disposeObject(this.mesh);
-    disposeObject(this.lineSegments);
   }
 
   setRect(rect: PlaneHelperRect) {

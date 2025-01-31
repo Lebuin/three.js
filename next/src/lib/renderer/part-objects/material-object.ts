@@ -1,5 +1,4 @@
 import { Geometries } from '@/lib/geom/geometries';
-import { disposeMaterial } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
 import { GeometriesObject } from './geometries-object';
 interface TypedChildren {
@@ -11,12 +10,6 @@ interface TypedChildren {
 export class MaterialObject<
   T extends Geometries = Geometries,
 > extends GeometriesObject<T> {
-  dispose() {
-    super.dispose();
-    disposeMaterial(this.typedChildren.faces.material);
-    disposeMaterial(this.typedChildren.edges.material);
-  }
-
   protected createChildren(): TypedChildren {
     const { faces, edges, vertices } = super.createChildren();
 

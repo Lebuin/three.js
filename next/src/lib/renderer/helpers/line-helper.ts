@@ -1,5 +1,4 @@
 import { Color4 } from '@/lib/util/color4';
-import { disposeObject } from '@/lib/util/three';
 import { THREE } from '@lib/three.js';
 
 export class LineHelper extends THREE.Group {
@@ -17,10 +16,6 @@ export class LineHelper extends THREE.Group {
     });
     this.lineSegments = new THREE.LineSegments2(geometry, this.material);
     this.add(this.lineSegments);
-  }
-
-  dispose() {
-    disposeObject(this.lineSegments);
   }
 
   public setPoints(points: THREE.Vector3[]): void {

@@ -43,7 +43,7 @@ export default function Renderer(props: RendererProps) {
       rendererRef.current = renderer;
 
       return () => {
-        renderer.dispose();
+        renderer.delete();
       };
     },
     [props.onTool],

@@ -14,8 +14,7 @@ export class PartObject<
     this.part.addEventListener('change', this.onPartChange);
   }
 
-  dispose() {
-    super.dispose();
+  delete() {
     this.part.removeEventListener('change', this.onPartChange);
   }
 

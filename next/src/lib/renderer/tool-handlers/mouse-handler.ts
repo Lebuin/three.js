@@ -41,11 +41,10 @@ export class MouseHandler extends EventDispatcher<MouseHandlerEvents>() {
     this.setupListeners();
   }
 
-  dispose() {
+  delete() {
     this.renderer.removeUpdating(this.drawingHelper);
     this.renderer.setMouseTarget();
-    this.drawingHelper.dispose();
-    this.targetFinder.dispose();
+    this.targetFinder.delete();
     this.removeListeners();
   }
 

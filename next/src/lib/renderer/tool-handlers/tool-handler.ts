@@ -3,7 +3,7 @@ import { Renderer } from '../renderer';
 export abstract class ToolHandler {
   constructor(protected renderer: Renderer) {}
 
-  dispose() {
+  delete() {
     // Subclasses should override this method to clean up
   }
 
