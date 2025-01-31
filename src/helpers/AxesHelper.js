@@ -3,6 +3,7 @@ import { LineBasicMaterial } from '../materials/LineBasicMaterial.js';
 import { Float32BufferAttribute } from '../core/BufferAttribute.js';
 import { BufferGeometry } from '../core/BufferGeometry.js';
 import { Color } from '../math/Color.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 class AxesHelper extends LineSegments {
 
@@ -30,6 +31,7 @@ class AxesHelper extends LineSegments {
 
 		this.type = 'AxesHelper';
 
+		return gcDisposable(this);
 	}
 
 	setColors( xAxisColor, yAxisColor, zAxisColor ) {

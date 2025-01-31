@@ -2,6 +2,7 @@ import { Color } from '../math/Color.js';
 import { EventDispatcher } from '../core/EventDispatcher.js';
 import { FrontSide, NormalBlending, LessEqualDepth, AddEquation, OneMinusSrcAlphaFactor, SrcAlphaFactor, AlwaysStencilFunc, KeepStencilOp } from '../constants.js';
 import { generateUUID } from '../math/MathUtils.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 let _materialId = 0;
 
@@ -80,6 +81,7 @@ class Material extends EventDispatcher {
 
 		this._alphaTest = 0;
 
+		return gcDisposable(this);
 	}
 
 	get alphaTest() {

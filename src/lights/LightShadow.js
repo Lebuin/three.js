@@ -3,6 +3,7 @@ import { Vector2 } from '../math/Vector2.js';
 import { Vector3 } from '../math/Vector3.js';
 import { Vector4 } from '../math/Vector4.js';
 import { Frustum } from '../math/Frustum.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 const _projScreenMatrix = /*@__PURE__*/ new Matrix4();
 const _lightPositionWorld = /*@__PURE__*/ new Vector3();
@@ -41,6 +42,7 @@ class LightShadow {
 
 		];
 
+		return gcDisposable(this);
 	}
 
 	getViewportCount() {

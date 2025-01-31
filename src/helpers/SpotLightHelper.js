@@ -4,6 +4,7 @@ import { LineSegments } from '../objects/LineSegments.js';
 import { LineBasicMaterial } from '../materials/LineBasicMaterial.js';
 import { Float32BufferAttribute } from '../core/BufferAttribute.js';
 import { BufferGeometry } from '../core/BufferGeometry.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 const _vector = /*@__PURE__*/ new Vector3();
 
@@ -52,6 +53,7 @@ class SpotLightHelper extends Object3D {
 
 		this.update();
 
+		return gcDisposable(this);
 	}
 
 	dispose() {

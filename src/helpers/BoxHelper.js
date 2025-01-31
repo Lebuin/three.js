@@ -3,6 +3,7 @@ import { LineSegments } from '../objects/LineSegments.js';
 import { LineBasicMaterial } from '../materials/LineBasicMaterial.js';
 import { BufferAttribute } from '../core/BufferAttribute.js';
 import { BufferGeometry } from '../core/BufferGeometry.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 const _box = /*@__PURE__*/ new Box3();
 
@@ -26,6 +27,7 @@ class BoxHelper extends LineSegments {
 
 		this.update();
 
+		return gcDisposable(this);
 	}
 
 	update( object ) {

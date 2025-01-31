@@ -5,6 +5,7 @@ import { Color } from '../math/Color.js';
 import { Vector3 } from '../math/Vector3.js';
 import { BufferGeometry } from '../core/BufferGeometry.js';
 import { Float32BufferAttribute } from '../core/BufferAttribute.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 const _vector = /*@__PURE__*/ new Vector3();
 const _boneMatrix = /*@__PURE__*/ new Matrix4();
@@ -57,6 +58,7 @@ class SkeletonHelper extends LineSegments {
 		this.matrix = object.matrixWorld;
 		this.matrixAutoUpdate = false;
 
+		return gcDisposable(this);
 	}
 
 	updateMatrixWorld( force ) {

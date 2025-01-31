@@ -14,6 +14,7 @@ import { generateUUID } from '../math/MathUtils.js';
 import { Vector2 } from '../math/Vector2.js';
 import { Matrix3 } from '../math/Matrix3.js';
 import { Source } from './Source.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 let _textureId = 0;
 
@@ -73,6 +74,7 @@ class Texture extends EventDispatcher {
 		this.isRenderTargetTexture = false; // indicates whether a texture belongs to a render target or not
 		this.pmremVersion = 0; // indicates whether this texture should be processed by PMREMGenerator or not (only relevant for render target textures)
 
+		return gcDisposable(this);
 	}
 
 	get image() {

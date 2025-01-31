@@ -1,4 +1,5 @@
 import { EventDispatcher } from '../core/EventDispatcher.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 class Controls extends EventDispatcher {
 
@@ -17,6 +18,7 @@ class Controls extends EventDispatcher {
 		this.mouseButtons = { LEFT: null, MIDDLE: null, RIGHT: null };
 		this.touches = { ONE: null, TWO: null };
 
+		return gcDisposable(this);
 	}
 
 	connect() {}

@@ -6,6 +6,7 @@ import { Bone } from './Bone.js';
 import { Matrix4 } from '../math/Matrix4.js';
 import { DataTexture } from '../textures/DataTexture.js';
 import { generateUUID } from '../math/MathUtils.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 const _offsetMatrix = /*@__PURE__*/ new Matrix4();
 const _identityMatrix = /*@__PURE__*/ new Matrix4();
@@ -24,6 +25,7 @@ class Skeleton {
 
 		this.init();
 
+		return gcDisposable(this);
 	}
 
 	init() {

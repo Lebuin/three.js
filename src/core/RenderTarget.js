@@ -3,6 +3,7 @@ import { Texture } from '../textures/Texture.js';
 import { LinearFilter } from '../constants.js';
 import { Vector4 } from '../math/Vector4.js';
 import { Source } from '../textures/Source.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 /*
  In options, we can specify:
@@ -69,6 +70,7 @@ class RenderTarget extends EventDispatcher {
 
 		this.samples = options.samples;
 
+		return gcDisposable(this);
 	}
 
 	get texture() {

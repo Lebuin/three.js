@@ -7,6 +7,7 @@ import { LineBasicMaterial } from '../materials/LineBasicMaterial.js';
 import { Mesh } from '../objects/Mesh.js';
 import { Line } from '../objects/Line.js';
 import { Vector3 } from '../math/Vector3.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 const _axis = /*@__PURE__*/ new Vector3();
 let _lineGeometry, _coneGeometry;
@@ -44,6 +45,7 @@ class ArrowHelper extends Object3D {
 		this.setDirection( dir );
 		this.setLength( length, headLength, headWidth );
 
+		return gcDisposable(this);
 	}
 
 	setDirection( dir ) {

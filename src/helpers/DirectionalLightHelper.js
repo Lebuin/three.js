@@ -4,6 +4,7 @@ import { Line } from '../objects/Line.js';
 import { Float32BufferAttribute } from '../core/BufferAttribute.js';
 import { BufferGeometry } from '../core/BufferGeometry.js';
 import { LineBasicMaterial } from '../materials/LineBasicMaterial.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 const _v1 = /*@__PURE__*/ new Vector3();
 const _v2 = /*@__PURE__*/ new Vector3();
@@ -48,6 +49,7 @@ class DirectionalLightHelper extends Object3D {
 
 		this.update();
 
+		return gcDisposable(this);
 	}
 
 	dispose() {

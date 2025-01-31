@@ -9,6 +9,7 @@ import { Matrix4 } from '../math/Matrix4.js';
 import { Matrix3 } from '../math/Matrix3.js';
 import { generateUUID } from '../math/MathUtils.js';
 import { arrayNeedsUint32 } from '../utils.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 let _id = 0;
 
@@ -50,6 +51,7 @@ class BufferGeometry extends EventDispatcher {
 
 		this.userData = {};
 
+		return gcDisposable(this);
 	}
 
 	getIndex() {

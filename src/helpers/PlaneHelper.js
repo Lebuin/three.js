@@ -4,6 +4,7 @@ import { LineBasicMaterial } from '../materials/LineBasicMaterial.js';
 import { MeshBasicMaterial } from '../materials/MeshBasicMaterial.js';
 import { Float32BufferAttribute } from '../core/BufferAttribute.js';
 import { BufferGeometry } from '../core/BufferGeometry.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 class PlaneHelper extends Line {
 
@@ -33,6 +34,7 @@ class PlaneHelper extends Line {
 
 		this.add( new Mesh( geometry2, new MeshBasicMaterial( { color: color, opacity: 0.2, transparent: true, depthWrite: false, toneMapped: false } ) ) );
 
+		return gcDisposable(this);
 	}
 
 	updateMatrixWorld( force ) {

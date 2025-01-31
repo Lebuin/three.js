@@ -1,6 +1,7 @@
 import { Mesh } from '../objects/Mesh.js';
 import { MeshBasicMaterial } from '../materials/MeshBasicMaterial.js';
 import { SphereGeometry } from '../geometries/SphereGeometry.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 class PointLightHelper extends Mesh {
 
@@ -46,6 +47,7 @@ class PointLightHelper extends Mesh {
 	this.add( this.lightDistance );
 	*/
 
+		return gcDisposable(this);
 	}
 
 	dispose() {

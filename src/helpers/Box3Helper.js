@@ -2,6 +2,7 @@ import { LineSegments } from '../objects/LineSegments.js';
 import { LineBasicMaterial } from '../materials/LineBasicMaterial.js';
 import { BufferAttribute, Float32BufferAttribute } from '../core/BufferAttribute.js';
 import { BufferGeometry } from '../core/BufferGeometry.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 class Box3Helper extends LineSegments {
 
@@ -25,6 +26,7 @@ class Box3Helper extends LineSegments {
 
 		this.geometry.computeBoundingSphere();
 
+		return gcDisposable(this);
 	}
 
 	updateMatrixWorld( force ) {

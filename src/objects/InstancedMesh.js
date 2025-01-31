@@ -5,6 +5,7 @@ import { Matrix4 } from '../math/Matrix4.js';
 import { Sphere } from '../math/Sphere.js';
 import { DataTexture } from '../textures/DataTexture.js';
 import { FloatType, RedFormat } from '../constants.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 const _instanceLocalMatrix = /*@__PURE__*/ new Matrix4();
 const _instanceWorldMatrix = /*@__PURE__*/ new Matrix4();
@@ -39,6 +40,7 @@ class InstancedMesh extends Mesh {
 
 		}
 
+		return gcDisposable(this);
 	}
 
 	computeBoundingBox() {

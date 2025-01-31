@@ -3,6 +3,7 @@ import { LineBasicMaterial } from '../materials/LineBasicMaterial.js';
 import { Float32BufferAttribute } from '../core/BufferAttribute.js';
 import { BufferGeometry } from '../core/BufferGeometry.js';
 import { Color } from '../math/Color.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 class PolarGridHelper extends LineSegments {
 
@@ -81,6 +82,7 @@ class PolarGridHelper extends LineSegments {
 
 		this.type = 'PolarGridHelper';
 
+		return gcDisposable(this);
 	}
 
 	dispose() {

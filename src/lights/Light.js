@@ -1,4 +1,5 @@
 import { Object3D } from '../core/Object3D.js';
+import { gcDisposable } from '../maqet/gc.js';
 import { Color } from '../math/Color.js';
 
 class Light extends Object3D {
@@ -14,6 +15,7 @@ class Light extends Object3D {
 		this.color = new Color( color );
 		this.intensity = intensity;
 
+		return gcDisposable(this);
 	}
 
 	dispose() {

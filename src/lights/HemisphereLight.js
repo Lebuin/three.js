@@ -1,6 +1,7 @@
 import { Light } from './Light.js';
 import { Color } from '../math/Color.js';
 import { Object3D } from '../core/Object3D.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 class HemisphereLight extends Light {
 
@@ -17,6 +18,7 @@ class HemisphereLight extends Light {
 
 		this.groundColor = new Color( groundColor );
 
+		return gcDisposable(this);
 	}
 
 	copy( source, recursive ) {

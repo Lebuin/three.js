@@ -10,6 +10,7 @@ import { Sphere } from '../math/Sphere.js';
 import { Frustum } from '../math/Frustum.js';
 import { Vector3 } from '../math/Vector3.js';
 import { Color } from '../math/Color.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 function ascIdSort( a, b ) {
 
@@ -214,6 +215,7 @@ class BatchedMesh extends Mesh {
 		this._initMatricesTexture();
 		this._initIndirectTexture();
 
+		return gcDisposable(this);
 	}
 
 	_initMatricesTexture() {

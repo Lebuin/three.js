@@ -1,5 +1,6 @@
 import { EventDispatcher } from './EventDispatcher.js';
 import { StaticDrawUsage } from '../constants.js';
+import { gcDisposable } from '../maqet/gc.js';
 
 let _id = 0;
 
@@ -18,6 +19,7 @@ class UniformsGroup extends EventDispatcher {
 		this.usage = StaticDrawUsage;
 		this.uniforms = [];
 
+		return gcDisposable(this);
 	}
 
 	add( uniform ) {
