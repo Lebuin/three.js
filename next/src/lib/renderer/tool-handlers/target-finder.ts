@@ -115,6 +115,8 @@ export class TargetFinder {
 
   setNeighborPoint(point: THREE.Vector3) {
     this._neighborPoint = point;
+    this._constraintPlane = undefined;
+    this._constraintLine = undefined;
     this.updateSnapObjects();
   }
 
@@ -128,10 +130,10 @@ export class TargetFinder {
     this.updateSnapObjects();
   }
 
-  setConstraintLine(direction: THREE.Vector3, point: THREE.Vector3) {
-    this._neighborPoint = point;
-    this._constraintLine = new THREE.Line3(point, point.clone().add(direction));
+  setConstraintLine(line: THREE.Line3) {
+    this._neighborPoint = line.start;
     this._constraintPlane = undefined;
+    this._constraintLine = line;
     this.updateSnapObjects();
   }
 

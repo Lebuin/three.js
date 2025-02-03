@@ -20,6 +20,7 @@ export class BoardToolHandler extends ToolHandler {
   private points: BoardPoint[] = [];
   private fleetingPoint?: BoardPoint;
   private fleetingBoard?: MaterialObject;
+  private isFixedLine = false;
 
   constructor(renderer: Renderer) {
     super(renderer);
@@ -37,14 +38,23 @@ export class BoardToolHandler extends ToolHandler {
   }
 
   private setupListeners() {
+    window.addEventListener('keydown', this.onKeyDown);
     this.mouseHandler.addEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.addEventListener('click', this.onClick);
   }
 
   private removeListeners() {
+    window.removeEventListener('keydown', this.onKeyDown);
     this.mouseHandler.removeEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.removeEventListener('click', this.onClick);
   }
+
+  private onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'ArrowUp') {
+      this.isFixedLine = !this.isFixedLine;
+      this.updateConstraints();
+    }
+  };
 
   private onMouseMove = (event: MouseHandlerEvent) => {
     this.fleetingPoint = this.createBoardPoint(event);
@@ -55,11 +65,22 @@ export class BoardToolHandler extends ToolHandler {
     const boardPoint = this.createBoardPoint(event);
     this.points.push(boardPoint);
     this.fleetingPoint = undefined;
+    this.isFixedLine = false;
 
     this.updateFleetingBoard();
+    this.updateConstraints();
+  };
 
-    if (this.points.length === 1) {
-      this.mouseHandler.targetFinder.setNeighborPoint(boardPoint.point);
+  private updateConstraints() {
+    const targetFinder = this.mouseHandler.targetFinder;
+    const fixedLine = this.getFixedLine();
+    if (this.points.length === 0) {
+      targetFinder.clearConstraints();
+      return;
+    } else if (fixedLine) {
+      targetFinder.setConstraintLine(fixedLine);
+    } else if (this.points.length === 1) {
+      this.mouseHandler.targetFinder.setNeighborPoint(this.points[0].point);
     } else if (this.points.length === 2) {
       const planeNormal = this.points[1].point
         .clone()
@@ -67,7 +88,7 @@ export class BoardToolHandler extends ToolHandler {
         .normalize();
       this.mouseHandler.targetFinder.setConstraintPlane(
         planeNormal,
-        boardPoint.point,
+        this.points[1].point,
       );
     } else if (this.points.length === 3) {
       const boardPlane = new THREE.Plane().setFromCoplanarPoints(
@@ -75,15 +96,16 @@ export class BoardToolHandler extends ToolHandler {
         this.points[1].point,
         this.points[2].point,
       );
-      this.mouseHandler.targetFinder.setConstraintLine(
-        boardPlane.normal,
-        boardPoint.point,
+      const line = new THREE.Line3(
+        this.points[2].point,
+        this.points[2].point.clone().add(boardPlane.normal),
       );
+      this.mouseHandler.targetFinder.setConstraintLine(line);
     } else if (this.points.length === 4) {
       this.mouseHandler.targetFinder.clearConstraints();
       this.confirmBoard();
     }
-  };
+  }
 
   private createBoardPoint(event: MouseHandlerEvent) {
     if (this.points.length < 3) {
@@ -94,6 +116,20 @@ export class BoardToolHandler extends ToolHandler {
     } else {
       return this.getFourthPoint(event);
     }
+  }
+
+  private getFixedLine(): THREE.Line3 | null {
+    if (!this.isFixedLine || this.points.length === 0 || !this.fleetingPoint) {
+      return null;
+    }
+
+    const start = this.points[this.points.length - 1].point;
+    const end = this.fleetingPoint.point;
+    const line = new THREE.Line3(start, end);
+    if (line.distance() < 1e-6) {
+      return null;
+    }
+    return line;
   }
 
   /**
