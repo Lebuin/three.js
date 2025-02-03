@@ -84,11 +84,23 @@ export class TargetFinder {
     this.snapHelpers.visible = false;
     this.renderer.add(this.snapHelpers);
 
+    this.setupListeners();
     this.updateSnapObjects();
   }
 
   delete() {
     this.renderer.remove(this.snapHelpers);
+    this.removeListeners();
+  }
+
+  setupListeners() {
+    this.renderer.model.addEventListener('addPart', this.onAddRemovePart);
+    this.renderer.model.addEventListener('removePart', this.onAddRemovePart);
+  }
+
+  removeListeners() {
+    this.renderer.model.removeEventListener('addPart', this.onAddRemovePart);
+    this.renderer.model.removeEventListener('removePart', this.onAddRemovePart);
   }
 
   ///
@@ -103,6 +115,10 @@ export class TargetFinder {
   get constraintLine() {
     return this._constraintLine;
   }
+
+  onAddRemovePart = () => {
+    this.updateSnapObjects();
+  };
 
   ///
   // Set constraints

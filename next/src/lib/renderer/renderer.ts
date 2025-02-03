@@ -210,10 +210,12 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
 
   private removePart(...parts: Part[]) {
     parts.forEach((part) => {
-      const partObject = this.partObjects.find(
+      const index = this.partObjects.findIndex(
         (partObject) => partObject.part === part,
       );
-      if (partObject) {
+      if (index > -1) {
+        const partObject = this.partObjects[index];
+        this.partObjects.splice(index, 1);
         this.remove(partObject);
         partObject.delete();
         part.removeEventListener('change', this.render);

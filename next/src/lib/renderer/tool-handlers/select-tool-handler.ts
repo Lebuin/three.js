@@ -50,12 +50,17 @@ export class SelectToolHandler extends ToolHandler {
   private setupListeners() {
     this.mouseHandler.addEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.addEventListener('click', this.onClick);
+    window.addEventListener('keydown', this.onKeyDown);
   }
 
   private removeListeners() {
     this.mouseHandler.removeEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.removeEventListener('click', this.onClick);
+    window.removeEventListener('keydown', this.onKeyDown);
   }
+
+  ///
+  // Select and deselect objects
 
   private onMouseMove = (event: MouseHandlerEvent) => {
     const target = this.targetFinder.findTarget(event.event);
@@ -92,6 +97,26 @@ export class SelectToolHandler extends ToolHandler {
       this.selectedObjects.push(object);
     }
   }
+
+  ///
+  // Do something with the selected objects
+
+  private onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Delete') {
+      this.deleteSelectedObjects();
+    }
+  };
+
+  private deleteSelectedObjects() {
+    for (const object of this.selectedObjects) {
+      this.renderer.model.removePart(object.part);
+    }
+    this.selectedObjects = [];
+    this.updateDrawingHelper();
+  }
+
+  ///
+  // Render the selected objects
 
   private updateDrawingHelper(hoveredObject?: PartObject) {
     const faces: Face[] = [];
