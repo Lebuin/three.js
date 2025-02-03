@@ -1,10 +1,17 @@
 import { Geometries } from '@/lib/geom/geometries';
+import { Edge, Face, Vertex } from '@/lib/geom/shape';
 import { Board } from '@/lib/model/parts/board';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
+import { DrawingHelper } from '../helpers/drawing-helper';
+import { PlaneHelperRect } from '../helpers/plane-helper';
 import { MaterialObject } from '../part-objects/material-object';
 import { Renderer } from '../renderer';
-import { MouseHandler, MouseHandlerEvent } from './mouse-handler';
+import {
+  MouseHandlerEvent as BaseMouseHandlerEvent,
+  MouseHandler,
+} from './mouse-handler';
+import { Target, TargetFinder } from './target-finder';
 import { ToolHandler } from './tool-handler';
 
 interface BoardPoint {
@@ -12,10 +19,19 @@ interface BoardPoint {
   centerAligned: boolean;
 }
 
+const mouseHandlerModifiers = {
+  Control: false,
+  ArrowUp: true,
+} as const;
+type MouseHandlerModifiers = typeof mouseHandlerModifiers;
+type MouseHandlerEvent = BaseMouseHandlerEvent<MouseHandlerModifiers>;
+
 export class BoardToolHandler extends ToolHandler {
   readonly tool = 'board';
 
-  private mouseHandler: MouseHandler;
+  private mouseHandler: MouseHandler<MouseHandlerModifiers>;
+  private targetFinder: TargetFinder;
+  private drawingHelper: DrawingHelper;
 
   private points: BoardPoint[] = [];
   private fleetingPoint?: BoardPoint;
@@ -25,7 +41,13 @@ export class BoardToolHandler extends ToolHandler {
   constructor(renderer: Renderer) {
     super(renderer);
 
-    this.mouseHandler = new MouseHandler(renderer);
+    this.mouseHandler = new MouseHandler(
+      renderer.canvas,
+      mouseHandlerModifiers,
+    );
+    this.targetFinder = new TargetFinder(renderer);
+    this.drawingHelper = new DrawingHelper();
+    this.renderer.addUpdating(this.drawingHelper);
 
     this.setupListeners();
   }
@@ -33,9 +55,15 @@ export class BoardToolHandler extends ToolHandler {
   delete() {
     super.delete();
     this.mouseHandler.delete();
+    this.targetFinder.delete();
+    this.renderer.removeUpdating(this.drawingHelper);
+    this.renderer.setMouseTarget();
     this.removeFleetingBoard();
     this.removeListeners();
   }
+
+  ///
+  // Handle events
 
   private setupListeners() {
     window.addEventListener('keydown', this.onKeyDown);
@@ -57,39 +85,114 @@ export class BoardToolHandler extends ToolHandler {
   };
 
   private onMouseMove = (event: MouseHandlerEvent) => {
-    this.fleetingPoint = this.createBoardPoint(event);
+    const target = this.targetFinder.findTarget(event.event);
+    if (!target) {
+      return;
+    }
+
+    this.fleetingPoint = this.createBoardPoint(event, target);
+    this.updateDrawingHelper(target);
+    this.updateRenderer(target);
     this.updateFleetingBoard();
   };
 
   private onClick = (event: MouseHandlerEvent) => {
-    const boardPoint = this.createBoardPoint(event);
+    const target = this.targetFinder.findTarget(event.event);
+    if (!target) {
+      return;
+    }
+
+    const boardPoint = this.createBoardPoint(event, target);
     this.points.push(boardPoint);
     this.fleetingPoint = undefined;
     this.isFixedLine = false;
 
+    this.updateDrawingHelper(target);
+    this.updateRenderer(target);
     this.updateFleetingBoard();
     this.updateConstraints();
   };
 
+  private isCenterAligned(event: MouseHandlerEvent) {
+    return event.modifiers.Control;
+  }
+
+  ///
+  // Update the scene based on the current target
+
+  updateDrawingHelper(target: Target) {
+    const { point, constrainedPoint, plane, face, edge, vertex } = target;
+
+    const points: THREE.Vector3[] = [];
+    const vertices: Vertex[] = [];
+    const lines: THREE.Line3[] = [];
+    const edges: Edge[] = [];
+    const planes: PlaneHelperRect[] = [];
+    const faces: Face[] = [];
+
+    if (this.targetFinder.neighborPoint) {
+      const line = new THREE.Line3(
+        this.targetFinder.neighborPoint,
+        constrainedPoint,
+      );
+      lines.push(line);
+    }
+
+    if (plane) {
+      const origin = this.targetFinder.neighborPoint ?? new THREE.Vector3();
+      const planeRect: PlaneHelperRect = {
+        start: origin,
+        end: constrainedPoint,
+        normal: plane.normal,
+      };
+      planes.push(planeRect);
+    }
+
+    if (vertex) {
+      vertices.push(vertex);
+    }
+
+    if (edge) {
+      edges.push(edge);
+      points.push(point);
+    }
+
+    if (face) {
+      faces.push(face);
+    }
+
+    this.drawingHelper.setPoints(points);
+    this.drawingHelper.setVertices(vertices);
+    this.drawingHelper.setLines(lines);
+    this.drawingHelper.setEdges(edges);
+    this.drawingHelper.setPlanes(planes);
+    this.drawingHelper.setFaces(faces);
+    this.drawingHelper.visible = true;
+  }
+
+  updateRenderer(target: Target) {
+    this.renderer.setMouseTarget(target.constrainedPoint);
+    this.renderer.render();
+  }
+
+  ///
+  // Update the targetFinder constraints
+
   private updateConstraints() {
-    const targetFinder = this.mouseHandler.targetFinder;
     const fixedLine = this.getFixedLine();
     if (this.points.length === 0) {
-      targetFinder.clearConstraints();
+      this.targetFinder.clearConstraints();
       return;
     } else if (fixedLine) {
-      targetFinder.setConstraintLine(fixedLine);
+      this.targetFinder.setConstraintLine(fixedLine);
     } else if (this.points.length === 1) {
-      this.mouseHandler.targetFinder.setNeighborPoint(this.points[0].point);
+      this.targetFinder.setNeighborPoint(this.points[0].point);
     } else if (this.points.length === 2) {
       const planeNormal = this.points[1].point
         .clone()
         .sub(this.points[0].point)
         .normalize();
-      this.mouseHandler.targetFinder.setConstraintPlane(
-        planeNormal,
-        this.points[1].point,
-      );
+      this.targetFinder.setConstraintPlane(planeNormal, this.points[1].point);
     } else if (this.points.length === 3) {
       const boardPlane = new THREE.Plane().setFromCoplanarPoints(
         this.points[0].point,
@@ -100,21 +203,10 @@ export class BoardToolHandler extends ToolHandler {
         this.points[2].point,
         this.points[2].point.clone().add(boardPlane.normal),
       );
-      this.mouseHandler.targetFinder.setConstraintLine(line);
+      this.targetFinder.setConstraintLine(line);
     } else if (this.points.length === 4) {
-      this.mouseHandler.targetFinder.clearConstraints();
+      this.targetFinder.clearConstraints();
       this.confirmBoard();
-    }
-  }
-
-  private createBoardPoint(event: MouseHandlerEvent) {
-    if (this.points.length < 3) {
-      return {
-        point: event.point,
-        centerAligned: this.isCenterAligned(event),
-      };
-    } else {
-      return this.getFourthPoint(event);
     }
   }
 
@@ -155,12 +247,29 @@ export class BoardToolHandler extends ToolHandler {
     return zLine;
   }
 
-  private getFourthPoint(event: MouseHandlerEvent) {
+  ///
+  // Update the fleeting board
+
+  private createBoardPoint(
+    event: MouseHandlerEvent,
+    target: Target,
+  ): BoardPoint {
+    if (this.points.length < 3) {
+      return {
+        point: target.constrainedPoint,
+        centerAligned: this.isCenterAligned(event),
+      };
+    } else {
+      return this.getFourthPoint(event, target);
+    }
+  }
+
+  private getFourthPoint(event: MouseHandlerEvent, target: Target): BoardPoint {
     const materialThickness = 18;
     const zLine = this.getZLine();
     const zAxis = zLine.delta(new THREE.Vector3());
     const signedDistance = zLine.closestPointToPointParameter(
-      event.point,
+      target.constrainedPoint,
       false,
     );
 
@@ -185,51 +294,6 @@ export class BoardToolHandler extends ToolHandler {
         centerAligned: false,
       };
     }
-  }
-
-  private isCenterAligned(event: MouseHandlerEvent) {
-    return event.ctrlPressed;
-  }
-
-  private getBoardProperties(points: BoardPoint[]) {
-    if (points.length !== 4) {
-      throw new Error('Invalid number of points');
-    }
-
-    const boardSides = {
-      x: points[1].point.clone().sub(points[0].point),
-      y: points[2].point.clone().sub(points[1].point),
-      z: points[3].point.clone().sub(points[2].point),
-    };
-
-    const position = points[0].point.clone();
-    const size = new THREE.Vector3(
-      points[0].point.distanceTo(points[1].point),
-      points[1].point.distanceTo(points[2].point),
-      points[2].point.distanceTo(points[3].point),
-    );
-    const quaternion = getQuaternionFromAxes(boardSides.x, boardSides.y);
-
-    for (let i = 0; i < 3; i++) {
-      const centerAligned = points[i + 1].centerAligned;
-      if (centerAligned) {
-        position.add(points[i].point.clone().sub(points[i + 1].point));
-        const dimension = (['x', 'y', 'z'] as const)[i];
-        size[dimension] *= 2;
-      }
-    }
-
-    const boardZAxis = boardSides.x.clone().cross(boardSides.y).normalize();
-    const zIsInverted = boardZAxis.dot(boardSides.z) < 0;
-    if (zIsInverted) {
-      position.add(points[3].point.clone().sub(points[2].point));
-    }
-
-    return {
-      size,
-      position,
-      quaternion,
-    };
   }
 
   private getFleetingBoard() {
@@ -328,6 +392,46 @@ export class BoardToolHandler extends ToolHandler {
     }
 
     this.points = [];
-    this.renderer.setTool('select');
+  }
+
+  private getBoardProperties(points: BoardPoint[]) {
+    if (points.length !== 4) {
+      throw new Error('Invalid number of points');
+    }
+
+    const boardSides = {
+      x: points[1].point.clone().sub(points[0].point),
+      y: points[2].point.clone().sub(points[1].point),
+      z: points[3].point.clone().sub(points[2].point),
+    };
+
+    const position = points[0].point.clone();
+    const size = new THREE.Vector3(
+      points[0].point.distanceTo(points[1].point),
+      points[1].point.distanceTo(points[2].point),
+      points[2].point.distanceTo(points[3].point),
+    );
+    const quaternion = getQuaternionFromAxes(boardSides.x, boardSides.y);
+
+    for (let i = 0; i < 3; i++) {
+      const centerAligned = points[i + 1].centerAligned;
+      if (centerAligned) {
+        position.add(points[i].point.clone().sub(points[i + 1].point));
+        const dimension = (['x', 'y', 'z'] as const)[i];
+        size[dimension] *= 2;
+      }
+    }
+
+    const boardZAxis = boardSides.x.clone().cross(boardSides.y).normalize();
+    const zIsInverted = boardZAxis.dot(boardSides.z) < 0;
+    if (zIsInverted) {
+      position.add(points[3].point.clone().sub(points[2].point));
+    }
+
+    return {
+      size,
+      position,
+      quaternion,
+    };
   }
 }

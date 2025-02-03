@@ -47,6 +47,10 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     face: [],
   };
 
+  constructor() {
+    super();
+  }
+
   update(renderer: Renderer) {
     this.helpers.point.forEach((pointHelper) => {
       pointHelper.update(renderer);

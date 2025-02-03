@@ -189,7 +189,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   }
 
   public removeUpdating(object: UpdatingObject) {
-    this.updatingObjects = _.remove(this.updatingObjects, object);
+    _.pull(this.updatingObjects, object);
     this.remove(object);
   }
 

@@ -6,7 +6,7 @@ interface ModelEvents {
   removePart: { part: Part };
 }
 
-export class Model extends EventDispatcher<ModelEvents>() {
+export class Model extends EventDispatcher()<ModelEvents> {
   parts: Part[] = [];
 
   addPart(...parts: Part[]) {

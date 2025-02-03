@@ -22,10 +22,11 @@ import Raycaster, { Intersection } from '../raycaster';
 import { Renderer } from '../renderer';
 
 export interface Target {
-  target: THREE.Vector3;
-  constrainedTarget: THREE.Vector3;
+  point: THREE.Vector3;
+  constrainedPoint: THREE.Vector3;
   plane?: THREE.Plane;
 
+  object?: PartObject;
   face?: Face;
   edge?: Edge;
   vertex?: Vertex;
@@ -296,10 +297,14 @@ export class TargetFinder {
   private createTargetFromIntersection(intersection: Intersection): Target {
     const object = intersection.object;
     const target: Target = {
-      target: intersection.point.clone(),
-      constrainedTarget: this.getConstrainedFromIntersection(intersection),
+      point: intersection.point.clone(),
+      constrainedPoint: this.getConstrainedFromIntersection(intersection),
       plane: this.getPlaneFromIntersection(intersection),
     };
+
+    if (this.snapObjects.includes(object as PartObject)) {
+      target.object = object as PartObject;
+    }
 
     if (
       object !== this.constraintObject &&
@@ -398,45 +403,45 @@ export class TargetFinder {
   }
 
   private getTargetOnLine(raycaster: Raycaster, line: THREE.Line3): Target {
-    const target = new THREE.Vector3();
-    const constrainedTarget = new THREE.Vector3();
-    distanceToLine(raycaster.ray, line, target, constrainedTarget);
+    const point = new THREE.Vector3();
+    const constrainedPoint = new THREE.Vector3();
+    distanceToLine(raycaster.ray, line, point, constrainedPoint);
     return {
-      target,
-      constrainedTarget,
+      point,
+      constrainedPoint,
     };
   }
 
   getTargetOnPlane(raycaster: Raycaster, plane: THREE.Plane): Target | null {
-    const target = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
-    if (!target) {
+    const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+    if (!point) {
       return null;
     }
 
     return {
-      target,
-      constrainedTarget: target,
+      point,
+      constrainedPoint: point,
       plane,
     };
   }
 
   private getTargetNearPoint(
     raycaster: Raycaster,
-    point: THREE.Vector3,
+    nearbyPoint: THREE.Vector3,
   ): Target | null {
     const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
       planeNormal,
-      point,
+      nearbyPoint,
     );
-    const target = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
-    if (!target) {
+    const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+    if (!point) {
       return null;
     }
 
     return {
-      target,
-      constrainedTarget: target,
+      point: point,
+      constrainedPoint: point,
       plane,
     };
   }

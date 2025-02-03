@@ -33,11 +33,9 @@ type Constructor = new (...args: any[]) => {};
  *
  * Based on THREE.EventDispatcher.
  */
-export function EventDispatcherMixin<
-  TEventMap extends object,
-  TBase extends Constructor,
->(Base: TBase) {
-  class EventDispatcher extends Base {
+export function EventDispatcherMixin<TBase extends Constructor>(Base: TBase) {
+  // @ts-expect-error See https://github.com/microsoft/TypeScript/issues/37142#issuecomment-1690288978
+  class EventDispatcher<TEventMap extends object> extends Base {
     // Instead of `any`, we should use `this` here, but this breaks our types and I don't know why.
     // We should fix this, but it's not a priority right now. Also, our typing still works, since
     // we are able to use the correct type in the methods below.
@@ -105,7 +103,7 @@ export function EventDispatcherMixin<
 /**
  * A version of EventDispatcherMixin where you don't have to provide the base class yourself.
  */
-export function EventDispatcher<TEventMap extends object>() {
+export function EventDispatcher() {
   class Base {}
-  return EventDispatcherMixin<TEventMap, typeof Base>(Base);
+  return EventDispatcherMixin(Base);
 }
