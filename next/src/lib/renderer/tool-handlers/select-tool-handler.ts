@@ -1,5 +1,5 @@
 import { ToolHandler } from './tool-handler';
 
 export class SelectToolHandler extends ToolHandler {
-  // TODO
+  readonly tool = 'select';
 }

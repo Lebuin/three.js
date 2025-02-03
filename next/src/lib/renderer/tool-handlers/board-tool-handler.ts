@@ -13,6 +13,8 @@ interface BoardPoint {
 }
 
 export class BoardToolHandler extends ToolHandler {
+  readonly tool = 'board';
+
   private mouseHandler: MouseHandler;
 
   private points: BoardPoint[] = [];

@@ -1,6 +1,9 @@
+import { Tool } from '@/components/toolbar';
 import { Renderer } from '../renderer';
 
 export abstract class ToolHandler {
+  abstract readonly tool: Tool;
+
   constructor(protected renderer: Renderer) {}
 
   delete() {

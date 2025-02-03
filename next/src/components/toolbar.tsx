@@ -35,7 +35,7 @@ export interface ToolbarProps {
 export default function Toolbar(props: ToolbarProps) {
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
+      if (event.key === ' ') {
         props.onSelect.call(null, 'select');
       } else if (event.key === 'b') {
         props.onSelect.call(null, 'board');

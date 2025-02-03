@@ -33,7 +33,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
 
   private _partObjects: PartObject[] = [];
   private updatingObjects: UpdatingObject[] = [];
-  private toolHandler?: ToolHandler;
+  private toolHandler: ToolHandler;
   private mouseTarget?: THREE.Vector3;
 
   private onResizeThrottled = _.throttle(this.onResize.bind(this), 100);
@@ -61,6 +61,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.addUpdating(this.lighting);
 
     this.controls = new OrbitControls(this.camera, this.canvas);
+    this.toolHandler = createToolHandler('select', this);
 
     initOC()
       .then(() => {
@@ -95,11 +96,12 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     window.addEventListener('resize', this.onResizeThrottled);
     window.addEventListener('pointerdown', this.onPointerDown);
     this.canvas.addEventListener('contextmenu', this.onContextMenu);
+    window.addEventListener('keydown', this.onKeyDown);
   }
 
   delete() {
     this.removeAllParts();
-    this.toolHandler?.delete();
+    this.toolHandler.delete();
 
     this.controls.removeEventListener('change', this.onControlsChange);
     this.controls.disconnect();
@@ -108,6 +110,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.canvas.removeEventListener('contextmenu', this.onContextMenu);
     this.model.removeEventListener('addPart', this.onAddPart);
     this.model.removeEventListener('removePart', this.onRemovePart);
+    window.removeEventListener('keydown', this.onKeyDown);
   }
 
   private createScene() {
@@ -351,8 +354,15 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   /// Tools
 
   setTool(tool: Tool) {
-    this.toolHandler?.delete();
+    this.toolHandler.delete();
     this.toolHandler = createToolHandler(tool, this);
     this.dispatchEvent({ type: 'tool', tool });
   }
+
+  private onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      this.toolHandler.delete();
+      this.toolHandler = createToolHandler(this.toolHandler.tool, this);
+    }
+  };
 }
