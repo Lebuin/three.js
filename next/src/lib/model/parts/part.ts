@@ -1,4 +1,4 @@
-import { RootShape, shapeFactory } from '@/lib/geom/shape';
+import { RootShapeWithEdges, shapeFactory } from '@/lib/geom/shape';
 import { quaternionFromQuaternion, vectorFromVector } from '@/lib/geom/util';
 import { getOC, gp_Trsf, TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
@@ -10,7 +10,7 @@ export abstract class Part extends THREE.EventDispatcher<PartEvents> {
   private _position: THREE.Vector3;
   private _quaternion: THREE.Quaternion;
 
-  protected _shape?: RootShape;
+  protected _shape?: RootShapeWithEdges;
 
   constructor(position?: THREE.Vector3, quaternion?: THREE.Quaternion) {
     super();

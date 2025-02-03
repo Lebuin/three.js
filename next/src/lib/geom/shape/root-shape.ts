@@ -4,7 +4,6 @@ import {
   TopoDS_Shape,
   TopoDS_Vertex,
 } from '@lib/opencascade.js';
-import { exploreEdges, exploreFaces, exploreVertices } from '../explore';
 import { OCGeometries, OCGeometriesBuilder } from '../geometries';
 import { getShapeId } from '../util';
 import { Edge } from './edge';
@@ -14,18 +13,19 @@ import { Vertex } from './vertex';
 
 export abstract class RootShape<
   T extends TopoDS_Shape = TopoDS_Shape,
+  V extends Vertex = Vertex,
 > extends Shape<T, void> {
-  faces: Face[] = [];
-  edges: Edge[] = [];
-  vertices: Vertex[] = [];
+  _vertices?: V[];
   shapeMap = new Map<number, Shape>();
 
   isRoot = true;
   _geometries?: OCGeometries;
 
-  constructor(shape: T) {
-    super(shape);
-    this.explore();
+  get vertices() {
+    if (!this._vertices) {
+      this.explore();
+    }
+    return this._vertices!;
   }
 
   get geometries() {
@@ -35,6 +35,13 @@ export abstract class RootShape<
     }
     return this._geometries;
   }
+
+  protected explore() {
+    this._vertices = [];
+    this.exploreShapes();
+  }
+
+  protected abstract exploreShapes(): void;
 
   protected addShapeToMap(ocShape: TopoDS_Shape, shape: Shape) {
     const id = getShapeId(ocShape);
@@ -51,77 +58,17 @@ export abstract class RootShape<
     }
     return this.shapeMap.get(id) ?? null;
   }
-  getFace(ocFace: TopoDS_Face): Face | null {
-    return this.getSubShape(ocFace) as Face | null;
+  getVertex(ocVertex: TopoDS_Vertex): V | null {
+    return this.getSubShape(ocVertex) as V | null;
   }
-  getEdge(ocEdge: TopoDS_Edge): Edge | null {
-    return this.getSubShape(ocEdge) as Edge | null;
-  }
-  getVertex(ocVertex: TopoDS_Vertex): Vertex | null {
-    return this.getSubShape(ocVertex) as Vertex | null;
+  getVertexIndex(vertex: Vertex): number {
+    return this.vertices.indexOf(vertex as V);
   }
 
-  protected explore() {
-    const ocFaces = exploreFaces(this.shape);
-    if (ocFaces.length > 0) {
-      for (const ocFace of ocFaces) {
-        const face = this.addFace(ocFace, this);
-        this.exploreEdges(face);
-      }
-    } else {
-      this.exploreEdges(this);
-    }
-  }
-
-  protected exploreEdges(parent: RootShape | Face) {
-    const ocEdges = exploreEdges(parent.shape);
-    for (const ocEdge of ocEdges) {
-      const edge = this.addEdge(ocEdge, parent);
-      if (parent instanceof Face) {
-        parent.edges.push(edge);
-      }
-
-      const ocVertices = exploreVertices(ocEdge);
-      for (const ocVertex of ocVertices) {
-        const vertex = this.addVertex(ocVertex, edge);
-        edge.vertices.push(vertex);
-        if (parent instanceof Face) {
-          parent.vertices.push(vertex);
-        }
-      }
-    }
-  }
-
-  protected addFace(ocFace: TopoDS_Face, parent: RootShape): Face {
-    const existingFace = this.getFace(ocFace);
-    if (existingFace) {
-      return existingFace;
-    }
-
-    const face = new Face(ocFace, parent);
-    this.faces.push(face);
-    this.addShapeToMap(ocFace, face);
-    return face;
-  }
-
-  protected addEdge(ocEdge: TopoDS_Edge, parent: RootShape | Face): Edge {
-    const existingEdge = this.getEdge(ocEdge);
-    if (existingEdge) {
-      return existingEdge;
-    }
-
-    let edge = this.edges.find((edge) => {
-      return edge.shape.IsSame(ocEdge);
-    });
-    if (!edge) {
-      edge = new Edge(ocEdge, parent);
-      this.edges.push(edge);
-    }
-    this.addShapeToMap(ocEdge, edge);
-    return edge;
-  }
-
-  protected addVertex(ocVertex: TopoDS_Vertex, parent: Edge) {
+  protected addVertex(
+    ocVertex: TopoDS_Vertex,
+    parent: NonNullable<V['parent']>,
+  ): V {
     const existingVertex = this.getVertex(ocVertex);
     if (existingVertex) {
       return existingVertex;
@@ -131,10 +78,92 @@ export abstract class RootShape<
       return vertex.shape.IsEqual(ocVertex);
     });
     if (!vertex) {
-      vertex = new Vertex(ocVertex, parent);
+      vertex = new Vertex(ocVertex, parent) as V;
       this.vertices.push(vertex);
     }
     this.addShapeToMap(ocVertex, vertex);
     return vertex;
+  }
+}
+
+export abstract class RootShapeWithEdges<
+  T extends TopoDS_Shape = TopoDS_Shape,
+  E extends Edge = Edge,
+  V extends Vertex = Vertex,
+> extends RootShape<T, V> {
+  _edges?: E[];
+
+  get edges() {
+    if (!this._edges) {
+      this.explore();
+    }
+    return this._edges!;
+  }
+  getEdge(ocEdge: TopoDS_Edge): E | null {
+    return this.getSubShape(ocEdge) as E | null;
+  }
+  getEdgeIndex(edge: Edge): number {
+    return this.edges.indexOf(edge as E);
+  }
+
+  protected explore(): void {
+    this._edges = [];
+    super.explore();
+  }
+
+  protected addEdge(ocEdge: TopoDS_Edge, parent: NonNullable<E['parent']>): E {
+    const existingEdge = this.getEdge(ocEdge);
+    if (existingEdge) {
+      return existingEdge;
+    }
+
+    let edge = this.edges.find((edge) => {
+      return edge.shape.IsSame(ocEdge);
+    });
+    if (!edge) {
+      edge = new Edge(ocEdge, parent) as E;
+      this.edges.push(edge);
+    }
+    this.addShapeToMap(ocEdge, edge);
+    return edge;
+  }
+}
+
+export abstract class RootShapeWithFaces<
+  T extends TopoDS_Shape = TopoDS_Shape,
+  F extends Face = Face,
+  E extends Edge = Edge,
+  V extends Vertex = Vertex,
+> extends RootShapeWithEdges<T, E, V> {
+  _faces?: F[];
+
+  get faces() {
+    if (!this._faces) {
+      this.explore();
+    }
+    return this._faces!;
+  }
+  getFace(ocFace: TopoDS_Face): F | null {
+    return this.getSubShape(ocFace) as F | null;
+  }
+  getFaceIndex(face: Face): number {
+    return this.faces.indexOf(face as F);
+  }
+
+  protected explore() {
+    this._faces = [];
+    super.explore();
+  }
+
+  protected addFace(ocFace: TopoDS_Face, parent: NonNullable<F['parent']>): F {
+    const existingFace = this.getFace(ocFace);
+    if (existingFace) {
+      return existingFace;
+    }
+
+    const face = new Face(ocFace, parent) as F;
+    this.faces.push(face);
+    this.addShapeToMap(ocFace, face);
+    return face;
   }
 }

@@ -14,7 +14,14 @@ import {
   getIndexedAttribute3,
 } from '../util/three';
 import { getOrientation, Orientation } from './orientation';
-import { Edge, Face, RootShape, Solid, Vertex, Wire } from './shape';
+import {
+  Edge,
+  Face,
+  RootShape,
+  RootShapeWithEdges,
+  RootShapeWithFaces,
+  Vertex,
+} from './shape';
 import { directionToArray, pointToArray } from './util';
 
 export const STRIDE = 3;
@@ -191,18 +198,22 @@ export class OCGeometriesBuilder {
   ///
   // Explore subshapes and merge them into a single BufferGeometry
 
-  private buildFacesAndEdges(shape: RootShape) {
-    if (shape.faces.length > 0) {
+  private buildFacesAndEdges(
+    shape: RootShape | RootShapeWithEdges | RootShapeWithFaces,
+  ) {
+    if ('faces' in shape) {
       return this.buildSolidFacesAndEdges(shape);
-    } else {
+    } else if ('edges' in shape) {
       return this.buildWireFacesAndEdges(shape);
+    } else {
+      return this.buildPointCloudFacesAndEdges(shape);
     }
   }
 
-  private buildSolidFacesAndEdges(solid: Solid) {
-    this.mesh(solid);
+  private buildSolidFacesAndEdges(shape: RootShapeWithFaces) {
+    this.mesh(shape);
 
-    const allFaceData = solid.faces
+    const allFaceData = shape.faces
       .map((face) => this.getFaceData(face))
       .filter((faceData) => faceData !== undefined);
     const faceData = this.mergeFaceData(allFaceData);
@@ -228,7 +239,7 @@ export class OCGeometriesBuilder {
   /**
    * This method currently only works for straight edges.
    */
-  private buildWireFacesAndEdges(shape: Wire) {
+  private buildWireFacesAndEdges(shape: RootShapeWithEdges) {
     const allEdgeData = shape.edges
       .map((edge) => this.getWireEdgeData(edge))
       .filter((edgeData) => edgeData !== undefined);
@@ -244,6 +255,15 @@ export class OCGeometriesBuilder {
       faceMap: [],
       edges: edgeGeometry,
       edgeMap: edgeData.map,
+    };
+  }
+
+  private buildPointCloudFacesAndEdges(_shape: RootShape) {
+    return {
+      faces: emptyGeometry,
+      faceMap: [],
+      edges: emptyGeometry,
+      edgeMap: [],
     };
   }
 
@@ -563,10 +583,10 @@ export class OCGeometriesBuilder {
   ///
   // Utils
 
-  private mesh(solid: Solid) {
+  private mesh(shape: RootShapeWithFaces) {
     const oc = getOC();
     const mesher = new oc.BRepMesh_IncrementalMesh_2(
-      solid.shape,
+      shape.shape,
       1,
       false,
       0.5,

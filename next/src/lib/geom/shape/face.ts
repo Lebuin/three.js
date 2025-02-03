@@ -1,14 +1,21 @@
 import { TopoDS_Face } from '@lib/opencascade.js';
+import { Compound } from './compound';
 import { Edge } from './edge';
-import { RootShape } from './root-shape';
 import { Shape } from './shape';
+import { Shell } from './shell';
+import { Solid } from './solid';
 import { Vertex } from './vertex';
 
-export class Face extends Shape<TopoDS_Face, RootShape> {
+export type FaceParent = Shell | Solid | Compound;
+
+export class Face<P extends FaceParent = FaceParent> extends Shape<
+  TopoDS_Face,
+  P
+> {
   edges: Edge[] = [];
   vertices: Vertex[] = [];
 
-  constructor(face: TopoDS_Face, parent?: RootShape) {
+  constructor(face: TopoDS_Face, parent?: P) {
     super(face, parent);
   }
 

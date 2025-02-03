@@ -1,18 +1,16 @@
-import { getOC } from '@lib/opencascade.js';
+import { getOC, TopoDS_Vertex } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
-import { OCGeometries, STRIDE } from './geometries';
 import {
   Edge,
   Face,
   RootShape,
+  RootShapeWithEdges,
+  RootShapeWithFaces,
   Shape,
   shapeFactory,
-  Solid,
   Vertex,
-  Wire,
 } from './shape';
-import { Collection } from './shape/collection';
-import { Shell } from './shape/shell';
+import { PointCloud } from './shape/point-cloud';
 import { pointFromVector, pointToVector, vertexFromPoint } from './util';
 
 export type EdgeSupport = Face;
@@ -26,12 +24,18 @@ export interface ShapeIntersection {
 }
 
 export function getIntersections(
-  shape1: Solid | Shell | Wire,
-  shape2: Solid | Shell | Wire,
+  shape1: RootShapeWithEdges,
+  shape2: RootShapeWithEdges,
 ): ShapeIntersection {
-  if (shape1 instanceof Wire) {
-    return makeIntersectionWithWire(shape1, shape2);
-  } else if (shape2 instanceof Wire) {
+  if (
+    shape1 instanceof RootShapeWithFaces &&
+    shape2 instanceof RootShapeWithFaces
+  ) {
+    return makeIntersectionWithSolid(
+      shape1 as RootShapeWithFaces,
+      shape2 as RootShapeWithFaces,
+    );
+  } else if (shape1 instanceof RootShapeWithFaces) {
     const intersection = makeIntersectionWithWire(shape2, shape1);
     return {
       shape: intersection.shape,
@@ -39,7 +43,7 @@ export function getIntersections(
       vertexSupportMap2: intersection.vertexSupportMap1,
     };
   } else {
-    return makeIntersectionWithSolid(shape1, shape2);
+    return makeIntersectionWithWire(shape1, shape2);
   }
 }
 
@@ -47,8 +51,8 @@ export function getIntersections(
  * Get a list of edges where 2 shapes intersect. Both shapes must be solids or shells.
  */
 export function makeIntersectionWithSolid(
-  shape1: Solid | Shell,
-  shape2: Solid | Shell,
+  shape1: RootShapeWithFaces,
+  shape2: RootShapeWithFaces,
 ): ShapeIntersection {
   const oc = getOC();
   const section = new oc.BRepAlgoAPI_Section_3(
@@ -90,11 +94,13 @@ export function makeIntersectionWithSolid(
 
   for (const vertex of shape.vertices) {
     const edge = vertex.parent;
-    if (!(edge instanceof Edge)) {
-      throw new Error('Vertex parent is not an edge');
+    if (edge == null) {
+      throw new Error('Vertex has no parent edge');
+    } else if (!(edge instanceof Edge)) {
+      throw new Error('Parent is not an edge');
     }
-    const index1 = shape1.edges.indexOf(edge);
-    const index2 = shape2.edges.indexOf(edge);
+    const index1 = shape1.getEdgeIndex(edge);
+    const index2 = shape2.getEdgeIndex(edge);
 
     const support1 = edgeSupportMap1[index1];
     const support2 = edgeSupportMap2[index2];
@@ -113,12 +119,12 @@ export function makeIntersectionWithSolid(
 }
 
 /**
- * Get the points where 2 shapes intersect. Typically, at least one of the shapes is a wire, while
- * the other is a wire, shell or solid.
+ * Get the points where 2 shapes intersect. The first shape must be a wire, while the other may be
+ * wire, shell or solid.
  */
 export function makeIntersectionWithWire(
-  shape1: Wire,
-  shape2: Solid | Shell | Wire,
+  shape1: RootShapeWithEdges,
+  shape2: RootShapeWithEdges,
   tolerance = 1e-6,
 ): ShapeIntersection {
   const oc = getOC();
@@ -134,14 +140,12 @@ export function makeIntersectionWithWire(
 
   const distance = distanceTool.Value();
   if (distance > tolerance) {
-    const geometries = new OCGeometries({});
-    const shape = new Collection(geometries);
+    const shape = new PointCloud([]);
     return { shape, vertexSupportMap1: [], vertexSupportMap2: [] };
   }
 
   const numSolutions = distanceTool.NbSolution();
-  const position = new Float32Array(numSolutions * 3);
-  const vertexMap: Vertex[] = [];
+  const vertices: TopoDS_Vertex[] = [];
   const vertexSupportMap1: VertexSupport[] = [];
   const vertexSupportMap2: VertexSupport[] = [];
 
@@ -152,9 +156,7 @@ export function makeIntersectionWithWire(
       throw new Error('Points are not equal');
     }
     const vertex = vertexFromPoint(ocPoint2);
-    const point = pointToVector(ocPoint2);
-    position.set(point.toArray(), i * STRIDE);
-    vertexMap[i] = new Vertex(vertex);
+    vertices[i] = vertex;
 
     const ocSupport1 = distanceTool.SupportOnShape1(i + 1);
     const ocSupport2 = distanceTool.SupportOnShape2(i + 1);
@@ -188,16 +190,7 @@ export function makeIntersectionWithWire(
     vertexSupportMap2[i] = support2;
   }
 
-  const vertices = new THREE.BufferGeometry();
-  vertices.setAttribute(
-    'position',
-    new THREE.BufferAttribute(position, STRIDE),
-  );
-  const geometries = new OCGeometries({
-    vertices,
-    vertexMap,
-  });
-  const shape = new Collection(geometries);
+  const shape = new PointCloud(vertices);
 
   return { shape, vertexSupportMap1, vertexSupportMap2 };
 }

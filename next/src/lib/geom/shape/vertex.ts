@@ -1,10 +1,16 @@
 import { TopoDS_Vertex } from '@lib/opencascade.js';
-import { Collection } from './collection';
+import { Compound } from './compound';
 import { Edge } from './edge';
+import { PointCloud } from './point-cloud';
 import { Shape } from './shape';
 
-export class Vertex extends Shape<TopoDS_Vertex, Edge | Collection> {
-  constructor(vertex: TopoDS_Vertex, parent?: Edge | Collection) {
+export type VertexParent = Edge | PointCloud | Compound;
+
+export class Vertex<P extends VertexParent = VertexParent> extends Shape<
+  TopoDS_Vertex,
+  P
+> {
+  constructor(vertex: TopoDS_Vertex, parent?: P) {
     super(vertex, parent);
   }
 
