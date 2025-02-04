@@ -3,7 +3,7 @@ import React from 'react';
 import { IconType } from 'react-icons';
 import { LiaMousePointerSolid } from 'react-icons/lia';
 import { MdOutlineRectangle } from 'react-icons/md';
-import { RiDragMove2Fill } from 'react-icons/ri';
+import { RiDragMove2Fill, RiExpandHorizontalSFill } from 'react-icons/ri';
 import Icon from './util/icon';
 
 export interface ToolInfo {
@@ -13,7 +13,7 @@ export interface ToolInfo {
   shortcut: string;
 }
 
-export const tools = ['select', 'board', 'move'] as const;
+export const tools = ['select', 'board', 'move', 'stretch'] as const;
 export type Tool = (typeof tools)[number];
 
 export const toolInfo: Record<Tool, ToolInfo> = {
@@ -34,6 +34,12 @@ export const toolInfo: Record<Tool, ToolInfo> = {
     icon: RiDragMove2Fill,
     cursor: 'move',
     shortcut: 'm',
+  },
+  stretch: {
+    name: 'Stretch',
+    icon: RiExpandHorizontalSFill,
+    cursor: 'move',
+    shortcut: 's',
   },
 } as const;
 

@@ -37,20 +37,36 @@ export function initModel(model: Model) {
   const thickness = 18;
   const parts = [
     new Board(
-      new THREE.Vector3(size.x, thickness, size.z),
-      new THREE.Vector3(0, 0, 0),
-    ),
-    new Board(
-      new THREE.Vector3(size.x, thickness, size.z),
-      new THREE.Vector3(0, size.y - thickness, 0),
-    ),
-    new Board(
-      new THREE.Vector3(thickness, size.y - 2 * thickness, size.z),
+      new THREE.Vector3(size.x, size.z, thickness),
       new THREE.Vector3(0, thickness, 0),
+      new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1, 0, 0),
+        Math.PI / 2,
+      ),
     ),
     new Board(
-      new THREE.Vector3(thickness, size.y - 2 * thickness, size.z),
-      new THREE.Vector3(size.x - thickness, thickness, 0),
+      new THREE.Vector3(size.x, size.z, thickness),
+      new THREE.Vector3(0, size.y, 0),
+      new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1, 0, 0),
+        Math.PI / 2,
+      ),
+    ),
+    new Board(
+      new THREE.Vector3(size.z, size.y - 2 * thickness, thickness),
+      new THREE.Vector3(thickness, thickness, 0),
+      new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        -Math.PI / 2,
+      ),
+    ),
+    new Board(
+      new THREE.Vector3(size.z, size.y - 2 * thickness, thickness),
+      new THREE.Vector3(size.x, thickness, 0),
+      new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        -Math.PI / 2,
+      ),
     ),
     new Board(
       new THREE.Vector3(

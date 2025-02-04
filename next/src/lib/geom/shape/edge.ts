@@ -24,4 +24,13 @@ export class Edge<P extends EdgeParent = EdgeParent> extends Shape<
   getPoints() {
     return this.getRootGeometries().getEdgePoints(this);
   }
+
+  /**
+   * Get the direction of this edge. Currently only works for straight edges.
+   */
+  getDirection() {
+    const points = this.getPoints();
+    const direction = points[1].clone().sub(points[0]);
+    return direction;
+  }
 }

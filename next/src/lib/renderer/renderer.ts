@@ -360,6 +360,11 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   setTool(tool: Tool) {
     this.toolHandler.delete();
     this.toolHandler = createToolHandler(tool, this);
+    if (this.toolHandler.tool !== tool) {
+      throw new Error(
+        `Unexpected tool: ${this.toolHandler.tool} instead of ${tool}`,
+      );
+    }
     this.dispatchEvent({ type: 'tool', tool });
   }
 

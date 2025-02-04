@@ -1,4 +1,6 @@
+import { getIndexedAttribute3 } from '@/lib/util/three';
 import { TopoDS_Face } from '@lib/opencascade.js';
+import { THREE } from '@lib/three.js';
 import { Compound } from './compound';
 import { Edge } from './edge';
 import { Shape } from './shape';
@@ -21,5 +23,23 @@ export class Face<P extends FaceParent = FaceParent> extends Shape<
 
   getGeometry() {
     return this.getRootGeometries().getFaceGeometry(this);
+  }
+
+  /**
+   * Get the normal of this face. Currently only works for planar faces.
+   */
+  getNormal() {
+    const geometry = this.getGeometry();
+    const points = [
+      getIndexedAttribute3(geometry, 'position', geometry.drawRange.start + 0),
+      getIndexedAttribute3(geometry, 'position', geometry.drawRange.start + 1),
+      getIndexedAttribute3(geometry, 'position', geometry.drawRange.start + 2),
+    ];
+    const plane = new THREE.Plane().setFromCoplanarPoints(
+      points[0],
+      points[1],
+      points[2],
+    );
+    return plane.normal;
   }
 }

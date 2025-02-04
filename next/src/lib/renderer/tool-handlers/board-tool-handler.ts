@@ -176,11 +176,7 @@ export class BoardToolHandler extends ToolHandler {
   }
 
   updateRenderer(target: Target) {
-    if (target.object) {
-      this.renderer.setMouseTarget(target.point);
-    } else {
-      this.renderer.setMouseTarget();
-    }
+    this.renderer.setMouseTarget(target.point);
     this.renderer.render();
   }
 

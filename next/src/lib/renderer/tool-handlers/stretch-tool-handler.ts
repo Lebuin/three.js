@@ -7,6 +7,8 @@ import {
   MouseHandlerEvent as BaseMouseHandlerEvent,
   MouseHandler,
 } from './mouse-handler';
+import { stretcherFactory } from './stretcher';
+import { Stretcher } from './stretcher/stretcher';
 import { Target, TargetFinder } from './target-finder';
 import { ToolHandler } from './tool-handler';
 
@@ -16,15 +18,15 @@ const mouseHandlerModifiers = {
 type MouseHandlerModifiers = typeof mouseHandlerModifiers;
 type MouseHandlerEvent = BaseMouseHandlerEvent<MouseHandlerModifiers>;
 
-export class MoveToolHandler extends ToolHandler {
-  readonly tool = 'move';
+export class StretchToolHandler extends ToolHandler {
+  readonly tool = 'stretch';
 
   private mouseHandler: MouseHandler<MouseHandlerModifiers>;
   private targetFinder: TargetFinder;
   private drawingHelper: DrawingHelper;
 
   private selectedObject?: PartObject;
-  private startPosition?: THREE.Vector3;
+  private stretcher?: Stretcher;
   private startTarget?: Target;
   private lastTarget?: Target;
   private fixedLine?: THREE.Line3;
@@ -48,7 +50,7 @@ export class MoveToolHandler extends ToolHandler {
 
   delete() {
     super.delete();
-    this.cancelMove();
+    this.cancelStretch();
     this.mouseHandler.delete();
     this.targetFinder.delete();
     this.renderer.removeUpdating(this.drawingHelper);
@@ -75,7 +77,7 @@ export class MoveToolHandler extends ToolHandler {
     const object = target?.object;
 
     if (this.selectedObject && target) {
-      this.doMove(target);
+      this.doStretch(target);
     }
 
     this.updateDrawingHelper(target);
@@ -87,9 +89,9 @@ export class MoveToolHandler extends ToolHandler {
     const target = this.targetFinder.findTarget(event.event);
     const object = target?.object;
 
-    if (this.isMoving) {
+    if (this.isStretching) {
       if (target) {
-        this.confirmMove(target);
+        this.confirmStretch(target);
         this.unsetSelectedObject();
       }
     } else if (object) {
@@ -121,77 +123,90 @@ export class MoveToolHandler extends ToolHandler {
 
   private setSelectedObject(object: PartObject, target: Target) {
     this.selectedObject = object;
-    this.initMove(target);
+    this.initStretch(target);
   }
   private unsetSelectedObject() {
-    this.cancelMove();
+    this.cancelStretch();
     this.selectedObject = undefined;
   }
 
   ///
   // Move the selected objects
 
-  private get isMoving() {
-    return this.startPosition !== undefined;
+  private get isStretching() {
+    return this.stretcher !== undefined;
   }
 
-  private initMove(target: Target) {
-    if (!this.selectedObject) {
+  private initStretch(target: Target) {
+    const subShape = target.vertex ?? target.edge ?? target.face;
+    if (!this.selectedObject || !subShape) {
       return;
     }
     this.selectedObject.traverse((object) => {
       object.layers.set(1);
     });
-    this.startPosition = this.selectedObject.part.position.clone();
+    this.stretcher = stretcherFactory(
+      this.selectedObject.part,
+      subShape,
+      target,
+    );
     this.startTarget = target;
     this.lastTarget = undefined;
     this.fixedLine = undefined;
     this.updateConstraints();
   }
 
-  private endMove() {
+  private endStretch() {
     if (this.selectedObject) {
       this.selectedObject.traverse((object) => {
         object.layers.set(0);
       });
     }
-    this.startPosition = undefined;
+    this.stretcher = undefined;
     this.startTarget = undefined;
     this.lastTarget = undefined;
     this.fixedLine = undefined;
     this.updateConstraints();
   }
 
-  private cancelMove() {
-    if (this.selectedObject && this.startPosition) {
-      this.selectedObject.part.position = this.startPosition;
+  private cancelStretch() {
+    if (this.stretcher) {
+      this.stretcher.cancel();
     }
-    this.endMove();
+    this.endStretch();
   }
 
-  private doMove(target: Target) {
-    if (!(this.selectedObject && this.startTarget && this.startPosition)) {
+  private doStretch(target: Target) {
+    if (!(this.stretcher && this.startTarget)) {
       return;
     }
     const delta = target.constrainedPoint
       .clone()
       .sub(this.startTarget.constrainedPoint);
-    this.selectedObject.part.position = this.startPosition.clone().add(delta);
+    this.stretcher.stretch(delta);
     this.lastTarget = target;
   }
 
-  private confirmMove(target: Target) {
-    this.doMove(target);
-    this.endMove();
+  private confirmStretch(target: Target) {
+    this.doStretch(target);
+    this.endStretch();
   }
 
   private updateConstraints() {
-    if (!this.startTarget) {
-      this.targetFinder.clearConstraints();
-    } else if (this.fixedLine) {
+    if (this.fixedLine) {
       this.targetFinder.setConstraintLine(this.fixedLine);
+    } else if (this.stretcher && this.startTarget) {
+      const constraint = this.stretcher.getConstraint(this.startTarget.point);
+      if (constraint instanceof THREE.Plane) {
+        this.targetFinder.setConstraintPlane(
+          constraint.normal,
+          this.startTarget.constrainedPoint,
+        );
+      } else {
+        this.targetFinder.setConstraintLine(constraint);
+      }
     } else {
-      this.targetFinder.setNeighborPoint(this.startTarget.constrainedPoint);
+      this.targetFinder.clearConstraints();
     }
   }
 
@@ -226,7 +241,7 @@ export class MoveToolHandler extends ToolHandler {
       objects.push(this.selectedObject);
     }
 
-    if (this.isMoving) {
+    if (this.isStretching) {
       if (target.edge) {
         edges.push(target.edge);
       }

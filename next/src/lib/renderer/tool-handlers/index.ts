@@ -3,6 +3,7 @@ import { Renderer } from '../renderer';
 import { BoardToolHandler } from './board-tool-handler';
 import { MoveToolHandler } from './move-tool-handler';
 import { SelectToolHandler } from './select-tool-handler';
+import { StretchToolHandler } from './stretch-tool-handler';
 import { ToolHandler } from './tool-handler';
 
 export function createToolHandler(tool: Tool, renderer: Renderer): ToolHandler {
@@ -13,6 +14,8 @@ export function createToolHandler(tool: Tool, renderer: Renderer): ToolHandler {
       return new BoardToolHandler(renderer);
     case 'move':
       return new MoveToolHandler(renderer);
+    case 'stretch':
+      return new StretchToolHandler(renderer);
     default:
       throw new Error(`Unknown tool: ${tool}`);
   }
