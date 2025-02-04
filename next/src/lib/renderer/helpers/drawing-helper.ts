@@ -12,7 +12,6 @@ import * as settings from '@/lib/renderer/settings';
 import { Color4 } from '@/lib/util/color4';
 import { Axis, isAxis } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
-import _ from 'lodash';
 import { EdgeHelper } from './edge-helper';
 import { FaceHelper } from './face-helper';
 import { VertexHelper } from './vertex-helper';
@@ -75,16 +74,6 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
       this.add(helper);
       helpers.push(helper);
     }
-
-    this.children = _.sortBy(this.children, (child) => {
-      if (child instanceof PointHelper) {
-        return 0;
-      } else if (child instanceof LineHelper) {
-        return 1;
-      } else {
-        return 2;
-      }
-    });
 
     return helpers;
   }
