@@ -4,8 +4,6 @@ import { THREE } from '@lib/three.js';
 export class LineHelper extends THREE.Group {
   private material: THREE.LineMaterial;
   private lineSegments: THREE.LineSegments2;
-  protected readonly polygonOffsetFactor: number = -4;
-  protected readonly polygonOffsetUnits: number = -4;
 
   constructor() {
     super();

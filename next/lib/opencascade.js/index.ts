@@ -13,7 +13,7 @@ export * from './maqet-occt';
 
 let oc: OpenCascadeInstance | undefined;
 let ocError: unknown;
-const ENABLE_GC = true;
+const ENABLE_GC = false;
 
 ///
 // Initialize OC

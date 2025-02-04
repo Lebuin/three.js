@@ -1,5 +1,6 @@
 import { Pixels } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
+import _ from 'lodash';
 import { OCGeometries } from '../geom/geometries';
 import { projectOnto } from '../geom/projection';
 import { Edge, Face, Vertex } from '../geom/shape';
@@ -22,7 +23,9 @@ export interface BaseIntersection<
   T extends OCGeometriesObject = OCGeometriesObject,
 > {
   point: THREE.Vector3;
+  pointOnRay: THREE.Vector3;
   distance: number;
+  distanceToRay: number;
   object: T;
 }
 
@@ -116,7 +119,7 @@ export default class Raycaster {
       return;
     }
 
-    const intersection = this.projectIntersection(intersections[0]);
+    const intersection = this.projectIntersectionOntoShape(intersections[0]);
     return intersection;
   }
 
@@ -124,18 +127,17 @@ export default class Raycaster {
     objects: T[],
     options: Partial<IntersectOptions> = {},
   ): Intersection<T> | undefined {
-    const intersections = this.intersectObjects(objects, options);
+    const fullOptions = { ...defaultIntersectOptions, ...options };
+    const intersections = this.intersectObjects(objects, fullOptions);
     if (intersections.length === 0) {
       return;
     }
 
-    const closestIntersection = intersections[0];
-    const snappedIntersection = this.snapToIntersections(
-      closestIntersection,
-      intersections.slice(1),
+    const snappedIntersection = this.getSnappedIntersection(
+      intersections,
+      fullOptions,
     );
-
-    const intersection = this.projectIntersection(snappedIntersection);
+    const intersection = this.projectIntersectionOntoShape(snappedIntersection);
     return intersection;
   }
 
@@ -147,9 +149,16 @@ export default class Raycaster {
     }
     const geometries = geometriesObject.geometries as OCGeometries;
 
+    const pointOnRay = this.ray.closestPointToPoint(
+      threeIntersection.point,
+      new THREE.Vector3(),
+    );
+    const distanceToRay = pointOnRay.distanceTo(threeIntersection.point);
     const baseIntersection: BaseIntersection = {
       point: threeIntersection.point,
+      pointOnRay: pointOnRay,
       distance: threeIntersection.distance,
+      distanceToRay: distanceToRay,
       object: geometriesObject as OCGeometriesObject,
     };
 
@@ -200,7 +209,7 @@ export default class Raycaster {
     return object instanceof THREE.Points;
   }
 
-  private projectIntersection<T extends OCGeometriesObject>(
+  private projectIntersectionOntoShape<T extends OCGeometriesObject>(
     intersection: Intersection<T>,
   ): Intersection<T> {
     const point = intersection.point;
@@ -223,67 +232,103 @@ export default class Raycaster {
     };
   }
 
-  private snapToIntersections<T extends OCGeometriesObject>(
-    closestIntersection: Intersection<T>,
+  private getSnappedIntersection<T extends OCGeometriesObject>(
     intersections: Intersection<T>[],
+    options: IntersectOptions,
   ): Intersection<T> {
-    if ('vertex' in closestIntersection) {
-      return closestIntersection;
+    if (options.snapToPoints) {
+      const nearbyVertexIntersection = this.getSnappedIntersectionOfType(
+        intersections,
+        'vertex',
+      );
+      if (nearbyVertexIntersection) {
+        return nearbyVertexIntersection;
+      }
     }
 
-    const nearbyVertexIntersection = this.snapToIntersectionsOfType(
-      closestIntersection,
-      intersections,
-      'vertex',
-    );
-    if (nearbyVertexIntersection) {
-      return nearbyVertexIntersection;
-    }
-
-    if ('edge' in closestIntersection) {
-      return closestIntersection;
-    }
-
-    const nearbyEdgeIntersection = this.snapToIntersectionsOfType(
-      closestIntersection,
-      intersections,
-      'edge',
-    );
-    if (nearbyEdgeIntersection) {
-      this.snapToIntersectionsOfType(
-        closestIntersection,
+    if (options.snapToLines) {
+      const nearbyEdgeIntersection = this.getSnappedIntersectionOfType(
         intersections,
         'edge',
       );
-      return nearbyEdgeIntersection;
+      if (nearbyEdgeIntersection) {
+        return nearbyEdgeIntersection;
+      }
     }
 
-    return closestIntersection;
+    return intersections[0];
   }
 
-  private snapToIntersectionsOfType<T extends OCGeometriesObject>(
-    closestIntersection: Intersection<T>,
+  /**
+   * Get an intersection of the given type that is close to the closest intersection.
+   *
+   * Here is an explanation of what this method does for vertices. The same logic applies to edges.
+   * When snapping to a vertex, there are often multiple vertices that are overlapping, or close to
+   * one another. In these cases, we prefer snapping to a vertex that is part of an object whose
+   * faces are also intersecting the raycasting ray. If no such vertex is found, or there are
+   * multiple vertices on the same part, snap to the vertex that is closest to the ray (default
+   * raycasting behaviour is to snap to the vertex closest to the camera).
+   */
+  private getSnappedIntersectionOfType<T extends OCGeometriesObject>(
     intersections: Intersection<T>[],
     type: 'edge' | 'vertex',
-  ): Intersection<T> | undefined {
-    const objectsToCheckForVisibility = new Set([
-      closestIntersection.object.faces,
+  ): Nullable<Intersection<T>> {
+    const intersectionsOfType = this.getNearbyIntersectionsOfType(
+      intersections,
+      type,
+    );
+    if (intersectionsOfType.length === 0) {
+      return null;
+    } else if (intersectionsOfType.length === 1) {
+      return intersectionsOfType[0];
+    }
+
+    const faceIntersections = intersections.filter(
+      (intersection) => 'face' in intersection,
+    );
+    const objects = new Set([
+      ...intersectionsOfType.map((intersection) => intersection.object),
     ]);
+    const objectDistances = new Map(
+      Array.from(objects).map((object) => [
+        object,
+        this.getObjectDistance(object, faceIntersections),
+      ]),
+    );
+    const minDistance = _.min(Array.from(objectDistances.values()));
+
+    const closestIntersections = intersectionsOfType.filter((intersection) => {
+      const distance = objectDistances.get(intersection.object) ?? Infinity;
+      return distance === minDistance;
+    });
+
+    const sortedIntersections = _.sortBy(closestIntersections, 'distanceToRay');
+    return sortedIntersections[0];
+  }
+
+  private getNearbyIntersectionsOfType<T extends OCGeometriesObject>(
+    intersections: Intersection<T>[],
+    type: 'edge' | 'vertex',
+  ): Intersection<T>[] {
+    const visibleIntersections = [];
+    const distance = intersections[0].distance;
+
+    const objectsToCheckForVisibility = new Set(
+      intersections.map((intersection) => intersection.object.faces),
+    );
     for (const intersection of intersections) {
-      objectsToCheckForVisibility.add(intersection.object.faces);
+      if (intersection.distance - distance > 2 * this.threshold) {
+        break;
+      }
       if (
-        intersection.distance - closestIntersection.distance >
-        this.threshold
+        type in intersection &&
+        this.isVisible(intersection.point, objectsToCheckForVisibility)
       ) {
-        return;
-      }
-      if (!(type in intersection)) {
-        continue;
-      }
-      if (this.isVisible(intersection.point, objectsToCheckForVisibility)) {
-        return intersection;
+        visibleIntersections.push(intersection);
       }
     }
+
+    return visibleIntersections;
   }
 
   private isVisible(point: THREE.Vector3, objects: Set<THREE.Mesh>): boolean {
@@ -306,5 +351,19 @@ export default class Raycaster {
     }
 
     return true;
+  }
+
+  private getObjectDistance<T extends OCGeometriesObject>(
+    object: T,
+    intersections: Intersection<T>[],
+  ): number {
+    const intersection = intersections.find(
+      (intersection) => intersection.object === object,
+    );
+    if (intersection) {
+      return intersection.distance;
+    } else {
+      return Infinity;
+    }
   }
 }
