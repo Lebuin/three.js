@@ -198,6 +198,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.addPart(...this.model.parts);
     this.model.addEventListener('addPart', this.onAddPart);
     this.model.addEventListener('removePart', this.onRemovePart);
+    this.resetToolHandler();
   }
 
   private addPart(...parts: Part[]) {
@@ -362,10 +363,14 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.dispatchEvent({ type: 'tool', tool });
   }
 
+  resetToolHandler() {
+    this.toolHandler.delete();
+    this.toolHandler = createToolHandler(this.toolHandler.tool, this);
+  }
+
   private onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
-      this.toolHandler.delete();
-      this.toolHandler = createToolHandler(this.toolHandler.tool, this);
+      this.resetToolHandler();
     }
   };
 }
