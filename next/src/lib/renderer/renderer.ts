@@ -166,6 +166,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
       this.groundPlaneSize * 0.9,
     );
     camera.lookAt(new THREE.Vector3(0, 0, 0));
+    camera.layers.enable(1);
     return camera;
   }
 

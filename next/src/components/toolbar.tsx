@@ -2,16 +2,17 @@ import clsx from 'clsx';
 import React from 'react';
 import { IconType } from 'react-icons';
 import { LiaMousePointerSolid } from 'react-icons/lia';
-import { MdOutlineRectangle } from 'react-icons/md';
+import { MdOutlineDragHandle, MdOutlineRectangle } from 'react-icons/md';
 import Icon from './util/icon';
 
 export interface ToolInfo {
   name: string;
   icon: IconType;
-  cursor: 'default' | 'crosshair';
+  cursor: 'default' | 'crosshair' | 'move';
+  shortcut: string;
 }
 
-export const tools = ['select', 'board'] as const;
+export const tools = ['select', 'board', 'move'] as const;
 export type Tool = (typeof tools)[number];
 
 export const toolInfo: Record<Tool, ToolInfo> = {
@@ -19,11 +20,19 @@ export const toolInfo: Record<Tool, ToolInfo> = {
     name: 'Select',
     icon: LiaMousePointerSolid,
     cursor: 'default',
+    shortcut: ' ',
   },
   board: {
     name: 'Board',
     icon: MdOutlineRectangle,
     cursor: 'crosshair',
+    shortcut: 'b',
+  },
+  move: {
+    name: 'Move',
+    icon: MdOutlineDragHandle,
+    cursor: 'move',
+    shortcut: 'm',
   },
 } as const;
 
@@ -35,10 +44,10 @@ export interface ToolbarProps {
 export default function Toolbar(props: ToolbarProps) {
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === ' ') {
-        props.onSelect.call(null, 'select');
-      } else if (event.key === 'b') {
-        props.onSelect.call(null, 'board');
+      for (const [tool, info] of Object.entries(toolInfo)) {
+        if (info.shortcut.toLowerCase() === event.key.toLowerCase()) {
+          props.onSelect.call(null, tool as Tool);
+        }
       }
     }
 

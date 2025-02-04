@@ -1,4 +1,6 @@
+import { THREE } from '@lib/three.js';
 import { EventDispatcher } from '../util/event-dispatcher';
+import { Board } from './parts/board';
 import { Part } from './parts/part';
 
 interface ModelEvents {
@@ -25,4 +27,39 @@ export class Model extends EventDispatcher()<ModelEvents> {
       }
     }
   }
+}
+
+/**
+ * Prepopulate the model during development.
+ */
+export function initModel(model: Model) {
+  const size = new THREE.Vector3(800, 500, 300);
+  const thickness = 18;
+  const parts = [
+    new Board(
+      new THREE.Vector3(size.x, thickness, size.z),
+      new THREE.Vector3(0, 0, 0),
+    ),
+    new Board(
+      new THREE.Vector3(size.x, thickness, size.z),
+      new THREE.Vector3(0, size.y - thickness, 0),
+    ),
+    new Board(
+      new THREE.Vector3(thickness, size.y - 2 * thickness, size.z),
+      new THREE.Vector3(0, thickness, 0),
+    ),
+    new Board(
+      new THREE.Vector3(thickness, size.y - 2 * thickness, size.z),
+      new THREE.Vector3(size.x - thickness, thickness, 0),
+    ),
+    new Board(
+      new THREE.Vector3(
+        size.x - 2 * thickness,
+        size.y - 2 * thickness,
+        thickness,
+      ),
+      new THREE.Vector3(thickness, thickness, 0),
+    ),
+  ];
+  model.addPart(...parts);
 }

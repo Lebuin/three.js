@@ -63,6 +63,10 @@ export default class Raycaster {
     return this.raycaster.ray;
   }
 
+  get layers() {
+    return this.raycaster.layers;
+  }
+
   public setFromEvent(event: MouseEvent) {
     const boundingRect = this.renderer.canvas.getBoundingClientRect();
     const pointer = new THREE.Vector2();

@@ -53,6 +53,7 @@ interface ConstraintIntersectionUserData {
  */
 export class TargetFinder {
   private renderer: Renderer;
+  private _layers: THREE.Layers;
 
   private _neighborPoint?: THREE.Vector3;
   private _constraintPlane?: THREE.Plane;
@@ -73,6 +74,7 @@ export class TargetFinder {
 
   constructor(renderer: Renderer) {
     this.renderer = renderer;
+    this._layers = new THREE.Layers();
 
     this.mainAxes = this.getAxesWithOrigin(new THREE.Vector3());
     this.constraintPlaneAxes = this.getAxesWithOrigin(
@@ -106,6 +108,9 @@ export class TargetFinder {
   ///
   // Getters
 
+  get layers() {
+    return this._layers;
+  }
   get neighborPoint() {
     return this._neighborPoint;
   }
@@ -155,7 +160,9 @@ export class TargetFinder {
   }
 
   private updateSnapObjects() {
-    this.snapObjects = this.renderer.partObjects;
+    this.snapObjects = this.renderer.partObjects.filter((object) => {
+      return object.layers.test(this.layers);
+    });
 
     this.snapHelpers.children = [];
     this.constraintObject = undefined;
