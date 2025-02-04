@@ -9,6 +9,15 @@ import {
 } from './part-objects/geometries-object';
 import { Renderer } from './renderer';
 
+export interface IntersectOptions {
+  snapToLines: boolean;
+  snapToPoints: boolean;
+}
+const defaultIntersectOptions = {
+  snapToLines: false,
+  snapToPoints: false,
+} as const;
+
 export interface BaseIntersection<
   T extends OCGeometriesObject = OCGeometriesObject,
 > {
@@ -82,9 +91,15 @@ export default class Raycaster {
 
   intersectObjects<T extends OCGeometriesObject>(
     objects: T[],
+    options: Partial<IntersectOptions> = {},
   ): Intersection<T>[] {
-    this.raycaster.params.Points.threshold = this.threshold;
-    this.raycaster.params.Line.threshold = this.threshold;
+    const fullOptions = { ...defaultIntersectOptions, ...options };
+    this.raycaster.params.Points.threshold = fullOptions.snapToPoints
+      ? this.threshold
+      : 0;
+    this.raycaster.params.Line.threshold = fullOptions.snapToLines
+      ? this.threshold
+      : 0;
     const threeIntersections = this.raycaster.intersectObjects(objects, true);
     const intersections = threeIntersections.map((intersection) =>
       this.mapIntersection(intersection),
@@ -94,8 +109,9 @@ export default class Raycaster {
 
   cast<T extends OCGeometriesObject>(
     objects: T[],
+    options: Partial<IntersectOptions> = {},
   ): Intersection<T> | undefined {
-    const intersections = this.intersectObjects(objects);
+    const intersections = this.intersectObjects(objects, options);
     if (intersections.length === 0) {
       return;
     }
@@ -106,8 +122,9 @@ export default class Raycaster {
 
   castSnapping<T extends OCGeometriesObject>(
     objects: T[],
+    options: Partial<IntersectOptions> = {},
   ): Intersection<T> | undefined {
-    const intersections = this.intersectObjects(objects);
+    const intersections = this.intersectObjects(objects, options);
     if (intersections.length === 0) {
       return;
     }

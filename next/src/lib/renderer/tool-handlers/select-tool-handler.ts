@@ -138,8 +138,12 @@ export class SelectToolHandler extends ToolHandler {
     this.drawingHelper.setEdges(edges);
   }
 
-  updateRenderer(target: Target | null) {
-    this.renderer.setMouseTarget(target?.point);
+  updateRenderer(target: Optional<Target>) {
+    if (target && target.object) {
+      this.renderer.setMouseTarget(target.point);
+    } else {
+      this.renderer.setMouseTarget();
+    }
     this.renderer.render();
   }
 }

@@ -21,6 +21,15 @@ import { PartObject } from '../part-objects/part-object';
 import Raycaster, { Intersection } from '../raycaster';
 import { Renderer } from '../renderer';
 
+export interface TargetFinderOptions {
+  snapToLines: boolean;
+  snapToPoints: boolean;
+}
+const defaultTargetFinderOptions: TargetFinderOptions = {
+  snapToLines: false,
+  snapToPoints: false,
+};
+
 export interface Target {
   point: THREE.Vector3;
   constrainedPoint: THREE.Vector3;
@@ -53,6 +62,8 @@ interface ConstraintIntersectionUserData {
  */
 export class TargetFinder {
   private renderer: Renderer;
+  private options: TargetFinderOptions;
+
   private _layers: THREE.Layers;
 
   private _neighborPoint?: THREE.Vector3;
@@ -72,8 +83,10 @@ export class TargetFinder {
   // preference.
   private readonly dominantPlaneYPreference = 2.5;
 
-  constructor(renderer: Renderer) {
+  constructor(renderer: Renderer, options: Partial<TargetFinderOptions> = {}) {
     this.renderer = renderer;
+    this.options = { ...defaultTargetFinderOptions, ...options };
+
     this._layers = new THREE.Layers();
 
     this.mainAxes = this.getAxesWithOrigin(new THREE.Vector3());
@@ -313,7 +326,10 @@ export class TargetFinder {
     if (this.constraintPlane) {
       snapObjects.push(this.constraintPlaneAxes);
     }
-    const intersection = this.renderer.raycaster.castSnapping(snapObjects);
+    const intersection = this.renderer.raycaster.castSnapping(snapObjects, {
+      snapToLines: this.options.snapToLines,
+      snapToPoints: this.options.snapToPoints,
+    });
     return intersection;
   }
 

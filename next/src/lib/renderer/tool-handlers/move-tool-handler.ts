@@ -35,7 +35,10 @@ export class MoveToolHandler extends ToolHandler {
       renderer.canvas,
       mouseHandlerModifiers,
     );
-    this.targetFinder = new TargetFinder(renderer);
+    this.targetFinder = new TargetFinder(renderer, {
+      snapToLines: true,
+      snapToPoints: true,
+    });
     this.drawingHelper = new DrawingHelper();
     this.renderer.addUpdating(this.drawingHelper);
 
@@ -249,7 +252,11 @@ export class MoveToolHandler extends ToolHandler {
   }
 
   updateRenderer(target: Optional<Target>) {
-    this.renderer.setMouseTarget(target?.point);
+    if (target && target.object) {
+      this.renderer.setMouseTarget(target.point);
+    } else {
+      this.renderer.setMouseTarget();
+    }
     this.renderer.render();
   }
 }
