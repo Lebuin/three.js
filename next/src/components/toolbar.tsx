@@ -2,7 +2,8 @@ import clsx from 'clsx';
 import React from 'react';
 import { IconType } from 'react-icons';
 import { LiaMousePointerSolid } from 'react-icons/lia';
-import { MdOutlineDragHandle, MdOutlineRectangle } from 'react-icons/md';
+import { MdOutlineRectangle } from 'react-icons/md';
+import { RiDragMove2Fill } from 'react-icons/ri';
 import Icon from './util/icon';
 
 export interface ToolInfo {
@@ -30,7 +31,7 @@ export const toolInfo: Record<Tool, ToolInfo> = {
   },
   move: {
     name: 'Move',
-    icon: MdOutlineDragHandle,
+    icon: RiDragMove2Fill,
     cursor: 'move',
     shortcut: 'm',
   },
