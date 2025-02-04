@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import * as env from '@/lib/env';
 import ocJS from '@lib/opencascade.js/maqet-occt.js';
 import ocWasm from '@lib/opencascade.js/maqet-occt.wasm';
 import _ from 'lodash';
@@ -14,7 +13,7 @@ export * from './maqet-occt';
 
 let oc: OpenCascadeInstance | undefined;
 let ocError: unknown;
-const ENABLE_GC = env.getBoolean('NEXT_PUBLIC_ENABLE_OPENCASCADE_GC', true);
+const ENABLE_GC = true;
 
 ///
 // Initialize OC
@@ -146,7 +145,12 @@ interface Deletable {
 }
 const finalizationRegistry = new FinalizationRegistry<Deletable>(
   (deletable) => {
-    deletable.delete();
+    try {
+      deletable.delete();
+    } catch (e) {
+      debugger;
+      // Do nothing
+    }
   },
 );
 
