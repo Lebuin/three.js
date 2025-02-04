@@ -66,25 +66,17 @@ export class BoardToolHandler extends ToolHandler {
   // Handle events
 
   private setupListeners() {
-    window.addEventListener('keydown', this.onKeyDown);
     this.mouseHandler.addEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.addEventListener('click', this.onClick);
   }
 
   private removeListeners() {
-    window.removeEventListener('keydown', this.onKeyDown);
     this.mouseHandler.removeEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.removeEventListener('click', this.onClick);
   }
 
-  private onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'ArrowUp') {
-      this.isFixedLine = !this.isFixedLine;
-      this.updateConstraints();
-    }
-  };
-
   private onMouseMove = (event: MouseHandlerEvent) => {
+    this.updateFixedLine(event);
     const target = this.targetFinder.findTarget(event.event);
     if (!target) {
       return;
@@ -97,6 +89,7 @@ export class BoardToolHandler extends ToolHandler {
   };
 
   private onClick = (event: MouseHandlerEvent) => {
+    this.updateFixedLine(event);
     const target = this.targetFinder.findTarget(event.event);
     if (!target) {
       return;
@@ -115,6 +108,14 @@ export class BoardToolHandler extends ToolHandler {
 
   private isCenterAligned(event: MouseHandlerEvent) {
     return event.modifiers.Control;
+  }
+
+  private updateFixedLine(event: MouseHandlerEvent) {
+    const isFixedLine = event.modifiers.ArrowUp;
+    if (isFixedLine !== this.isFixedLine) {
+      this.isFixedLine = isFixedLine;
+      this.updateConstraints();
+    }
   }
 
   ///
@@ -159,6 +160,7 @@ export class BoardToolHandler extends ToolHandler {
 
     if (face) {
       faces.push(face);
+      points.push(point);
     }
 
     this.drawingHelper.setPoints(points);
@@ -171,7 +173,7 @@ export class BoardToolHandler extends ToolHandler {
   }
 
   updateRenderer(target: Target) {
-    this.renderer.setMouseTarget(target.constrainedPoint);
+    this.renderer.setMouseTarget(target.point);
     this.renderer.render();
   }
 

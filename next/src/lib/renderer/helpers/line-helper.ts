@@ -4,18 +4,22 @@ import { THREE } from '@lib/three.js';
 export class LineHelper extends THREE.Group {
   private material: THREE.LineMaterial;
   private lineSegments: THREE.LineSegments2;
+  protected readonly polygonOffsetFactor: number = -4;
+  protected readonly polygonOffsetUnits: number = -4;
 
   constructor() {
     super();
     const geometry = new THREE.LineGeometry();
-    this.material = new THREE.LineMaterial({
-      transparent: true,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-    });
+    this.material = this.getMaterial();
     this.lineSegments = new THREE.LineSegments2(geometry, this.material);
     this.add(this.lineSegments);
+  }
+
+  protected getMaterial() {
+    return new THREE.LineMaterial({
+      transparent: true,
+      depthTest: false,
+    });
   }
 
   public setPoints(points: THREE.Vector3[]): void {

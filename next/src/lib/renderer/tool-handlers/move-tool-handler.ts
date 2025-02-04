@@ -10,7 +10,9 @@ import {
 import { Target, TargetFinder } from './target-finder';
 import { ToolHandler } from './tool-handler';
 
-const mouseHandlerModifiers = {} as const;
+const mouseHandlerModifiers = {
+  ArrowUp: true,
+} as const;
 type MouseHandlerModifiers = typeof mouseHandlerModifiers;
 type MouseHandlerEvent = BaseMouseHandlerEvent<MouseHandlerModifiers>;
 
@@ -53,19 +55,18 @@ export class MoveToolHandler extends ToolHandler {
   private setupListeners() {
     this.mouseHandler.addEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.addEventListener('click', this.onClick);
-    window.addEventListener('keydown', this.onKeyDown);
   }
 
   private removeListeners() {
     this.mouseHandler.removeEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.removeEventListener('click', this.onClick);
-    window.removeEventListener('keydown', this.onKeyDown);
   }
 
   ///
   // Handle events
 
   private onMouseMove = (event: MouseHandlerEvent) => {
+    this.updateFixedLine(event);
     const target = this.targetFinder.findTarget(event.event);
     const object = target?.object;
 
@@ -78,6 +79,7 @@ export class MoveToolHandler extends ToolHandler {
   };
 
   private onClick = (event: MouseHandlerEvent) => {
+    this.updateFixedLine(event);
     const target = this.targetFinder.findTarget(event.event);
     const object = target?.object;
 
@@ -96,11 +98,22 @@ export class MoveToolHandler extends ToolHandler {
     this.updateRenderer(target);
   };
 
-  private onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'ArrowUp') {
-      this.toggleFixedLine();
+  private updateFixedLine(event: MouseHandlerEvent) {
+    const isFixedLine = event.modifiers.ArrowUp;
+    if (isFixedLine === !!this.fixedLine) {
+      return;
     }
-  };
+
+    if (!isFixedLine) {
+      this.fixedLine = undefined;
+    } else if (this.startTarget && this.lastTarget) {
+      this.fixedLine = new THREE.Line3(
+        this.startTarget.constrainedPoint,
+        this.lastTarget.constrainedPoint,
+      );
+    }
+    this.updateConstraints();
+  }
 
   private setSelectedObject(object: PartObject, target: Target) {
     this.selectedObject = object;
@@ -164,18 +177,6 @@ export class MoveToolHandler extends ToolHandler {
     this.endMove();
   }
 
-  private toggleFixedLine() {
-    if (this.fixedLine) {
-      this.fixedLine = undefined;
-    } else if (this.startTarget && this.lastTarget) {
-      this.fixedLine = new THREE.Line3(
-        this.startTarget.constrainedPoint,
-        this.lastTarget.constrainedPoint,
-      );
-    }
-    this.updateConstraints();
-  }
-
   private updateConstraints() {
     if (!this.startTarget) {
       this.targetFinder.clearConstraints();
@@ -233,8 +234,8 @@ export class MoveToolHandler extends ToolHandler {
     this.drawingHelper.setEdges(edges);
   }
 
-  updateRenderer(target: Target | null) {
-    this.renderer.setMouseTarget(target?.constrainedPoint);
+  updateRenderer(target: Optional<Target>) {
+    this.renderer.setMouseTarget(target?.point);
     this.renderer.render();
   }
 }

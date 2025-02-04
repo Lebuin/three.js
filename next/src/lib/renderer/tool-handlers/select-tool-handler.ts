@@ -139,7 +139,7 @@ export class SelectToolHandler extends ToolHandler {
   }
 
   updateRenderer(target: Target | null) {
-    this.renderer.setMouseTarget(target?.constrainedPoint);
+    this.renderer.setMouseTarget(target?.point);
     this.renderer.render();
   }
 }
