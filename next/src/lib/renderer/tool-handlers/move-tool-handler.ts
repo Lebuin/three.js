@@ -83,7 +83,7 @@ export class MoveToolHandler extends ToolHandler {
     const target = this.targetFinder.findTarget(event.event);
     const object = target?.object;
 
-    if (this.selectedObject) {
+    if (this.isMoving) {
       if (target) {
         this.confirmMove(target);
         this.unsetSelectedObject();
@@ -126,6 +126,10 @@ export class MoveToolHandler extends ToolHandler {
 
   ///
   // Move the selected objects
+
+  private get isMoving() {
+    return this.startPosition !== undefined;
+  }
 
   private initMove(target: Target) {
     if (!this.selectedObject) {
@@ -210,15 +214,25 @@ export class MoveToolHandler extends ToolHandler {
       );
     }
     if (target.object) {
-      points.push(target.constrainedPoint);
+      points.push(target.point);
     }
 
     const objects = [];
     if (this.selectedObject) {
       objects.push(this.selectedObject);
     }
-    if (target.object) {
-      objects.push(target.object);
+
+    if (this.isMoving) {
+      if (target.edge) {
+        edges.push(target.edge);
+      }
+      if (target.face) {
+        faces.push(target.face);
+      }
+    } else {
+      if (target.object) {
+        objects.push(target.object);
+      }
     }
 
     for (const object of objects) {
