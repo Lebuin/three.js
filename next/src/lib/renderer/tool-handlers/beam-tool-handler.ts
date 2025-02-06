@@ -182,9 +182,12 @@ export class BeamToolHandler extends ToolHandler {
     this.drawingHelper.setFaces(faces);
   }
 
-  updateRenderer(target: Target) {
-    this.renderer.setMouseTarget(target.point);
-    this.renderer.render();
+  getMouseTarget(target: Target) {
+    if (this.points.length > 0) {
+      return target.point;
+    } else {
+      return super.getMouseTarget(target);
+    }
   }
 
   ///

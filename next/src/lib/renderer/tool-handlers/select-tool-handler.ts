@@ -7,7 +7,7 @@ import {
   MouseHandlerEvent as BaseMouseHandlerEvent,
   MouseHandler,
 } from './mouse-handler';
-import { Target, TargetFinder } from './target-finder';
+import { TargetFinder } from './target-finder';
 import { ToolHandler } from './tool-handler';
 
 const mouseHandlerModifiers = {
@@ -138,12 +138,12 @@ export class SelectToolHandler extends ToolHandler {
     this.drawingHelper.setEdges(edges);
   }
 
-  updateRenderer(target: Optional<Target>) {
-    if (target && target.object) {
-      this.renderer.setMouseTarget(target.point);
-    } else {
-      this.renderer.setMouseTarget();
-    }
-    this.renderer.render();
-  }
+  // updateRenderer(target: Optional<Target>) {
+  //   if (target && target.object) {
+  //     this.renderer.setMouseTarget(target.point);
+  //   } else {
+  //     this.renderer.setMouseTarget();
+  //   }
+  //   this.renderer.render();
+  // }
 }

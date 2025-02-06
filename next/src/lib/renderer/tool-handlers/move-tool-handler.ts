@@ -252,12 +252,11 @@ export class MoveToolHandler extends ToolHandler {
     this.drawingHelper.setEdges(edges);
   }
 
-  updateRenderer(target: Optional<Target>) {
-    if (target) {
-      this.renderer.setMouseTarget(target.point);
+  getMouseTarget(target: Target) {
+    if (this.isMoving) {
+      return target.point;
     } else {
-      this.renderer.setMouseTarget();
+      return super.getMouseTarget(target);
     }
-    this.renderer.render();
   }
 }

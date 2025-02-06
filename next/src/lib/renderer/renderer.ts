@@ -298,8 +298,8 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
    * Set the target of the currently ongoing mouse interaction (e.g. drawing a new part). This
    * point will be used as the target of the controls.
    */
-  public setMouseTarget(target?: THREE.Vector3) {
-    this.mouseTarget = target;
+  public setMouseTarget(target?: Optional<THREE.Vector3>) {
+    this.mouseTarget = target ?? undefined;
   }
 
   /**

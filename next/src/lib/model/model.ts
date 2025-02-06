@@ -83,5 +83,5 @@ export function initModel(model: Model) {
       new THREE.Vector3(0, size.y, size.z - beamThickness[0]),
     ),
   ];
-  // model.addPart(...parts);
+  model.addPart(...parts);
 }
