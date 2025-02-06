@@ -15,6 +15,8 @@ export interface MouseHandlerEvents<T> {
   mousemove: MouseHandlerEvent<T>;
   mouseenter: MouseHandlerEvent<T>;
   mouseleave: MouseHandlerEvent<T>;
+  mousedown: MouseHandlerEvent<T>;
+  mouseup: MouseHandlerEvent<T>;
   click: MouseHandlerEvent<T>;
 }
 
@@ -50,6 +52,8 @@ export class MouseHandler<
     this.elem.addEventListener('mousemove', this.onMouseMove);
     this.elem.addEventListener('mouseenter', this.onMouseEvent);
     this.elem.addEventListener('mouseleave', this.onMouseLeave);
+    this.elem.addEventListener('mousedown', this.onMouseEvent);
+    this.elem.addEventListener('mouseup', this.onMouseEvent);
     this.elem.addEventListener('click', this.onMouseEvent);
   }
 
@@ -59,6 +63,8 @@ export class MouseHandler<
     this.elem.removeEventListener('mousemove', this.onMouseMove);
     this.elem.addEventListener('mouseenter', this.onMouseEvent);
     this.elem.addEventListener('mouseleave', this.onMouseLeave);
+    this.elem.addEventListener('mousedown', this.onMouseEvent);
+    this.elem.addEventListener('mouseup', this.onMouseEvent);
     this.elem.removeEventListener('click', this.onMouseEvent);
   }
 

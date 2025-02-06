@@ -74,7 +74,7 @@ class KeyboardHandler extends EventDispatcher()<KeyboardHandlerEvents> {
   }
 
   private setupListeners() {
-    if (!window) {
+    if (!global.window) {
       return;
     }
     window.addEventListener('keydown', this.onKeyDown);
@@ -83,7 +83,7 @@ class KeyboardHandler extends EventDispatcher()<KeyboardHandlerEvents> {
   }
 
   private removeListeners() {
-    if (!window) {
+    if (!global.window) {
       return;
     }
     window.removeEventListener('keydown', this.onKeyDown);

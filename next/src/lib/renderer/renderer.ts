@@ -184,14 +184,14 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.render();
   }
 
-  public addUpdating(object: UpdatingObject) {
-    this.updatingObjects.push(object);
-    this.add(object);
+  public addUpdating(...objects: UpdatingObject[]) {
+    this.updatingObjects.push(...objects);
+    this.add(...objects);
   }
 
-  public removeUpdating(object: UpdatingObject) {
-    _.pull(this.updatingObjects, object);
-    this.remove(object);
+  public removeUpdating(...objects: UpdatingObject[]) {
+    _.pull(this.updatingObjects, ...objects);
+    this.remove(...objects);
   }
 
   private loadModel() {
@@ -255,6 +255,15 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
       (this.camera.zoom * this.canvas.clientHeight) /
       (this.camera.top - this.camera.bottom);
     return pixelSize;
+  }
+
+  public getPointerFromEvent(event: MouseEvent) {
+    const boundingRect = this.canvas.getBoundingClientRect();
+    const pointer = new THREE.Vector2(
+      ((event.clientX - boundingRect.left) / boundingRect.width) * 2 - 1,
+      -((event.clientY - boundingRect.top) / boundingRect.height) * 2 + 1,
+    );
+    return pointer;
   }
 
   ///

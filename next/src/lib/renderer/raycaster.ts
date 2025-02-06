@@ -80,15 +80,7 @@ export default class Raycaster {
   }
 
   public setFromEvent(event: MouseEvent) {
-    const boundingRect = this.renderer.canvas.getBoundingClientRect();
-    const pointer = new THREE.Vector2();
-    pointer.x =
-      ((event.clientX - boundingRect.left) / boundingRect.width) * 2 - 1;
-    pointer.y = -(
-      ((event.clientY - boundingRect.top) / boundingRect.height) * 2 -
-      1
-    );
-
+    const pointer = this.renderer.getPointerFromEvent(event);
     this.raycaster.setFromCamera(pointer, this.renderer.camera);
   }
 

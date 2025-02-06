@@ -1,5 +1,8 @@
 import { Edge, Face } from '@/lib/geom/shape';
+import { THREE } from '@lib/three.js';
+import { Frustum } from '../frustum';
 import { DrawingHelper } from '../helpers/drawing-helper';
+import { Direction, SelectionBoxHelper } from '../helpers/selection-box-helper';
 import { PartObject } from '../part-objects/part-object';
 import { Renderer } from '../renderer';
 import {
@@ -22,10 +25,14 @@ type MouseHandlerEvent = BaseMouseHandlerEvent<MouseHandlerModifiers>;
 
 export class SelectToolHandler extends ToolHandler {
   readonly tool = 'select';
+  readonly mouseMovedThreshold = 5;
 
   private mouseHandler: MouseHandler<MouseHandlerModifiers>;
   private targetFinder: TargetFinder;
   private drawingHelper: DrawingHelper;
+  private selectionBoxHelper: SelectionBoxHelper;
+
+  private mouseDownEvent?: MouseHandlerEvent;
   private selectedObjects = new Set<PartObject>();
 
   constructor(renderer: Renderer) {
@@ -37,7 +44,9 @@ export class SelectToolHandler extends ToolHandler {
     );
     this.targetFinder = new TargetFinder(renderer);
     this.drawingHelper = new DrawingHelper();
-    this.renderer.addUpdating(this.drawingHelper);
+    this.selectionBoxHelper = new SelectionBoxHelper(renderer);
+    this.selectionBoxHelper.visible = false;
+    this.renderer.addUpdating(this.drawingHelper, this.selectionBoxHelper);
 
     this.setupListeners();
   }
@@ -46,30 +55,92 @@ export class SelectToolHandler extends ToolHandler {
     super.delete();
     this.mouseHandler.delete();
     this.targetFinder.delete();
-    this.renderer.removeUpdating(this.drawingHelper);
+    this.renderer.removeUpdating(this.drawingHelper, this.selectionBoxHelper);
     this.renderer.setMouseTarget();
     this.removeListeners();
   }
 
   private setupListeners() {
+    this.mouseHandler.addEventListener('mousedown', this.onMouseDown);
+    this.mouseHandler.addEventListener('mouseup', this.onMouseUp);
     this.mouseHandler.addEventListener('mousemove', this.onMouseMove);
-    this.mouseHandler.addEventListener('click', this.onClick);
     keyboardHandler.addEventListener('keydown', this.onKeyDown);
   }
 
   private removeListeners() {
+    this.mouseHandler.removeEventListener('mousedown', this.onMouseDown);
+    this.mouseHandler.removeEventListener('mouseup', this.onMouseUp);
     this.mouseHandler.removeEventListener('mousemove', this.onMouseMove);
-    this.mouseHandler.removeEventListener('click', this.onClick);
     keyboardHandler.removeEventListener('keydown', this.onKeyDown);
   }
 
   ///
   // Select and deselect objects
 
+  private get isDragging() {
+    return !!this.mouseDownEvent;
+  }
+
+  private onMouseDown = (event: MouseHandlerEvent) => {
+    this.mouseDownEvent = event;
+    const pointer = this.renderer.getPointerFromEvent(event.event);
+    this.selectionBoxHelper.start = pointer.clone();
+    this.selectionBoxHelper.end = pointer.clone();
+  };
+
+  private onMouseUp = (event: MouseHandlerEvent) => {
+    if (!this.mouseDownEvent) {
+      return;
+    }
+
+    const mouseStart = new THREE.Vector2(
+      this.mouseDownEvent.event.clientX,
+      this.mouseDownEvent.event.clientY,
+    );
+    const mouseEnd = new THREE.Vector2(
+      event.event.clientX,
+      event.event.clientY,
+    );
+    const mouseMoved =
+      mouseStart.distanceTo(mouseEnd) > this.mouseMovedThreshold;
+
+    this.mouseDownEvent = undefined;
+    this.selectionBoxHelper.visible = false;
+    if (mouseMoved) {
+      this.onMouseMove(event);
+    } else {
+      this.onClick(event);
+    }
+  };
+
   private onMouseMove = (event: MouseHandlerEvent) => {
+    if (this.isDragging) {
+      this.onDrag(event);
+      return;
+    }
+
     const target = this.targetFinder.findTarget(event.event);
     this.updateRenderer(target);
   };
+
+  private onDrag(event: MouseHandlerEvent) {
+    const pointer = this.renderer.getPointerFromEvent(event.event);
+    this.selectionBoxHelper.end = pointer;
+    this.selectionBoxHelper.visible = true;
+
+    const frustum = Frustum.createFromSelection(
+      this.renderer.camera,
+      this.selectionBoxHelper.start,
+      this.selectionBoxHelper.end,
+    );
+    const objects =
+      this.selectionBoxHelper.direction === Direction.TO_RIGHT
+        ? frustum.getContained(this.renderer.partObjects)
+        : frustum.getIntersecting(this.renderer.partObjects);
+    this.setSelectedObjects(objects);
+
+    this.updateRenderer();
+  }
 
   private onClick = (event: MouseHandlerEvent) => {
     const target = this.targetFinder.findTarget(event.event);
