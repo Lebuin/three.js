@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import React from 'react';
 import { IconType } from 'react-icons';
 import { LiaMousePointerSolid } from 'react-icons/lia';
+import { LuRectangleVertical } from 'react-icons/lu';
 import { MdOutlineRectangle } from 'react-icons/md';
 import { RiDragMove2Fill, RiExpandHorizontalSFill } from 'react-icons/ri';
 import Icon from './util/icon';
@@ -13,7 +14,7 @@ export interface ToolInfo {
   shortcut: string;
 }
 
-export const tools = ['select', 'board', 'move', 'stretch'] as const;
+export const tools = ['select', 'board', 'beam', 'move', 'stretch'] as const;
 export type Tool = (typeof tools)[number];
 
 export const toolInfo: Record<Tool, ToolInfo> = {
@@ -28,6 +29,12 @@ export const toolInfo: Record<Tool, ToolInfo> = {
     icon: MdOutlineRectangle,
     cursor: 'crosshair',
     shortcut: 'b',
+  },
+  beam: {
+    name: 'Beam',
+    icon: LuRectangleVertical,
+    cursor: 'crosshair',
+    shortcut: 'e',
   },
   move: {
     name: 'Move',

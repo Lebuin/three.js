@@ -62,6 +62,12 @@ export class MouseHandler<
     this.elem.removeEventListener('click', this.onMouseEvent);
   }
 
+  reset() {
+    for (const [modifier] of this.modifierDefinitionEntries) {
+      this.modifiers[modifier] = false;
+    }
+  }
+
   ///
   // Handle events
 

@@ -1,6 +1,6 @@
 import { Geometries } from '@/lib/geom/geometries';
 import { Edge, Face, Vertex } from '@/lib/geom/shape';
-import { Board } from '@/lib/model/parts/board';
+import { Beam } from '@/lib/model/parts/beam';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import { DrawingHelper } from '../helpers/drawing-helper';
@@ -14,7 +14,7 @@ import {
 import { Target, TargetFinder } from './target-finder';
 import { ToolHandler } from './tool-handler';
 
-interface BoardPoint {
+interface BeamPoint {
   point: THREE.Vector3;
   centerAligned: boolean;
 }
@@ -26,17 +26,17 @@ const mouseHandlerModifiers = {
 type MouseHandlerModifiers = typeof mouseHandlerModifiers;
 type MouseHandlerEvent = BaseMouseHandlerEvent<MouseHandlerModifiers>;
 
-export class BoardToolHandler extends ToolHandler {
-  readonly tool = 'board';
-  readonly materialThickness = 18;
+export class BeamToolHandler extends ToolHandler {
+  readonly tool = 'beam';
+  readonly materialThickness = [50, 100];
 
   private mouseHandler: MouseHandler<MouseHandlerModifiers>;
   private targetFinder: TargetFinder;
   private drawingHelper: DrawingHelper;
 
-  private points: BoardPoint[] = [];
-  private fleetingPoint?: BoardPoint;
-  private fleetingBoard?: MaterialObject;
+  private points: BeamPoint[] = [];
+  private fleetingPoint?: BeamPoint;
+  private fleetingBeam?: MaterialObject;
   private isFixedLine = false;
 
   constructor(renderer: Renderer) {
@@ -62,7 +62,7 @@ export class BoardToolHandler extends ToolHandler {
     this.targetFinder.delete();
     this.renderer.removeUpdating(this.drawingHelper);
     this.renderer.setMouseTarget();
-    this.removeFleetingBoard();
+    this.removeFleetingBeam();
     this.removeListeners();
   }
 
@@ -86,10 +86,10 @@ export class BoardToolHandler extends ToolHandler {
       return;
     }
 
-    this.fleetingPoint = this.createBoardPoint(event, target);
+    this.fleetingPoint = this.createBeamPoint(event, target);
     this.updateDrawingHelper(target);
     this.updateRenderer(target);
-    this.updateFleetingBoard();
+    this.updateFleetingBeam();
   };
 
   private onClick = (event: MouseHandlerEvent) => {
@@ -99,21 +99,21 @@ export class BoardToolHandler extends ToolHandler {
       return;
     }
 
-    const boardPoint = this.createBoardPoint(event, target);
-    this.points.push(boardPoint);
+    const beamPoint = this.createBeamPoint(event, target);
+    this.points.push(beamPoint);
     this.fleetingPoint = undefined;
     this.isFixedLine = false;
 
     if (this.points.length < 4) {
       this.updateDrawingHelper(target);
       this.updateRenderer(target);
-      this.updateFleetingBoard();
+      this.updateFleetingBeam();
       this.updateConstraints();
     } else {
       this.mouseHandler.reset();
       this.targetFinder.clearConstraints();
       this.drawingHelper.clear();
-      this.confirmBoard();
+      this.confirmBeam();
     }
   };
 
@@ -205,16 +205,19 @@ export class BoardToolHandler extends ToolHandler {
         .normalize();
       this.targetFinder.setConstraintPlane(planeNormal, this.points[1].point);
     } else if (this.points.length === 3) {
-      const boardPlane = new THREE.Plane().setFromCoplanarPoints(
+      const beamPlane = new THREE.Plane().setFromCoplanarPoints(
         this.points[0].point,
         this.points[1].point,
         this.points[2].point,
       );
       const line = new THREE.Line3(
         this.points[2].point,
-        this.points[2].point.clone().add(boardPlane.normal),
+        this.points[2].point.clone().add(beamPlane.normal),
       );
       this.targetFinder.setConstraintLine(line);
+    } else if (this.points.length === 4) {
+      this.targetFinder.clearConstraints();
+      this.confirmBeam();
     }
   }
 
@@ -233,47 +236,64 @@ export class BoardToolHandler extends ToolHandler {
   }
 
   /**
-   * Get the line on which the 3rd and 4th points of the board must lie. This can only be
+   * Get the line on which the 3rd and 4th points of the beam must lie. This can only be
    * calculated once the first 3 points are set.
    */
   private getZLine() {
     if (this.points.length < 3) {
       throw new Error(
-        "The board's Z line is only defined when the first 3 points are set",
+        "The beam's Z line is only defined when the first 3 points are set",
       );
     }
 
-    const boardPlane = new THREE.Plane().setFromCoplanarPoints(
+    const beamPlane = new THREE.Plane().setFromCoplanarPoints(
       this.points[0].point,
       this.points[1].point,
       this.points[2].point,
     );
     const zLine = new THREE.Line3(
       this.points[2].point,
-      this.points[2].point.clone().add(boardPlane.normal),
+      this.points[2].point.clone().add(beamPlane.normal),
     );
     return zLine;
   }
 
   ///
-  // Update the fleeting board
+  // Update the fleeting beam
 
-  private createBoardPoint(
-    event: MouseHandlerEvent,
-    target: Target,
-  ): BoardPoint {
-    if (this.points.length < 3) {
+  private createBeamPoint(event: MouseHandlerEvent, target: Target): BeamPoint {
+    if (this.points.length < 2) {
       return {
         point: target.constrainedPoint,
         centerAligned: this.isCenterAligned(event),
       };
+    } else if (this.points.length === 2) {
+      return this.getThirdPoint(event, target);
     } else {
       return this.getFourthPoint(event, target);
     }
   }
 
-  private getFourthPoint(event: MouseHandlerEvent, target: Target): BoardPoint {
-    const length = this.materialThickness;
+  private getThirdPoint(event: MouseHandlerEvent, target: Target): BeamPoint {
+    const length = this.materialThickness[0];
+    const direction = target.constrainedPoint
+      .clone()
+      .sub(this.points[1].point)
+      .normalize();
+    const isCenterAligned = this.isCenterAligned(event);
+    const distance = isCenterAligned ? length / 2 : length;
+    const point = this.points[1].point
+      .clone()
+      .add(direction.clone().multiplyScalar(distance));
+
+    return {
+      point,
+      centerAligned: isCenterAligned,
+    };
+  }
+
+  private getFourthPoint(event: MouseHandlerEvent, target: Target): BeamPoint {
+    const length = this.materialThickness[1];
     const direction = target.constrainedPoint
       .clone()
       .sub(this.points[2].point)
@@ -290,23 +310,23 @@ export class BoardToolHandler extends ToolHandler {
     };
   }
 
-  private getFleetingBoard() {
-    if (!this.fleetingBoard) {
+  private getFleetingBeam() {
+    if (!this.fleetingBeam) {
       const geometries = new Geometries({});
-      this.fleetingBoard = new MaterialObject(geometries);
-      this.renderer.add(this.fleetingBoard);
+      this.fleetingBeam = new MaterialObject(geometries);
+      this.renderer.add(this.fleetingBeam);
     }
-    return this.fleetingBoard;
+    return this.fleetingBeam;
   }
 
-  private removeFleetingBoard() {
-    if (this.fleetingBoard) {
-      this.renderer.remove(this.fleetingBoard);
-      this.fleetingBoard = undefined;
+  private removeFleetingBeam() {
+    if (this.fleetingBeam) {
+      this.renderer.remove(this.fleetingBeam);
+      this.fleetingBeam = undefined;
     }
   }
 
-  private updateFleetingBoard() {
+  private updateFleetingBeam() {
     const points = [...this.points];
     if (this.fleetingPoint) {
       points.push(this.fleetingPoint);
@@ -322,7 +342,7 @@ export class BoardToolHandler extends ToolHandler {
       });
     }
 
-    const { size, position, quaternion } = this.getBoardProperties(points);
+    const { size, position, quaternion } = this.getBeamProperties(points);
 
     const faceGeometry = this.getFaceGeometry(size);
     const edgeGeometry = this.getEdgeGeometry(size, faceGeometry);
@@ -333,14 +353,14 @@ export class BoardToolHandler extends ToolHandler {
       vertices: vertexGeometry,
     });
 
-    const fleetingBoard = this.getFleetingBoard();
-    fleetingBoard.setGeometries(geometries);
+    const fleetingBeam = this.getFleetingBeam();
+    fleetingBeam.setGeometries(geometries);
 
-    fleetingBoard.position.copy(position);
-    fleetingBoard.quaternion.copy(quaternion);
+    fleetingBeam.position.copy(position);
+    fleetingBeam.quaternion.copy(quaternion);
 
     const childPosition = size.clone().divideScalar(2);
-    fleetingBoard.children.forEach((child) => {
+    fleetingBeam.children.forEach((child) => {
       child.position.copy(childPosition);
     });
   }
@@ -374,26 +394,26 @@ export class BoardToolHandler extends ToolHandler {
     }
   }
 
-  private confirmBoard() {
+  private confirmBeam() {
     this.fleetingPoint = undefined;
-    if (this.fleetingBoard) {
-      const { size, position, quaternion } = this.getBoardProperties(
+    if (this.fleetingBeam) {
+      const { size, position, quaternion } = this.getBeamProperties(
         this.points,
       );
-      const board = new Board(size, position, quaternion);
-      this.model.addPart(board);
-      this.removeFleetingBoard();
+      const beam = new Beam(size, position, quaternion);
+      this.model.addPart(beam);
+      this.removeFleetingBeam();
     }
 
     this.points = [];
   }
 
-  private getBoardProperties(points: BoardPoint[]) {
+  private getBeamProperties(points: BeamPoint[]) {
     if (points.length !== 4) {
       throw new Error('Invalid number of points');
     }
 
-    const boardSides = {
+    const beamSides = {
       x: points[1].point.clone().sub(points[0].point),
       y: points[2].point.clone().sub(points[1].point),
       z: points[3].point.clone().sub(points[2].point),
@@ -405,7 +425,7 @@ export class BoardToolHandler extends ToolHandler {
       points[1].point.distanceTo(points[2].point),
       points[2].point.distanceTo(points[3].point),
     );
-    const quaternion = getQuaternionFromAxes(boardSides.x, boardSides.y);
+    const quaternion = getQuaternionFromAxes(beamSides.x, beamSides.y);
 
     for (let i = 0; i < 3; i++) {
       const centerAligned = points[i + 1].centerAligned;
@@ -415,10 +435,10 @@ export class BoardToolHandler extends ToolHandler {
       }
     }
 
-    const boardZAxis = boardSides.x.clone().cross(boardSides.y).normalize();
-    const zIsInverted = boardZAxis.dot(boardSides.z) < 0;
+    const beamZAxis = beamSides.x.clone().cross(beamSides.y).normalize();
+    const zIsInverted = beamZAxis.dot(beamSides.z) < 0;
     if (zIsInverted) {
-      position.add(boardSides.z.clone().normalize().multiplyScalar(size.z));
+      position.add(beamSides.z.clone().normalize().multiplyScalar(size.z));
     }
 
     return {

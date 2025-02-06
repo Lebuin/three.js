@@ -197,7 +197,11 @@ export class StretchToolHandler extends ToolHandler {
       this.targetFinder.setConstraintLine(this.fixedLine);
     } else if (this.stretcher && this.startTarget) {
       const constraint = this.stretcher.getConstraint(this.startTarget.point);
-      if (constraint instanceof THREE.Plane) {
+      if (constraint == null) {
+        console.warn('Part cannot be stretched in this direction');
+        this.cancelStretch();
+        this.selectedObject = undefined;
+      } else if (constraint instanceof THREE.Plane) {
         this.targetFinder.setConstraintPlane(
           constraint.normal,
           this.startTarget.constrainedPoint,

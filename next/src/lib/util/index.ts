@@ -1,5 +1,5 @@
-export function platform(min: number, value: number, max: number) {
-  return Math.min(Math.max(min, value), max);
+export function typedEntries<T extends object>(obj: T) {
+  return Object.entries(obj) as [keyof T, T[keyof T]][];
 }
 
 const buttonNames = ['lefft', 'right', 'middle', 'back', 'forward'] as const;

@@ -4,10 +4,11 @@ import {
   VertexSupport,
 } from '@/lib/geom/projection';
 import { Edge, Face, Vertex } from '@/lib/geom/shape';
-import { Axes, AxesInclude } from '@/lib/model/parts/axes';
+import { Axes } from '@/lib/model/parts/axes';
 import { Line } from '@/lib/model/parts/line';
 import { Plane } from '@/lib/model/parts/plane';
 import {
+  Axis,
   axisDirections,
   distanceToLine,
   getQuaternionFromNormal,
@@ -72,7 +73,7 @@ export class TargetFinder {
 
   private snapObjects: PartObject[] = [];
   private mainAxes: PartObject;
-  private constraintPlaneAxes: PartObject;
+  private constraintPlaneAxes?: PartObject;
   private constraintObject?: PartObject;
   private constraintIntersections: OCGeometriesObject[] = [];
   private snapHelpers: THREE.Group;
@@ -90,10 +91,10 @@ export class TargetFinder {
     this._layers = new THREE.Layers();
 
     this.mainAxes = this.getAxesWithOrigin(new THREE.Vector3());
-    this.constraintPlaneAxes = this.getAxesWithOrigin(
-      new THREE.Vector3(),
-      'xz',
-    );
+    this.constraintPlaneAxes = this.getAxesWithOrigin(new THREE.Vector3(), [
+      'x',
+      'z',
+    ]);
 
     this.snapHelpers = new THREE.Group();
     this.snapHelpers.visible = false;
@@ -179,11 +180,12 @@ export class TargetFinder {
 
     this.snapHelpers.children = [];
     this.constraintObject = undefined;
+    this.constraintPlaneAxes = undefined;
     this.constraintIntersections = [];
 
     this.snapHelpers.add(this.mainAxes);
 
-    this.constraintObject = this.getConstraintObject();
+    this.constraintObject = this.getConstraintObject() ?? undefined;
     if (this.constraintObject) {
       this.constraintIntersections = this.getConstraintIntersections(
         this.constraintObject,
@@ -196,11 +198,21 @@ export class TargetFinder {
     }
 
     if (this.constraintPlane) {
-      this.constraintPlaneAxes.part.position = this.neighborPoint!.clone();
-      this.constraintPlaneAxes.part.quaternion = getQuaternionFromNormal(
-        this.constraintPlane.normal,
+      const quaternion = getQuaternionFromNormal(this.constraintPlane.normal);
+      const include = this.filterIncludesOnMainAxes(
+        ['x', 'z'],
+        this.neighborPoint!,
+        quaternion,
       );
-      this.snapHelpers.add(this.constraintPlaneAxes);
+
+      if (include.length > 0) {
+        this.constraintPlaneAxes = this.getAxesWithOrigin(
+          this.neighborPoint!.clone(),
+          include,
+          quaternion,
+        );
+        this.snapHelpers.add(this.constraintPlaneAxes);
+      }
     }
 
     this.snapHelpers.updateMatrixWorld();
@@ -210,7 +222,7 @@ export class TargetFinder {
     return this.constraintPlane == null && this.constraintLine == null;
   }
 
-  private getConstraintObject(): PartObject | undefined {
+  private getConstraintObject(): Nullable<PartObject> {
     if (this.constraintPlane) {
       return this.getPlaneConstraintObject(
         this.constraintPlane,
@@ -221,9 +233,9 @@ export class TargetFinder {
     } else if (this.neighborPoint) {
       // This is not a hard constraint: the target does not have to lie on the axes, but it will
       // snap to them.
-      return this.getAxesWithOrigin(this.neighborPoint);
+      return this.getAxesConstraintObject(this.neighborPoint);
     } else {
-      return undefined;
+      return null;
     }
   }
 
@@ -241,7 +253,7 @@ export class TargetFinder {
     return object;
   }
 
-  private getLineConstraintObject(line: THREE.Line3) {
+  private getLineConstraintObject(line: THREE.Line3): PartObject {
     const direction = line.delta(new THREE.Vector3());
     const quaternion = getQuaternionFromNormal(direction);
     const linePart = new Line(direction.length(), line.start, quaternion);
@@ -249,16 +261,52 @@ export class TargetFinder {
     return object;
   }
 
+  private getAxesConstraintObject(origin: THREE.Vector3): Nullable<PartObject> {
+    const include = this.filterIncludesOnMainAxes(['x', 'y', 'z'], origin);
+    if (include.length === 0) {
+      return null;
+    }
+    return this.getAxesWithOrigin(origin, include);
+  }
+
   private getAxesWithOrigin(
     origin: THREE.Vector3,
-    include: AxesInclude = 'xyz',
+    include: Axis[] = ['x', 'y', 'z'],
+    quaternion?: THREE.Quaternion,
   ): PartObject {
     const axes = new Axes(
       { length: this.renderer.groundPlaneSize, include },
       origin,
+      quaternion,
     );
     const object = new PartObject(axes);
     return object;
+  }
+
+  /**
+   * When adding an Axes object to snap to, we only want to include the axes that are not
+   * coincident with the main axes. Otherwise, these secondary axes may prevent the raycaster from
+   * hitting the main axes, and we often want to render snapping to the main axes a bit differently
+   * from other objects. This method filters out those axes.
+   */
+  private filterIncludesOnMainAxes(
+    axes: Axis[],
+    origin: THREE.Vector3,
+    quaternion = new THREE.Quaternion(),
+  ): Axis[] {
+    const include: Axis[] = [];
+    for (const axis of axes) {
+      const globalAxisDirection = axisDirections[axis]
+        .clone()
+        .applyQuaternion(quaternion);
+      const projectedOrigin = origin
+        .clone()
+        .projectOnVector(globalAxisDirection);
+      if (projectedOrigin.distanceTo(origin) >= 1e-6) {
+        include.push(axis);
+      }
+    }
+    return include;
   }
 
   private getConstraintIntersections(
@@ -323,7 +371,7 @@ export class TargetFinder {
     if (this.constraintObject && this.shouldSnapToConstraintObject) {
       snapObjects.push(this.constraintObject);
     }
-    if (this.constraintPlane) {
+    if (this.constraintPlaneAxes) {
       snapObjects.push(this.constraintPlaneAxes);
     }
     const intersection = this.renderer.raycaster.castSnapping(snapObjects, {

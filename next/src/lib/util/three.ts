@@ -1,5 +1,15 @@
 import { THREE } from '@lib/three.js';
 
+export function getMaterials(
+  material: THREE.Material | THREE.Material[],
+): THREE.Material[] {
+  if (Array.isArray(material)) {
+    return material;
+  } else {
+    return [material];
+  }
+}
+
 export function getIndexedAttribute(
   geometry: THREE.BufferGeometry,
   attribute: string,

@@ -183,6 +183,7 @@ export const axisDirections = {
   z: new THREE.Vector3(0, 0, 1),
 } as const;
 export type Axis = keyof typeof axisDirections;
+export const axes = Object.keys(axisDirections) as Axis[];
 
 export function isAxis(vector: THREE.Vector3, tolerance = 1e-6): Axis | null {
   for (const [axis, direction] of Object.entries(axisDirections)) {

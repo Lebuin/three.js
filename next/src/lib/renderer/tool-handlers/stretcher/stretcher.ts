@@ -18,5 +18,5 @@ export abstract class Stretcher<T extends Part = Part> {
 
   abstract stretch(delta: THREE.Vector3): void;
   abstract cancel(): void;
-  abstract getConstraint(point: THREE.Vector3): Constraint;
+  abstract getConstraint(point: THREE.Vector3): Nullable<Constraint>;
 }

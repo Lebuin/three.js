@@ -78,7 +78,7 @@ export class BoardStretcher extends Stretcher<Board> {
     this.board.size = this.startSize;
   }
 
-  getConstraint(point: THREE.Vector3): Constraint {
+  getConstraint(point: THREE.Vector3): Nullable<Constraint> {
     if (this.subShape instanceof Vertex) {
       return this.getVertexConstraints(this.subShape, point);
     } else if (this.subShape instanceof Edge) {
@@ -113,13 +113,15 @@ export class BoardStretcher extends Stretcher<Board> {
     }
   }
 
-  private getFaceConstraints(face: Face, point: THREE.Vector3): Constraint {
+  private getFaceConstraints(
+    face: Face,
+    point: THREE.Vector3,
+  ): Nullable<Constraint> {
     const plane = this.getBoardConstraintPlane(point);
     const faceNormal = face.getNormal();
     const projectedFaceNormal = faceNormal.clone().projectOnPlane(plane.normal);
     if (projectedFaceNormal.length() < 1e-6) {
-      const line = new THREE.Line3(point, point.clone().add(faceNormal));
-      return line;
+      return null;
     } else {
       projectedFaceNormal.normalize();
       const line = new THREE.Line3(

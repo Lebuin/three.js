@@ -1,17 +1,17 @@
 import { pointFromVector } from '@/lib/geom/util';
-import { axisDirections } from '@/lib/util/geometry';
+import { typedEntries } from '@/lib/util';
+import { Axis, axisDirections } from '@/lib/util/geometry';
 import { getOC, TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { Part } from './part';
 
-export type AxesInclude = 'x' | 'y' | 'z' | 'xy' | 'xz' | 'yz' | 'xyz';
 export interface AxesOptions {
   length: number;
-  include: AxesInclude;
+  include: Axis[];
 }
 const defaultAxesOptions: AxesOptions = {
   length: 100,
-  include: 'xyz',
+  include: ['x', 'y', 'z'],
 };
 
 export class Axes extends Part {
@@ -39,7 +39,7 @@ export class Axes extends Part {
     const wireMaker = new oc.BRepBuilderAPI_MakeWire_1();
     const origin = pointFromVector(new THREE.Vector3());
 
-    for (const [axis, axisDirection] of Object.entries(axisDirections)) {
+    for (const [axis, axisDirection] of typedEntries(axisDirections)) {
       if (!this.options.include.includes(axis)) {
         continue;
       }
