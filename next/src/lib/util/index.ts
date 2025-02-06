@@ -2,7 +2,7 @@ export function typedEntries<T extends object>(obj: T) {
   return Object.entries(obj) as [keyof T, T[keyof T]][];
 }
 
-const buttonNames = ['lefft', 'right', 'middle', 'back', 'forward'] as const;
+const buttonNames = ['left', 'right', 'middle', 'back', 'forward'] as const;
 type ButtonName = (typeof buttonNames)[number];
 
 /**

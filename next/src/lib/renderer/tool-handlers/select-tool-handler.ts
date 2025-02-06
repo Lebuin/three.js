@@ -1,4 +1,5 @@
 import { Edge, Face } from '@/lib/geom/shape';
+import { mouseButtonPressed } from '@/lib/util';
 import { THREE } from '@lib/three.js';
 import { Frustum } from '../frustum';
 import { DrawingHelper } from '../helpers/drawing-helper';
@@ -82,6 +83,10 @@ export class SelectToolHandler extends ToolHandler {
   }
 
   private onMouseDown = (event: MouseHandlerEvent) => {
+    if (!mouseButtonPressed(event.event, 'left')) {
+      return;
+    }
+
     this.mouseDownEvent = event;
     const pointer = this.renderer.getPointerFromEvent(event.event);
     this.selectionBoxHelper.start = pointer.clone();
