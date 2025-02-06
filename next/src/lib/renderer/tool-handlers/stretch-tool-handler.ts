@@ -80,7 +80,6 @@ export class StretchToolHandler extends ToolHandler {
       this.doStretch(target);
     }
 
-    this.updateDrawingHelper(target);
     this.updateRenderer(target);
   };
 
@@ -100,7 +99,6 @@ export class StretchToolHandler extends ToolHandler {
       this.unsetSelectedObject();
     }
 
-    this.updateDrawingHelper(target);
     this.updateRenderer(target);
   };
 
@@ -216,6 +214,11 @@ export class StretchToolHandler extends ToolHandler {
 
   ///
   // Render the selected objects
+
+  protected updateRenderer(target: Optional<Target>): void {
+    this.updateDrawingHelper(target);
+    super.updateRenderer(target);
+  }
 
   private updateDrawingHelper(target: Optional<Target>) {
     if (!target) {

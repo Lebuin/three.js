@@ -78,7 +78,6 @@ export class MoveToolHandler extends ToolHandler {
       this.doMove(target);
     }
 
-    this.updateDrawingHelper(target);
     this.updateRenderer(target);
   };
 
@@ -98,7 +97,6 @@ export class MoveToolHandler extends ToolHandler {
       this.unsetSelectedObject();
     }
 
-    this.updateDrawingHelper(target);
     this.updateRenderer(target);
   };
 
@@ -197,6 +195,11 @@ export class MoveToolHandler extends ToolHandler {
 
   ///
   // Render the selected objects
+
+  protected updateRenderer(target: Optional<Target>): void {
+    this.updateDrawingHelper(target);
+    super.updateRenderer(target);
+  }
 
   private updateDrawingHelper(target: Optional<Target>) {
     if (!target) {

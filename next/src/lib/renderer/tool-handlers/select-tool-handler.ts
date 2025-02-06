@@ -1,13 +1,17 @@
 import { Edge, Face } from '@/lib/geom/shape';
-import _ from 'lodash';
 import { DrawingHelper } from '../helpers/drawing-helper';
 import { PartObject } from '../part-objects/part-object';
 import { Renderer } from '../renderer';
 import {
+  keyboardHandler,
+  KeyboardHandlerEvent,
+  KeyCombo,
+} from './keyboard-handler';
+import {
   MouseHandlerEvent as BaseMouseHandlerEvent,
   MouseHandler,
 } from './mouse-handler';
-import { TargetFinder } from './target-finder';
+import { Target, TargetFinder } from './target-finder';
 import { ToolHandler } from './tool-handler';
 
 const mouseHandlerModifiers = {
@@ -22,7 +26,7 @@ export class SelectToolHandler extends ToolHandler {
   private mouseHandler: MouseHandler<MouseHandlerModifiers>;
   private targetFinder: TargetFinder;
   private drawingHelper: DrawingHelper;
-  private selectedObjects: PartObject[] = [];
+  private selectedObjects = new Set<PartObject>();
 
   constructor(renderer: Renderer) {
     super(renderer);
@@ -50,13 +54,13 @@ export class SelectToolHandler extends ToolHandler {
   private setupListeners() {
     this.mouseHandler.addEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.addEventListener('click', this.onClick);
-    window.addEventListener('keydown', this.onKeyDown);
+    keyboardHandler.addEventListener('keydown', this.onKeyDown);
   }
 
   private removeListeners() {
     this.mouseHandler.removeEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.removeEventListener('click', this.onClick);
-    window.removeEventListener('keydown', this.onKeyDown);
+    keyboardHandler.removeEventListener('keydown', this.onKeyDown);
   }
 
   ///
@@ -64,67 +68,78 @@ export class SelectToolHandler extends ToolHandler {
 
   private onMouseMove = (event: MouseHandlerEvent) => {
     const target = this.targetFinder.findTarget(event.event);
-    const object = target?.object;
-    this.updateDrawingHelper(object);
     this.updateRenderer(target);
   };
 
   private onClick = (event: MouseHandlerEvent) => {
     const target = this.targetFinder.findTarget(event.event);
-    const object = target?.object;
 
-    if (!event.modifiers.Control) {
-      this.setSelectedObject(object);
-    } else if (object) {
-      this.toggleSelectedObject(object);
+    const objects = target?.object ? [target.object] : [];
+    if (event.modifiers.Control) {
+      this.toggleSelectedObjects(objects);
+    } else {
+      this.setSelectedObjects(objects);
     }
 
-    this.updateDrawingHelper(object);
     this.updateRenderer(target);
   };
 
-  private setSelectedObject(object?: PartObject) {
-    this.selectedObjects = [];
-    if (object) {
-      this.selectedObjects.push(object);
-    }
+  private setSelectedObjects(objects: PartObject[]) {
+    this.selectedObjects = new Set(objects);
   }
 
-  private toggleSelectedObject(object: PartObject) {
-    if (this.selectedObjects.includes(object)) {
-      _.pull(this.selectedObjects, object);
+  private toggleSelectedObjects(objects: PartObject[]) {
+    const newObjects = new Set(objects);
+    const hasNewObjects = !newObjects.isSubsetOf(this.selectedObjects);
+    if (hasNewObjects) {
+      this.selectedObjects = this.selectedObjects.union(newObjects);
     } else {
-      this.selectedObjects.push(object);
+      this.selectedObjects = this.selectedObjects.difference(newObjects);
     }
   }
 
   ///
   // Do something with the selected objects
 
-  private onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Delete') {
+  private onKeyDown = (event: KeyboardHandlerEvent) => {
+    // Key events also trigger a mouse move event through MouseHandler, so we don't need to update
+    // the renderer or drawing helper here.
+    if (event.keyCombo.equals(new KeyCombo('Delete'))) {
       this.deleteSelectedObjects();
+    } else if (event.keyCombo.equals(new KeyCombo('a', { ctrl: true }))) {
+      this.setSelectedObjects(this.renderer.partObjects);
+    } else {
+      return;
     }
+
+    const mouseEvent = this.mouseHandler.mouseMoveEvent;
+    const target = mouseEvent ? this.targetFinder.findTarget(mouseEvent) : null;
+    this.updateRenderer(target);
   };
 
   private deleteSelectedObjects() {
     for (const object of this.selectedObjects) {
       this.renderer.model.removePart(object.part);
     }
-    this.selectedObjects = [];
-    this.updateDrawingHelper();
+    this.setSelectedObjects([]);
+    this.updateRenderer();
   }
 
   ///
   // Render the selected objects
 
-  private updateDrawingHelper(hoveredObject?: PartObject) {
+  protected updateRenderer(target?: Optional<Target>) {
+    this.updateDrawingHelper(target);
+    super.updateRenderer(target);
+  }
+
+  private updateDrawingHelper(target: Optional<Target>) {
     const faces: Face[] = [];
     const edges: Edge[] = [];
 
     const objects = [...this.selectedObjects];
-    if (hoveredObject) {
-      objects.push(hoveredObject);
+    if (target?.object) {
+      objects.push(target.object);
     }
 
     for (const object of objects) {
@@ -137,13 +152,4 @@ export class SelectToolHandler extends ToolHandler {
     this.drawingHelper.setFaces(faces);
     this.drawingHelper.setEdges(edges);
   }
-
-  // updateRenderer(target: Optional<Target>) {
-  //   if (target && target.object) {
-  //     this.renderer.setMouseTarget(target.point);
-  //   } else {
-  //     this.renderer.setMouseTarget();
-  //   }
-  //   this.renderer.render();
-  // }
 }

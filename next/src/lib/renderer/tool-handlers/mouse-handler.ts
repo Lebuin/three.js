@@ -27,7 +27,7 @@ export class MouseHandler<
   private elem: HTMLElement;
   private modifierDefinition: ModifierDefinition;
 
-  private mouseMoveEvent?: MouseEvent;
+  public mouseMoveEvent?: MouseEvent;
   private modifiers: Modifiers<T>;
 
   constructor(elem: HTMLElement, modifierDefinition: T) {

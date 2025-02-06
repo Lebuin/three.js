@@ -87,9 +87,7 @@ export class BeamToolHandler extends ToolHandler {
     }
 
     this.fleetingPoint = this.createBeamPoint(event, target);
-    this.updateDrawingHelper(target);
     this.updateRenderer(target);
-    this.updateFleetingBeam();
   };
 
   private onClick = (event: MouseHandlerEvent) => {
@@ -105,9 +103,7 @@ export class BeamToolHandler extends ToolHandler {
     this.isFixedLine = false;
 
     if (this.points.length < 4) {
-      this.updateDrawingHelper(target);
       this.updateRenderer(target);
-      this.updateFleetingBeam();
       this.updateConstraints();
     } else {
       this.mouseHandler.reset();
@@ -132,7 +128,17 @@ export class BeamToolHandler extends ToolHandler {
   ///
   // Update the scene based on the current target
 
-  updateDrawingHelper(target: Target) {
+  protected updateRenderer(target: Optional<Target>): void {
+    this.updateDrawingHelper(target);
+    this.updateFleetingBeam();
+    super.updateRenderer(target);
+  }
+
+  private updateDrawingHelper(target: Optional<Target>) {
+    if (!target) {
+      return;
+    }
+
     const { point, constrainedPoint, plane, face, edge, vertex } = target;
 
     const points: THREE.Vector3[] = [];
