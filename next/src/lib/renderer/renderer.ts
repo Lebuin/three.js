@@ -205,7 +205,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     parts.forEach((part) => {
       const partObject = createPartObject(part);
       this.partObjects.push(partObject);
-      this.add(partObject);
+      this.addUpdating(partObject);
       part.addEventListener('change', this.render);
     });
   }
@@ -218,8 +218,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
       if (index > -1) {
         const partObject = this.partObjects[index];
         this.partObjects.splice(index, 1);
-        this.remove(partObject);
-        partObject.delete();
+        this.removeUpdating(partObject);
         part.removeEventListener('change', this.render);
       }
     });

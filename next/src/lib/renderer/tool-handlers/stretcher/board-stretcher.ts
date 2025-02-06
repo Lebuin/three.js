@@ -50,8 +50,27 @@ export class BoardStretcher extends Stretcher<Board> {
       localDelta,
       this.stretchMask,
     );
-    this.board.position = this.startPosition.clone().add(positionDelta);
-    this.board.size = this.startSize.clone().add(stretchDelta);
+
+    const globalPositionDelta = positionDelta
+      .clone()
+      .applyQuaternion(this.board.quaternion);
+
+    const position = this.startPosition.clone().add(globalPositionDelta);
+    const size = this.startSize.clone().add(stretchDelta);
+
+    for (let i = 0; i < 3; i++) {
+      const length = size.getComponent(i);
+      if (length < 0) {
+        size.setComponent(i, -length);
+        const globalDirection = new THREE.Vector3()
+          .setComponent(i, 1)
+          .applyQuaternion(this.board.quaternion);
+        position.add(globalDirection.clone().multiplyScalar(length));
+      }
+    }
+
+    this.board.position = position;
+    this.board.size = size;
   }
 
   cancel() {
