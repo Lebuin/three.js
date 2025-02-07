@@ -1,7 +1,6 @@
 import { Edge, Face } from '@/lib/geom/shape';
 import { mouseButtonPressed } from '@/lib/util';
 import { THREE } from '@lib/three.js';
-import { Frustum } from '../frustum';
 import { DrawingHelper } from '../helpers/drawing-helper';
 import { Direction, SelectionBoxHelper } from '../helpers/selection-box-helper';
 import { PartObject } from '../part-objects/part-object';
@@ -133,10 +132,8 @@ export class SelectToolHandler extends ToolHandler {
     this.selectionBoxHelper.end = pointer;
     this.selectionBoxHelper.visible = true;
 
-    const frustum = Frustum.createFromSelection(
+    const frustum = this.selectionBoxHelper.getSelectionFrustum(
       this.renderer.camera,
-      this.selectionBoxHelper.start,
-      this.selectionBoxHelper.end,
     );
     const objects =
       this.selectionBoxHelper.direction === Direction.TO_RIGHT

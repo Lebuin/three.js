@@ -2,6 +2,7 @@ import { Color4 } from '@/lib/util/color4';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import { Renderer } from '../renderer';
+import { SelectionFrustum } from '../selection-frustum';
 import { UpdatingObjectMixin } from './updating-object-mixin';
 
 export enum Direction {
@@ -147,5 +148,138 @@ export class SelectionBoxHelper extends UpdatingObjectMixin(THREE.Group) {
       (this.start.y + this.end.y) / 2,
       0,
     );
+  }
+
+  ///
+  // Build a frustum
+
+  getSelectionFrustum(
+    camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
+  ) {
+    const frustum = this.getSubFrustum(camera);
+    return new SelectionFrustum(frustum);
+  }
+
+  /**
+   * Get a frustum that represents the part of the camera frustum that is visible in the selection.
+   *
+   * Based on three.js/examples/jsm/interactive/SelectionBox.js
+   */
+  private getSubFrustum(
+    camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
+    deep = Number.MAX_VALUE,
+  ) {
+    const startPoint = this.start.clone();
+    const endPoint = this.end.clone();
+
+    if (startPoint.x === endPoint.x) {
+      endPoint.x += Number.EPSILON;
+    }
+    if (startPoint.y === endPoint.y) {
+      endPoint.y += Number.EPSILON;
+    }
+
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+
+    if (camera instanceof THREE.PerspectiveCamera) {
+      return this.getPerspectiveSubFrustum(camera, startPoint, endPoint, deep);
+    } else {
+      return this.getOrthographicSubFrustum(camera, startPoint, endPoint);
+    }
+  }
+
+  private getPerspectiveSubFrustum(
+    camera: THREE.PerspectiveCamera,
+    startPoint: THREE.Vector2,
+    endPoint: THREE.Vector2,
+    deep: number,
+  ) {
+    const left = Math.min(startPoint.x, endPoint.x);
+    const top = Math.max(startPoint.y, endPoint.y);
+    const right = Math.max(startPoint.x, endPoint.x);
+    const bottom = Math.min(startPoint.y, endPoint.y);
+
+    const vecNear = new THREE.Vector3().setFromMatrixPosition(
+      camera.matrixWorld,
+    );
+    const vecTopLeft = new THREE.Vector3(left, top, 0.5).unproject(camera);
+    const vecTopRight = new THREE.Vector3(right, top, 0).unproject(camera);
+    const vecBottomRight = new THREE.Vector3(right, bottom, 0.5).unproject(
+      camera,
+    );
+    const vecBottomLeft = new THREE.Vector3(left, bottom, 0).unproject(camera);
+
+    const vecTmp1 = new THREE.Vector3()
+      .copy(vecTopLeft)
+      .sub(vecNear)
+      .normalize()
+      .multiplyScalar(deep)
+      .add(vecNear);
+    const vecTmp2 = new THREE.Vector3()
+      .copy(vecTopRight)
+      .sub(vecNear)
+      .normalize()
+      .multiplyScalar(deep)
+      .add(vecNear);
+    const vecTmp3 = new THREE.Vector3()
+      .copy(vecBottomRight)
+      .sub(vecNear)
+      .normalize()
+      .multiplyScalar(deep)
+      .add(vecNear);
+
+    const frustum = new THREE.Frustum();
+    const planes = frustum.planes;
+    planes[0].setFromCoplanarPoints(vecNear, vecTopLeft, vecTopRight);
+    planes[1].setFromCoplanarPoints(vecNear, vecTopRight, vecBottomRight);
+    planes[2].setFromCoplanarPoints(vecBottomRight, vecBottomLeft, vecNear);
+    planes[3].setFromCoplanarPoints(vecBottomLeft, vecTopLeft, vecNear);
+    planes[4].setFromCoplanarPoints(vecTopRight, vecBottomRight, vecBottomLeft);
+    planes[5].setFromCoplanarPoints(vecTmp3, vecTmp2, vecTmp1);
+    planes[5].normal.multiplyScalar(-1);
+
+    return frustum;
+  }
+
+  private getOrthographicSubFrustum(
+    camera: THREE.OrthographicCamera,
+    startPoint: THREE.Vector2,
+    endPoint: THREE.Vector2,
+  ) {
+    const left = Math.min(startPoint.x, endPoint.x);
+    const top = Math.max(startPoint.y, endPoint.y);
+    const right = Math.max(startPoint.x, endPoint.x);
+    const bottom = Math.min(startPoint.y, endPoint.y);
+
+    const vTopLeft = new THREE.Vector3(left, top, -1).unproject(camera);
+    const vTopRight = new THREE.Vector3(right, top, -1).unproject(camera);
+    const vBottomRight = new THREE.Vector3(right, bottom, -1).unproject(camera);
+    const vBottomLeft = new THREE.Vector3(left, bottom, -1).unproject(camera);
+
+    const vFarTopLeft = new THREE.Vector3(left, top, 1).unproject(camera);
+    const vFarTopRight = new THREE.Vector3(right, top, 1).unproject(camera);
+    const vFarBottomRight = new THREE.Vector3(right, bottom, 1).unproject(
+      camera,
+    );
+    const vecFarBottomLeft = new THREE.Vector3(left, bottom, 1).unproject(
+      camera,
+    );
+
+    const frustum = new THREE.Frustum();
+    const planes = frustum.planes;
+    planes[0].setFromCoplanarPoints(vTopLeft, vFarTopLeft, vFarTopRight);
+    planes[1].setFromCoplanarPoints(vTopRight, vFarTopRight, vFarBottomRight);
+    planes[2].setFromCoplanarPoints(
+      vFarBottomRight,
+      vecFarBottomLeft,
+      vBottomLeft,
+    );
+    planes[3].setFromCoplanarPoints(vecFarBottomLeft, vFarTopLeft, vTopLeft);
+    planes[4].setFromCoplanarPoints(vTopRight, vBottomRight, vBottomLeft);
+    planes[5].setFromCoplanarPoints(vFarBottomRight, vFarTopRight, vFarTopLeft);
+    planes[5].normal.multiplyScalar(-1);
+
+    return frustum;
   }
 }
