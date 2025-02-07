@@ -4,7 +4,7 @@ import { BoxToolHandler } from './box-tool-handler';
 
 export class BeamToolHandler extends BoxToolHandler<Beam> {
   readonly tool = 'beam';
-  readonly fixedDimensions = [50, 100];
+  readonly fixedDimensions = [100, 50];
 
   protected getPart(
     size: THREE.Vector3,
