@@ -82,7 +82,7 @@ class Line extends Object3D {
 
 		const geometry = this.geometry;
 		const matrixWorld = this.matrixWorld;
-		const threshold = raycaster.params.Line.threshold;
+		const getThreshold = raycaster.params.Line.getThreshold;
 		const drawRange = geometry.drawRange;
 
 		// Checking boundingSphere distance to ray
@@ -91,7 +91,7 @@ class Line extends Object3D {
 
 		_sphere.copy( geometry.boundingSphere );
 		_sphere.applyMatrix4( matrixWorld );
-		_sphere.radius += threshold;
+		_sphere.radius += getThreshold(_sphere.center);
 
 		if ( raycaster.ray.intersectsSphere( _sphere ) === false ) return;
 
@@ -99,9 +99,6 @@ class Line extends Object3D {
 
 		_inverseMatrix.copy( matrixWorld ).invert();
 		_ray.copy( raycaster.ray ).applyMatrix4( _inverseMatrix );
-
-		const localThreshold = threshold / ( ( this.scale.x + this.scale.y + this.scale.z ) / 3 );
-		const localThresholdSq = localThreshold * localThreshold;
 
 		const step = this.isLineSegments ? 2 : 1;
 
@@ -119,7 +116,7 @@ class Line extends Object3D {
 				const a = index.getX( i );
 				const b = index.getX( i + 1 );
 
-				const intersect = checkIntersection( this, raycaster, _ray, localThresholdSq, a, b, i );
+				const intersect = checkIntersection( this, raycaster, _ray, getThreshold, a, b, i );
 
 				if ( intersect ) {
 
@@ -134,7 +131,7 @@ class Line extends Object3D {
 				const a = index.getX( end - 1 );
 				const b = index.getX( start );
 
-				const intersect = checkIntersection( this, raycaster, _ray, localThresholdSq, a, b, end - 1 );
+				const intersect = checkIntersection( this, raycaster, _ray, getThreshold, a, b, end - 1 );
 
 				if ( intersect ) {
 
@@ -151,7 +148,7 @@ class Line extends Object3D {
 
 			for ( let i = start, l = end - 1; i < l; i += step ) {
 
-				const intersect = checkIntersection( this, raycaster, _ray, localThresholdSq, i, i + 1, i );
+				const intersect = checkIntersection( this, raycaster, _ray, getThreshold, i, i + 1, i );
 
 				if ( intersect ) {
 
@@ -163,7 +160,7 @@ class Line extends Object3D {
 
 			if ( this.isLineLoop ) {
 
-				const intersect = checkIntersection( this, raycaster, _ray, localThresholdSq, end - 1, start, end - 1 );
+				const intersect = checkIntersection( this, raycaster, _ray, getThreshold, end - 1, start, end - 1 );
 
 				if ( intersect ) {
 
@@ -210,7 +207,7 @@ class Line extends Object3D {
 
 }
 
-function checkIntersection( object, raycaster, ray, thresholdSq, a, b, i ) {
+function checkIntersection( object, raycaster, ray, getThreshold, a, b, i ) {
 
 	const positionAttribute = object.geometry.attributes.position;
 
@@ -218,6 +215,9 @@ function checkIntersection( object, raycaster, ray, thresholdSq, a, b, i ) {
 	_vEnd.fromBufferAttribute( positionAttribute, b );
 
 	const distSq = ray.distanceSqToSegment( _vStart, _vEnd, _intersectPointOnRay, _intersectPointOnSegment );
+
+	const threshold = getThreshold(_intersectPointOnSegment) / ( ( object.scale.x + object.scale.y + object.scale.z ) / 3 );
+	const thresholdSq = threshold * threshold;
 
 	if ( distSq > thresholdSq ) return;
 
