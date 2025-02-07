@@ -3,9 +3,9 @@ import { Board } from '@/lib/model/parts/board';
 import { intersectPlanes } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import { Target } from '../target-finder';
-import { Constraint, Stretcher } from './stretcher';
+import { BaseMover, Constraint } from './base-mover';
 
-export class BoardStretcher extends Stretcher<Board> {
+export class BoardStretcher extends BaseMover<Board> {
   private startPosition: THREE.Vector3;
   private startSize: THREE.Vector3;
   private stretchMask: THREE.Vector3;
@@ -15,7 +15,7 @@ export class BoardStretcher extends Stretcher<Board> {
     super(part, subShape, target);
     this.startPosition = this.board.position.clone();
     this.startSize = this.board.size.clone();
-    this.stretchMask = this.getStretchMask(target);
+    this.stretchMask = this.getStretchMask();
     this.moveMask = this.stretchMask.clone().addScalar(-1).divideScalar(-2);
   }
 
@@ -23,8 +23,8 @@ export class BoardStretcher extends Stretcher<Board> {
     return this.part;
   }
 
-  private getStretchMask(target: Target): THREE.Vector3 {
-    const localTarget = target.constrainedPoint
+  private getStretchMask(): THREE.Vector3 {
+    const localTarget = this.startPoint
       .clone()
       .sub(this.board.position)
       .applyQuaternion(this.board.quaternion.clone().invert());
@@ -37,7 +37,80 @@ export class BoardStretcher extends Stretcher<Board> {
     return stretchMask;
   }
 
-  stretch(delta: THREE.Vector3) {
+  isMovable() {
+    if (this.subShape instanceof Face) {
+      const plane = this.getBoardConstraintPlane(this.startPoint);
+      const faceNormal = this.subShape.getNormal();
+      const projectedFaceNormal = faceNormal
+        .clone()
+        .projectOnPlane(plane.normal);
+      return projectedFaceNormal.length() >= 1e-6;
+    } else {
+      return true;
+    }
+  }
+
+  getConstraint(): Nullable<Constraint> {
+    if (this.subShape instanceof Vertex) {
+      return this.getVertexConstraints(this.subShape, this.startPoint);
+    } else if (this.subShape instanceof Edge) {
+      return this.getEdgeConstraints(this.subShape, this.startPoint);
+    } else if (this.subShape instanceof Face) {
+      return this.getFaceConstraints(this.subShape, this.startPoint);
+    } else {
+      throw new Error('Invalid subShape');
+    }
+  }
+
+  private getVertexConstraints(
+    vertex: Vertex,
+    point: THREE.Vector3,
+  ): Constraint {
+    const plane = this.getBoardConstraintPlane(point);
+    return plane;
+  }
+
+  private getEdgeConstraints(edge: Edge, point: THREE.Vector3): Constraint {
+    const plane = this.getBoardConstraintPlane(point);
+    const edgeDirection = edge.getDirection();
+    const edgePlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      edgeDirection,
+      point,
+    );
+    const intersection = intersectPlanes(plane, edgePlane);
+    if (intersection) {
+      return intersection;
+    } else {
+      return plane;
+    }
+  }
+
+  private getFaceConstraints(
+    face: Face,
+    point: THREE.Vector3,
+  ): Nullable<Constraint> {
+    const plane = this.getBoardConstraintPlane(point);
+    const faceNormal = face.getNormal();
+    const projectedFaceNormal = faceNormal
+      .clone()
+      .projectOnPlane(plane.normal)
+      .normalize();
+    const line = new THREE.Line3(point, point.clone().add(projectedFaceNormal));
+    return line;
+  }
+
+  private getBoardConstraintPlane(point: THREE.Vector3): THREE.Plane {
+    const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(
+      this.board.quaternion,
+    );
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      normal,
+      point,
+    );
+    return plane;
+  }
+
+  move(delta: THREE.Vector3) {
     const localDelta = delta
       .clone()
       .applyQuaternion(this.board.quaternion.clone().invert());
@@ -76,70 +149,5 @@ export class BoardStretcher extends Stretcher<Board> {
   cancel() {
     this.board.position = this.startPosition;
     this.board.size = this.startSize;
-  }
-
-  getConstraint(point: THREE.Vector3): Nullable<Constraint> {
-    if (this.subShape instanceof Vertex) {
-      return this.getVertexConstraints(this.subShape, point);
-    } else if (this.subShape instanceof Edge) {
-      return this.getEdgeConstraints(this.subShape, point);
-    } else if (this.subShape instanceof Face) {
-      return this.getFaceConstraints(this.subShape, point);
-    } else {
-      throw new Error('Invalid subShape');
-    }
-  }
-
-  private getVertexConstraints(
-    vertex: Vertex,
-    point: THREE.Vector3,
-  ): Constraint {
-    const plane = this.getBoardConstraintPlane(point);
-    return plane;
-  }
-
-  private getEdgeConstraints(edge: Edge, point: THREE.Vector3): Constraint {
-    const plane = this.getBoardConstraintPlane(point);
-    const edgeDirection = edge.getDirection();
-    const edgePlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      edgeDirection,
-      point,
-    );
-    const intersection = intersectPlanes(plane, edgePlane);
-    if (intersection) {
-      return intersection;
-    } else {
-      return plane;
-    }
-  }
-
-  private getFaceConstraints(
-    face: Face,
-    point: THREE.Vector3,
-  ): Nullable<Constraint> {
-    const plane = this.getBoardConstraintPlane(point);
-    const faceNormal = face.getNormal();
-    const projectedFaceNormal = faceNormal.clone().projectOnPlane(plane.normal);
-    if (projectedFaceNormal.length() < 1e-6) {
-      return null;
-    } else {
-      projectedFaceNormal.normalize();
-      const line = new THREE.Line3(
-        point,
-        point.clone().add(projectedFaceNormal),
-      );
-      return line;
-    }
-  }
-
-  private getBoardConstraintPlane(point: THREE.Vector3): THREE.Plane {
-    const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(
-      this.board.quaternion,
-    );
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      normal,
-      point,
-    );
-    return plane;
   }
 }

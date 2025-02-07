@@ -2,9 +2,8 @@ import { Tool } from '@/components/toolbar';
 import { Renderer } from '../renderer';
 import { BeamToolHandler } from './beam-tool-handler';
 import { BoardToolHandler } from './board-tool-handler';
-import { MoveToolHandler } from './move-tool-handler';
+import { MoveToolHandler, StretchToolHandler } from './move-tool-handler';
 import { SelectToolHandler } from './select-tool-handler';
-import { StretchToolHandler } from './stretch-tool-handler';
 import { ToolHandler } from './tool-handler';
 
 export function createToolHandler(tool: Tool, renderer: Renderer): ToolHandler {

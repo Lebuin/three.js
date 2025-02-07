@@ -3,9 +3,9 @@ import { Beam } from '@/lib/model/parts/beam';
 import { vectorsAreParallel } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import { Target } from '../target-finder';
-import { Constraint, Stretcher } from './stretcher';
+import { BaseMover, Constraint } from './base-mover';
 
-export class BeamStretcher extends Stretcher<Beam> {
+export class BeamStretcher extends BaseMover<Beam> {
   private startPosition: THREE.Vector3;
   private startSize: THREE.Vector3;
   private stretchMask: THREE.Vector3;
@@ -15,7 +15,7 @@ export class BeamStretcher extends Stretcher<Beam> {
     super(part, subShape, target);
     this.startPosition = this.beam.position.clone();
     this.startSize = this.beam.size.clone();
-    this.stretchMask = this.getStretchMask(target);
+    this.stretchMask = this.getStretchMask();
     this.moveMask = this.stretchMask.clone().addScalar(-1).divideScalar(-2);
   }
 
@@ -23,8 +23,8 @@ export class BeamStretcher extends Stretcher<Beam> {
     return this.part;
   }
 
-  private getStretchMask(target: Target): THREE.Vector3 {
-    const localTarget = target.constrainedPoint
+  private getStretchMask(): THREE.Vector3 {
+    const localTarget = this.startPoint
       .clone()
       .sub(this.beam.position)
       .applyQuaternion(this.beam.quaternion.clone().invert());
@@ -37,7 +37,40 @@ export class BeamStretcher extends Stretcher<Beam> {
     return stretchMask;
   }
 
-  stretch(delta: THREE.Vector3) {
+  isMovable() {
+    const beamDirection = this.getBeamDirection();
+
+    if (this.subShape instanceof Edge) {
+      const isParallel = vectorsAreParallel(
+        beamDirection,
+        this.subShape.getDirection(),
+      );
+      return !isParallel;
+    } else if (this.subShape instanceof Face) {
+      const faceNormal = this.subShape.getNormal();
+      const isPerpendicular = vectorsAreParallel(beamDirection, faceNormal);
+      return isPerpendicular;
+    } else {
+      return true;
+    }
+  }
+
+  getConstraint(): Nullable<Constraint> {
+    const beamDirection = this.getBeamDirection();
+    return new THREE.Line3(
+      this.startPoint.clone(),
+      this.startPoint.clone().add(beamDirection),
+    );
+  }
+
+  private getBeamDirection() {
+    const beamDirection = new THREE.Vector3(1, 0, 0)
+      .applyQuaternion(this.beam.quaternion)
+      .normalize();
+    return beamDirection;
+  }
+
+  move(delta: THREE.Vector3) {
     const localDelta = delta
       .clone()
       .applyQuaternion(this.beam.quaternion.clone().invert());
@@ -76,29 +109,5 @@ export class BeamStretcher extends Stretcher<Beam> {
   cancel() {
     this.beam.position = this.startPosition;
     this.beam.size = this.startSize;
-  }
-
-  getConstraint(point: THREE.Vector3): Nullable<Constraint> {
-    const beamDirection = new THREE.Vector3(1, 0, 0)
-      .applyQuaternion(this.beam.quaternion)
-      .normalize();
-
-    if (this.subShape instanceof Edge) {
-      const isParallel = vectorsAreParallel(
-        beamDirection,
-        this.subShape.getDirection(),
-      );
-      if (isParallel) {
-        return null;
-      }
-    } else if (this.subShape instanceof Face) {
-      const faceNormal = this.subShape.getNormal();
-      const isPerpendicular = vectorsAreParallel(beamDirection, faceNormal);
-      if (!isPerpendicular) {
-        return null;
-      }
-    }
-
-    return new THREE.Line3(point.clone(), point.clone().add(beamDirection));
   }
 }

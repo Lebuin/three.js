@@ -7,6 +7,8 @@ import {
   MouseHandlerEvent as BaseMouseHandlerEvent,
   MouseHandler,
 } from './mouse-handler';
+import { moverFactory, MoveTool } from './movers';
+import { BaseMover } from './movers/base-mover';
 import { Target, TargetFinder } from './target-finder';
 import { ToolHandler } from './tool-handler';
 
@@ -17,15 +19,14 @@ type MouseHandlerModifiers = typeof mouseHandlerModifiers;
 type MouseHandlerEvent = BaseMouseHandlerEvent<MouseHandlerModifiers>;
 
 export class MoveToolHandler extends ToolHandler {
-  readonly tool = 'move';
+  readonly tool: MoveTool = 'move';
 
   private mouseHandler: MouseHandler<MouseHandlerModifiers>;
   private targetFinder: TargetFinder;
   private drawingHelper: DrawingHelper;
 
   private selectedObject?: PartObject;
-  private startPosition?: THREE.Vector3;
-  private startTarget?: Target;
+  private mover?: BaseMover;
   private lastTarget?: Target;
   private fixedLine?: THREE.Line3;
 
@@ -108,9 +109,9 @@ export class MoveToolHandler extends ToolHandler {
 
     if (!isFixedLine) {
       this.fixedLine = undefined;
-    } else if (this.startTarget && this.lastTarget) {
+    } else if (this.mover && this.lastTarget) {
       this.fixedLine = new THREE.Line3(
-        this.startTarget.constrainedPoint,
+        this.mover.startPoint,
         this.lastTarget.constrainedPoint,
       );
     }
@@ -130,21 +131,33 @@ export class MoveToolHandler extends ToolHandler {
   // Move the selected objects
 
   private get isMoving() {
-    return this.startPosition !== undefined;
+    return this.mover !== undefined;
   }
 
   private initMove(target: Target) {
-    if (!this.selectedObject) {
+    const subShape = target.vertex ?? target.edge ?? target.face;
+    if (!this.selectedObject || !subShape) {
       return;
     }
-    this.selectedObject.traverse((object) => {
-      object.layers.set(1);
-    });
-    this.startPosition = this.selectedObject.part.position.clone();
-    this.startTarget = target;
-    this.lastTarget = undefined;
-    this.fixedLine = undefined;
-    this.updateConstraints();
+
+    const mover = moverFactory(
+      this.tool,
+      this.selectedObject.part,
+      subShape,
+      target,
+    );
+    if (mover.isMovable()) {
+      this.mover = mover;
+      this.selectedObject.traverse((object) => {
+        object.layers.set(1);
+      });
+      this.lastTarget = undefined;
+      this.fixedLine = undefined;
+      this.updateConstraints();
+    } else {
+      // TODO: indicate this in the UI
+      console.warn('Part cannot be moved in this direction');
+    }
   }
 
   private endMove() {
@@ -153,28 +166,25 @@ export class MoveToolHandler extends ToolHandler {
         object.layers.set(0);
       });
     }
-    this.startPosition = undefined;
-    this.startTarget = undefined;
+    this.mover = undefined;
     this.lastTarget = undefined;
     this.fixedLine = undefined;
     this.updateConstraints();
   }
 
   private cancelMove() {
-    if (this.selectedObject && this.startPosition) {
-      this.selectedObject.part.position = this.startPosition;
+    if (this.mover) {
+      this.mover.cancel();
     }
     this.endMove();
   }
 
   private doMove(target: Target) {
-    if (!(this.selectedObject && this.startTarget && this.startPosition)) {
+    if (!this.mover) {
       return;
     }
-    const delta = target.constrainedPoint
-      .clone()
-      .sub(this.startTarget.constrainedPoint);
-    this.selectedObject.part.position = this.startPosition.clone().add(delta);
+    const delta = target.constrainedPoint.clone().sub(this.mover.startPoint);
+    this.mover.move(delta);
     this.lastTarget = target;
   }
 
@@ -184,12 +194,22 @@ export class MoveToolHandler extends ToolHandler {
   }
 
   private updateConstraints() {
-    if (!this.startTarget) {
-      this.targetFinder.clearConstraints();
-    } else if (this.fixedLine) {
+    if (this.fixedLine) {
       this.targetFinder.setConstraintLine(this.fixedLine);
+    } else if (this.mover) {
+      const constraint = this.mover.getConstraint();
+      if (constraint == null) {
+        this.targetFinder.setNeighborPoint(this.mover.startPoint);
+      } else if (constraint instanceof THREE.Plane) {
+        this.targetFinder.setConstraintPlane(
+          constraint.normal,
+          this.mover.startPoint,
+        );
+      } else {
+        this.targetFinder.setConstraintLine(constraint);
+      }
     } else {
-      this.targetFinder.setNeighborPoint(this.startTarget.constrainedPoint);
+      this.targetFinder.clearConstraints();
     }
   }
 
@@ -212,10 +232,10 @@ export class MoveToolHandler extends ToolHandler {
     const faces: Face[] = [];
     const edges: Edge[] = [];
 
-    if (this.startTarget && this.lastTarget) {
+    if (this.mover && this.lastTarget) {
       lines.push(
         new THREE.Line3(
-          this.startTarget.constrainedPoint,
+          this.mover.startPoint,
           this.lastTarget.constrainedPoint,
         ),
       );
@@ -262,4 +282,8 @@ export class MoveToolHandler extends ToolHandler {
       return super.getMouseTarget(target);
     }
   }
+}
+
+export class StretchToolHandler extends MoveToolHandler {
+  readonly tool = 'stretch';
 }
