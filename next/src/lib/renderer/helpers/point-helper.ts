@@ -53,8 +53,8 @@ export abstract class BasePointHelper<
    * Update the size of the point helper based on the pixel size of the renderer.
    */
   public update(renderer: Renderer) {
-    const pixelSize = renderer.getPixelSize();
-    this.scale.set(1, 1, 1).multiplyScalar(this.size / pixelSize);
+    const pixelSize = renderer.getPixelSize(this.position);
+    this.scale.set(1, 1, 1).multiplyScalar(this.size * pixelSize);
   }
 }
 

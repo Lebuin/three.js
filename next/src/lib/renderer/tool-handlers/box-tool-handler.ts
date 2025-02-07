@@ -64,7 +64,7 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
     this.mouseHandler.delete();
     this.targetFinder.delete();
     this.renderer.removeUpdating(this.drawingHelper);
-    this.renderer.setMouseTarget();
+    this.renderer.setRotateTarget();
     this.removeFleetingBox();
     this.removeListeners();
   }
@@ -84,12 +84,12 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
 
   protected onMouseMove = (event: MouseHandlerEvent) => {
     this.updateFixedLine(event);
+
     const target = this.targetFinder.findTarget(event.event);
-    if (!target) {
-      return;
+    if (target) {
+      this.fleetingPoint = this.createBoxPoint(event, target);
     }
 
-    this.fleetingPoint = this.createBoxPoint(event, target);
     this.updateRenderer(target);
   };
 
@@ -191,11 +191,11 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
     this.drawingHelper.setFaces(faces);
   }
 
-  getMouseTarget(target: Target) {
+  getOrbitTarget(target: Target) {
     if (this.points.length > 0) {
       return target.point;
     } else {
-      return super.getMouseTarget(target);
+      return super.getOrbitTarget(target);
     }
   }
 

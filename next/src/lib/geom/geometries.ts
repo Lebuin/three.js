@@ -258,7 +258,7 @@ export class OCGeometriesBuilder {
     };
   }
 
-  private buildPointCloudFacesAndEdges(_shape: RootShape) {
+  private buildPointCloudFacesAndEdges(shape: RootShape) {
     return {
       faces: emptyGeometry,
       faceMap: [],
@@ -404,7 +404,7 @@ export class OCGeometriesBuilder {
   }
 
   private getFacePositionArray(
-    _face: Face,
+    face: Face,
     triangulationHandle: Handle_Poly_Triangulation,
     transformation: gp_Trsf,
   ): Float32Array {
@@ -497,7 +497,7 @@ export class OCGeometriesBuilder {
   }
 
   private getEdgeIndexArray(
-    _edge: Edge,
+    edge: Edge,
     polygonHandle: Handle_Poly_PolygonOnTriangulation,
   ) {
     const polygon = polygonHandle.get();
@@ -537,7 +537,7 @@ export class OCGeometriesBuilder {
     };
   }
 
-  private getWireEdgePositionArray(_edge: Edge, vertices: Vertex[]) {
+  private getWireEdgePositionArray(edge: Edge, vertices: Vertex[]) {
     const oc = getOC();
     const numNodes = vertices.length;
     const positionArray = new Float32Array(numNodes * 3);
@@ -549,7 +549,7 @@ export class OCGeometriesBuilder {
     return positionArray;
   }
 
-  private getWireEdgeIndexArray(_edge: Edge, vertices: Vertex[]) {
+  private getWireEdgeIndexArray(edge: Edge, vertices: Vertex[]) {
     const numNodes = vertices.length;
     const indexArray = new Uint16Array((numNodes - 1) * 2);
     for (let i = 0; i < numNodes - 1; i++) {
@@ -559,9 +559,9 @@ export class OCGeometriesBuilder {
     return indexArray;
   }
 
-  private getWireEdgeMap(_edge: Edge, vertices: Vertex[]) {
+  private getWireEdgeMap(edge: Edge, vertices: Vertex[]) {
     const numNodes = vertices.length;
-    return _.times(numNodes - 1, () => _edge);
+    return _.times(numNodes - 1, () => edge);
   }
 
   private getVertexData(vertices: Vertex[]): VertexData {

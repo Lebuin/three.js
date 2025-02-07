@@ -65,11 +65,11 @@ export default class Raycaster {
     this.raycaster = new THREE.Raycaster();
   }
 
-  get threshold() {
-    const pixelSize = this.renderer.getPixelSize();
-    const threshold = this.pixelThreshold / pixelSize;
+  getThreshold = (point: THREE.Vector3) => {
+    const pixelSize = this.renderer.getPixelSize(point);
+    const threshold = this.pixelThreshold * pixelSize;
     return threshold;
-  }
+  };
 
   get ray() {
     return this.raycaster.ray;
@@ -89,12 +89,16 @@ export default class Raycaster {
     options: Partial<IntersectOptions> = {},
   ): Intersection<T>[] {
     const fullOptions = { ...defaultIntersectOptions, ...options };
-    this.raycaster.params.Points.threshold = fullOptions.snapToPoints
-      ? this.threshold
-      : 0;
-    this.raycaster.params.Line.threshold = fullOptions.snapToLines
-      ? this.threshold
-      : 0;
+    const getZeroThreshold = () => 0;
+
+    // @ts-expect-error We have overriden the handling of threshold in our three.js patch
+    this.raycaster.params.Points.getThreshold = fullOptions.snapToPoints
+      ? this.getThreshold
+      : getZeroThreshold;
+    // @ts-expect-error We have overriden the handling of threshold in our three.js patch
+    this.raycaster.params.Line.getThreshold = fullOptions.snapToLines
+      ? this.getThreshold
+      : getZeroThreshold;
     const threeIntersections = this.raycaster.intersectObjects(objects, true);
     const intersections = threeIntersections.map((intersection) =>
       this.mapIntersection(intersection),

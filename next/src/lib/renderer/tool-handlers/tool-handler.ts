@@ -10,7 +10,7 @@ export abstract class ToolHandler {
   constructor(protected renderer: Renderer) {}
 
   delete() {
-    this.renderer.setMouseTarget();
+    this.renderer.setRotateTarget();
   }
 
   get model() {
@@ -18,16 +18,22 @@ export abstract class ToolHandler {
   }
 
   protected updateRenderer(target: Optional<Target>) {
-    const mouseTarget = target ? this.getMouseTarget(target) : null;
-    this.renderer.setMouseTarget(mouseTarget);
+    const mouseTarget = target ? this.getOrbitTarget(target) : null;
+    const zoomTarget = target ? this.getZoomTarget(target) : null;
+    this.renderer.setRotateTarget(mouseTarget);
+    this.renderer.setZoomTarget(zoomTarget);
     this.renderer.render();
   }
 
-  protected getMouseTarget(target: Target): Nullable<THREE.Vector3> {
+  protected getOrbitTarget(target: Target): Nullable<THREE.Vector3> {
     if (target.object && target.object instanceof PartObject) {
       return target.point;
     } else {
       return null;
     }
+  }
+
+  protected getZoomTarget(target: Target): Nullable<THREE.Vector3> {
+    return target.point;
   }
 }

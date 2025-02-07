@@ -57,11 +57,11 @@ export interface KeyboardHandlerEvent {
   event: KeyboardEvent;
   keyCombo: KeyCombo;
 }
-export type KeyboardHandlerEvents = {
+export interface KeyboardHandlerEvents {
   keydown: KeyboardHandlerEvent;
   keyup: KeyboardHandlerEvent;
   keypress: KeyboardHandlerEvent;
-};
+}
 
 class KeyboardHandler extends EventDispatcher()<KeyboardHandlerEvents> {
   constructor() {
@@ -74,6 +74,7 @@ class KeyboardHandler extends EventDispatcher()<KeyboardHandlerEvents> {
   }
 
   private setupListeners() {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!global.window) {
       return;
     }
@@ -83,6 +84,7 @@ class KeyboardHandler extends EventDispatcher()<KeyboardHandlerEvents> {
   }
 
   private removeListeners() {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!global.window) {
       return;
     }

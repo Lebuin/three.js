@@ -129,13 +129,15 @@ export class SelectionBoxHelper extends UpdatingObjectMixin(THREE.Group) {
       .projectOnPlane(
         this.renderer.camera.getWorldDirection(new THREE.Vector3()),
       );
+
     this.position.copy(screenCenter);
     this.quaternion.copy(this.renderer.camera.quaternion);
 
     // Set the scale to match the mouse coordinates: [-1, -1] is top-left, [1, 1] is bottom-right
+    const pixelSize = this.renderer.getPixelSize(this.position);
     this.scale.set(
-      (this.renderer.camera.right - this.renderer.camera.left) / 2,
-      (this.renderer.camera.top - this.renderer.camera.bottom) / 2,
+      (pixelSize * this.renderer.canvas.clientWidth) / 2,
+      (pixelSize * this.renderer.canvas.clientHeight) / 2,
       1,
     );
     this.group.scale.set(
@@ -154,7 +156,7 @@ export class SelectionBoxHelper extends UpdatingObjectMixin(THREE.Group) {
   // Build a frustum
 
   getSelectionFrustum(
-    camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
+    camera: THREE.OrthographicCamera | THREE.PerspectiveCamera,
   ) {
     const frustum = this.getSubFrustum(camera);
     return new SelectionFrustum(frustum);
@@ -166,8 +168,8 @@ export class SelectionBoxHelper extends UpdatingObjectMixin(THREE.Group) {
    * Based on three.js/examples/jsm/interactive/SelectionBox.js
    */
   private getSubFrustum(
-    camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
-    deep = Number.MAX_VALUE,
+    camera: THREE.OrthographicCamera | THREE.PerspectiveCamera,
+    deep = this.renderer.camera.far,
   ) {
     const startPoint = this.start.clone();
     const endPoint = this.end.clone();

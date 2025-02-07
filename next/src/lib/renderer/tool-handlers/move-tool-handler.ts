@@ -53,7 +53,7 @@ export class MoveToolHandler extends ToolHandler {
     this.mouseHandler.delete();
     this.targetFinder.delete();
     this.renderer.removeUpdating(this.drawingHelper);
-    this.renderer.setMouseTarget();
+    this.renderer.setRotateTarget();
     this.removeListeners();
   }
 
@@ -72,9 +72,8 @@ export class MoveToolHandler extends ToolHandler {
 
   private onMouseMove = (event: MouseHandlerEvent) => {
     this.updateFixedLine(event);
-    const target = this.targetFinder.findTarget(event.event);
-    const object = target?.object;
 
+    const target = this.targetFinder.findTarget(event.event);
     if (this.selectedObject && target) {
       this.doMove(target);
     }
@@ -275,11 +274,11 @@ export class MoveToolHandler extends ToolHandler {
     this.drawingHelper.setEdges(edges);
   }
 
-  getMouseTarget(target: Target) {
+  getOrbitTarget(target: Target) {
     if (this.isMoving) {
       return target.point;
     } else {
-      return super.getMouseTarget(target);
+      return super.getOrbitTarget(target);
     }
   }
 }

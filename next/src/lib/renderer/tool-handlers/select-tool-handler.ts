@@ -56,7 +56,7 @@ export class SelectToolHandler extends ToolHandler {
     this.mouseHandler.delete();
     this.targetFinder.delete();
     this.renderer.removeUpdating(this.drawingHelper, this.selectionBoxHelper);
-    this.renderer.setMouseTarget();
+    this.renderer.setRotateTarget();
     this.removeListeners();
   }
 

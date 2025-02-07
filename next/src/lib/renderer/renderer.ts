@@ -1,7 +1,6 @@
 import { Tool } from '@/components/toolbar';
 import { Model } from '@/lib/model/model';
 import { Part } from '@/lib/model/parts/part';
-import { Pixels } from '@/lib/util/geometry';
 import { initOC } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
@@ -26,7 +25,8 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
 
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
-  private _camera: THREE.OrthographicCamera;
+  private _camera: THREE.OrthographicCamera | THREE.PerspectiveCamera;
+  private cameraPlane = new THREE.Plane();
   private lighting: Lighting;
   private controls: OrbitControls;
   private axes: AxesHelper;
@@ -34,7 +34,6 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private _partObjects: PartObject[] = [];
   private updatingObjects: UpdatingObject[] = [];
   private toolHandler: ToolHandler;
-  private mouseTarget?: THREE.Vector3;
 
   private onResizeThrottled = _.throttle(this.onResize.bind(this), 100);
 
@@ -61,6 +60,9 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.addUpdating(this.lighting);
 
     this.controls = new OrbitControls(this.camera, this.canvas);
+    this.controls.maxDistance = this.groundPlaneSize;
+    this.onControlsChange();
+
     this.toolHandler = createToolHandler('select', this);
 
     initOC()
@@ -94,7 +96,6 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   setupListeners() {
     this.controls.addEventListener('change', this.onControlsChange);
     window.addEventListener('resize', this.onResizeThrottled);
-    window.addEventListener('pointerdown', this.onPointerDown);
     this.canvas.addEventListener('contextmenu', this.onContextMenu);
     window.addEventListener('keydown', this.onKeyDown);
   }
@@ -106,7 +107,6 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.controls.removeEventListener('change', this.onControlsChange);
     this.controls.disconnect();
     window.removeEventListener('resize', this.onResizeThrottled);
-    window.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('contextmenu', this.onContextMenu);
     this.model.removeEventListener('addPart', this.onAddPart);
     this.model.removeEventListener('removePart', this.onRemovePart);
@@ -146,17 +146,21 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     return renderer.getSize(new THREE.Vector2());
   }
 
-  /**
-   * Create an orthographic camera.
-   */
   private createCamera() {
-    const frustrum = 1e3;
-    const aspect = window.innerWidth / window.innerHeight;
+    // const camera = this.createOrthographicCamera();
+    const camera = this.createPerspectiveCamera();
+    camera.layers.enable(1);
+    return camera;
+  }
+
+  private createOrthographicCamera() {
+    const frustum = 1000;
+    const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
     const camera = new THREE.OrthographicCamera(
-      -frustrum * aspect,
-      frustrum * aspect,
-      frustrum,
-      -frustrum,
+      -frustum * aspect,
+      frustum * aspect,
+      frustum,
+      -frustum,
       0,
       this.groundPlaneSize * 3,
     );
@@ -166,7 +170,20 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
       this.groundPlaneSize * 0.9,
     );
     camera.lookAt(new THREE.Vector3(0, 0, 0));
-    camera.layers.enable(1);
+    return camera;
+  }
+
+  private createPerspectiveCamera() {
+    const distance = 4000;
+    const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+    const camera = new THREE.PerspectiveCamera(
+      30,
+      aspect,
+      1,
+      this.groundPlaneSize * 3,
+    );
+    camera.position.set(distance * 0.6, distance * 0.6, distance * 0.9);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
     return camera;
   }
 
@@ -248,13 +265,21 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   }
 
   /**
-   * Get the size in screen pixels of 1 unit in the world.
+   * Get the size in world units of 1 pixel.
    */
-  public getPixelSize(): Pixels {
-    const pixelSize =
-      (this.camera.zoom * this.canvas.clientHeight) /
-      (this.camera.top - this.camera.bottom);
-    return pixelSize;
+  public getPixelSize(point: THREE.Vector3): number {
+    if (this.camera instanceof THREE.OrthographicCamera) {
+      const pixelSize =
+        (this.camera.top - this.camera.bottom) /
+        (this.camera.zoom * this.canvas.clientHeight);
+      return pixelSize;
+    } else {
+      const distance = this.cameraPlane.distanceToPoint(point);
+      const fov = this.camera.fov * (Math.PI / 180);
+      const height = 2 * Math.tan(fov / 2) * distance;
+      const pixelSize = height / this.canvas.clientHeight;
+      return pixelSize;
+    }
   }
 
   public getPointerFromEvent(event: MouseEvent) {
@@ -270,6 +295,13 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   // Events
 
   private onControlsChange = () => {
+    const distance = this.camera.position.distanceTo(this.controls.zoomTarget);
+    this.camera.near = Math.max(distance / 100, 1);
+    this.camera.far = distance * 5;
+    this.cameraPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      this.camera.getWorldDirection(new THREE.Vector3()),
+      this.camera.position,
+    );
     this.render();
   };
 
@@ -279,8 +311,12 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private onResize() {
     const size = this.setRendererSize(this.renderer);
     const aspect = size.width / size.height;
-    this.camera.left = this.camera.bottom * aspect;
-    this.camera.right = this.camera.top * aspect;
+    if (this.camera instanceof THREE.OrthographicCamera) {
+      this.camera.left = this.camera.bottom * aspect;
+      this.camera.right = this.camera.top * aspect;
+    } else {
+      this.camera.aspect = aspect;
+    }
     this.camera.updateProjectionMatrix();
     this.render();
   }
@@ -307,34 +343,12 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
    * Set the target of the currently ongoing mouse interaction (e.g. drawing a new part). This
    * point will be used as the target of the controls.
    */
-  public setMouseTarget(target?: Optional<THREE.Vector3>) {
-    this.mouseTarget = target ?? undefined;
+  public setRotateTarget(target?: Optional<THREE.Vector3>) {
+    this.controls.rotateTarget = target ?? this.getSceneCenter();
   }
 
-  /**
-   * Update the target of the controls to the point where the user clicked.
-   */
-  private onPointerDown = (event: PointerEvent) => {
-    this.controls.target = this.getControlsTarget(event);
-  };
-
-  private getControlsTarget(event: PointerEvent) {
-    if (this.mouseTarget) {
-      return this.mouseTarget;
-    }
-    if (this.partObjects.length === 0) {
-      return new THREE.Vector3();
-    }
-
-    // TODO: avoid raycasting twice: just make sure MouseHandle is always active regardless of the
-    // tool.
-    this.raycaster.setFromEvent(event);
-    const intersection = this.raycaster.cast(this.partObjects);
-    if (intersection) {
-      return intersection.point;
-    } else {
-      return this.getSceneCenter();
-    }
+  public setZoomTarget(target?: Optional<THREE.Vector3>) {
+    this.controls.zoomTarget = target ?? this.getSceneCenter();
   }
 
   /**

@@ -207,7 +207,7 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     }
   }
 
-  private getEdgeColor(_edge: Edge) {
+  private getEdgeColor(edge: Edge) {
     const defaultColor = new Color4().setHSLA(
       186 / 360,
       90 / 100,
@@ -217,7 +217,7 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     return defaultColor;
   }
 
-  private getEdgeWidth(_edge: Edge) {
+  private getEdgeWidth(edge: Edge) {
     return 3;
   }
 
@@ -300,7 +300,7 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     }
   }
 
-  private getFaceColor(_face: Face) {
+  private getFaceColor(face: Face) {
     const defaultColor = new Color4().setHSLA(
       186 / 360,
       90 / 100,

@@ -19,7 +19,7 @@ declare module 'three/examples/jsm/Addons.js' {
     _mouse: THREE.Vector2;
     _performCursorZoom: boolean;
 
-    object: THREE.Camera;
+    object: THREE.OrthographicCamera | THREE.PerspectiveCamera;
   }
 }
 
@@ -38,12 +38,32 @@ export class OrbitControls extends THREE.OrbitControls {
   };
 
   zoomToCursor = true;
-  zoomSpeed = 2;
+  zoomSpeed = 3;
   minZoom = 0.05;
+  minDistance = 100;
+
+  rotateTarget = new THREE.Vector3();
+  zoomTarget = new THREE.Vector3();
 
   _lastZoom = 1;
 
+  constructor(
+    object: THREE.OrthographicCamera | THREE.PerspectiveCamera,
+    canvas: HTMLCanvasElement,
+  ) {
+    super(object, canvas);
+    this.update();
+  }
+
   update() {
+    // The parent class calls this.update() in its constructor, but at that point our custom
+    // properties have not been initialized yet, so we do an early return in that case, and call
+    // this.update() again in our own constructor.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (this.rotateTarget == null) {
+      return false;
+    }
+
     this.updatePan();
     this.updateRotate();
     this.updateZoom();
@@ -67,7 +87,7 @@ export class OrbitControls extends THREE.OrbitControls {
     const targetBefore = _v;
     const cameraY = _v2;
     const cameraZ = _v3;
-    targetBefore.copy(this.target).project(this.object);
+    targetBefore.copy(this.rotateTarget).project(this.object);
 
     this.object.rotateOnWorldAxis(
       new THREE.Vector3(0, 1, 0),
@@ -94,7 +114,7 @@ export class OrbitControls extends THREE.OrbitControls {
 
     this.object.updateWorldMatrix(true, false);
     targetBefore.unproject(this.object);
-    this.object.position.add(this.target).sub(targetBefore);
+    this.object.position.add(this.rotateTarget).sub(targetBefore);
 
     this._sphericalDelta.set(0, 0, 0);
   }
@@ -105,27 +125,48 @@ export class OrbitControls extends THREE.OrbitControls {
    * Based on the original update method. Currently only supports the orthographic camera.
    */
   private updateZoom() {
-    if (!(this.object instanceof THREE.OrthographicCamera)) {
-      throw new Error('Unsupported camera type');
-    }
     if (!this._performCursorZoom) {
       return;
     }
 
-    const mouseBefore = _v;
-    mouseBefore.set(this._mouse.x, this._mouse.y, 0).unproject(this.object);
+    if (this.object instanceof THREE.OrthographicCamera) {
+      const mouseBefore = new THREE.Vector3(
+        this._mouse.x,
+        this._mouse.y,
+        0,
+      ).unproject(this.object);
 
-    this.object.zoom = THREE.MathUtils.clamp(
-      this.object.zoom / this._scale,
-      this.minZoom,
-      this.maxZoom,
-    );
-    this.object.updateProjectionMatrix();
+      this.object.zoom = THREE.MathUtils.clamp(
+        this.object.zoom / this._scale,
+        this.minZoom,
+        this.maxZoom,
+      );
 
-    const mouseAfter = _v2;
-    mouseAfter.set(this._mouse.x, this._mouse.y, 0).unproject(this.object);
+      this.object.updateProjectionMatrix();
 
-    this.object.position.sub(mouseAfter).add(mouseBefore);
+      const mouseAfter = new THREE.Vector3(
+        this._mouse.x,
+        this._mouse.y,
+        0,
+      ).unproject(this.object);
+
+      this.object.position.sub(mouseAfter).add(mouseBefore);
+    } else {
+      const dollyDirection = new THREE.Vector3(this._mouse.x, this._mouse.y, 1)
+        .unproject(this.object)
+        .sub(this.object.position)
+        .normalize();
+
+      const distance = this.object.position.distanceTo(this.zoomTarget);
+      const newDistance = THREE.MathUtils.clamp(
+        distance * this._scale,
+        this.minDistance,
+        this.maxDistance,
+      );
+      const distanceDelta = distance - newDistance;
+      this.object.position.addScaledVector(dollyDirection, distanceDelta);
+    }
+
     this.object.updateMatrixWorld();
 
     this._scale = 1;
@@ -138,10 +179,6 @@ export class OrbitControls extends THREE.OrbitControls {
    * Based on the original update function.
    */
   private emitChange() {
-    if (!(this.object instanceof THREE.OrthographicCamera)) {
-      throw new Error('Unsupported camera type');
-    }
-
     // update condition is:
     // min(camera displacement, camera rotation in radians)^2 > EPS
     // using small-angle approximation cos(x/2) = 1 - x^2 / 8
@@ -149,8 +186,7 @@ export class OrbitControls extends THREE.OrbitControls {
     const changed =
       Math.abs(this.object.zoom / this._lastZoom - 1) > _EPS ||
       this._lastPosition.distanceToSquared(this.object.position) > _EPS ||
-      8 * (1 - this._lastQuaternion.dot(this.object.quaternion)) > _EPS ||
-      this._lastTargetPosition.distanceToSquared(this.target) > _EPS;
+      8 * (1 - this._lastQuaternion.dot(this.object.quaternion)) > _EPS;
 
     if (changed) {
       this.dispatchEvent({ type: 'change' });
@@ -158,7 +194,6 @@ export class OrbitControls extends THREE.OrbitControls {
       this._lastZoom = this.object.zoom;
       this._lastPosition.copy(this.object.position);
       this._lastQuaternion.copy(this.object.quaternion);
-      this._lastTargetPosition.copy(this.target);
     }
 
     return changed;
