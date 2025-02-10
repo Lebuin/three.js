@@ -12,6 +12,7 @@ import {
   axisDirections,
   distanceToLine,
   getQuaternionFromNormal,
+  vectorsAreParallel,
 } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import {
@@ -90,7 +91,7 @@ export class TargetFinder {
 
     this._layers = new THREE.Layers();
 
-    this.mainAxes = this.getAxesWithOrigin(new THREE.Vector3());
+    this.mainAxes = this.getAxesWithOrigin(new THREE.Vector3(), ['x', 'z']);
     this.constraintPlaneAxes = this.getAxesWithOrigin(new THREE.Vector3(), [
       'x',
       'z',
@@ -287,7 +288,9 @@ export class TargetFinder {
    * When adding an Axes object to snap to, we only want to include the axes that are not
    * coincident with the main axes. Otherwise, these secondary axes may prevent the raycaster from
    * hitting the main axes, and we often want to render snapping to the main axes a bit differently
-   * from other objects. This method filters out those axes.
+   * from other objects.
+   * This method filters out the axes that go through the origin, and coincide with the x or z
+   * direction.
    */
   private filterIncludesOnMainAxes(
     axes: Axis[],
@@ -302,7 +305,19 @@ export class TargetFinder {
       const projectedOrigin = origin
         .clone()
         .projectOnVector(globalAxisDirection);
-      if (projectedOrigin.distanceTo(origin) >= 1e-6) {
+      const isParallelX = vectorsAreParallel(
+        globalAxisDirection,
+        axisDirections.x,
+      );
+      const isParallelZ = vectorsAreParallel(
+        globalAxisDirection,
+        axisDirections.z,
+      );
+
+      const shouldFilter =
+        projectedOrigin.distanceTo(origin) < 1e-6 &&
+        (isParallelX || isParallelZ);
+      if (!shouldFilter) {
         include.push(axis);
       }
     }
@@ -352,10 +367,16 @@ export class TargetFinder {
         this.renderer.raycaster,
         this.constraintPlane,
       );
+    } else if (this.neighborPoint) {
+      return this.getTargetNearPoint(
+        this.renderer.raycaster,
+        this.neighborPoint,
+      );
     } else {
       return this.getTargetNearPoint(
         this.renderer.raycaster,
-        this.neighborPoint ?? new THREE.Vector3(),
+        new THREE.Vector3(),
+        new THREE.Vector3(0, 1, 0),
       );
     }
   }
@@ -515,8 +536,11 @@ export class TargetFinder {
   private getTargetNearPoint(
     raycaster: Raycaster,
     nearbyPoint: THREE.Vector3,
+    planeNormal?: THREE.Vector3,
   ): Target | null {
-    const planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
+    if (planeNormal == null) {
+      planeNormal = this.getDominantPlaneNormal(raycaster.ray.direction);
+    }
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
       planeNormal,
       nearbyPoint,

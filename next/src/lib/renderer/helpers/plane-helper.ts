@@ -16,10 +16,10 @@ export interface PlaneHelperColors {
   edgeZ: Color4;
 }
 
-const defaultColorRepresentations: PlaneHelperColors = {
-  plane: settings.axesColors.default.plane.clone().setA(0.15),
-  edgeX: settings.axesColors.default.primary.clone().setA(0.5),
-  edgeZ: settings.axesColors.default.primary.clone().setA(0.5),
+const defaultColors: PlaneHelperColors = {
+  plane: settings.axesColors.default.plane.clone().setA(0.2),
+  edgeX: settings.axesColors.default.primary.clone().setA(0.8),
+  edgeZ: settings.axesColors.default.primary.clone().setA(0.8),
 } as const;
 
 export class PlaneHelper extends THREE.Group {
@@ -28,7 +28,7 @@ export class PlaneHelper extends THREE.Group {
   private lineSegmentsMaterial: THREE.LineBasicMaterial;
   private lineSegments: THREE.LineSegments;
 
-  private colors: PlaneHelperColors = defaultColorRepresentations;
+  private colors: PlaneHelperColors = defaultColors;
 
   constructor() {
     super();

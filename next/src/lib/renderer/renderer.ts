@@ -4,18 +4,23 @@ import { Part } from '@/lib/model/parts/part';
 import { initOC } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
-import { AxesHelper } from './helpers/axes-helper';
+import { GroundPlaneHelper } from './helpers/ground-plane-helper';
 import { UpdatingObject } from './helpers/updating-object-mixin';
 import { Lighting } from './lighting';
 import { OrbitControls } from './orbit-controls';
 import { createPartObject } from './part-objects';
 import { PartObject } from './part-objects/part-object';
 import Raycaster from './raycaster';
-import * as settings from './settings';
 import { createToolHandler } from './tool-handlers';
 import { ToolHandler } from './tool-handlers/tool-handler';
+
 interface RendererEvents {
   tool: { tool: Tool };
+}
+
+enum CameraType {
+  ORTHOGRAPHIC,
+  PERSPECTIVE,
 }
 
 export class Renderer extends THREE.EventDispatcher<RendererEvents> {
@@ -29,7 +34,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private cameraPlane = new THREE.Plane();
   private lighting: Lighting;
   private controls: OrbitControls;
-  private axes: AxesHelper;
+  private groundPlane: GroundPlaneHelper;
 
   private _partObjects: PartObject[] = [];
   private updatingObjects: UpdatingObject[] = [];
@@ -39,7 +44,9 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
 
   private needsRender = true;
 
-  public readonly groundPlaneSize = 20e3;
+  public readonly groundPlaneSize = 5e3;
+  public readonly maxCameraDistance = 30e3;
+  public readonly cameraType: CameraType = CameraType.PERSPECTIVE;
   private castShadows = false;
 
   constructor(canvas: HTMLCanvasElement, model: Model) {
@@ -53,14 +60,17 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     this.renderer = this.createRenderer(this.canvas);
     this._camera = this.createCamera();
 
-    this.axes = new AxesHelper(this.groundPlaneSize, settings.axesColors);
-    this.add(this.axes);
+    this.groundPlane = new GroundPlaneHelper(
+      new THREE.Vector2(-this.groundPlaneSize, -this.groundPlaneSize),
+      new THREE.Vector2(this.groundPlaneSize, this.groundPlaneSize),
+    );
+    this.add(this.groundPlane);
 
     this.lighting = new Lighting(this.castShadows);
     this.addUpdating(this.lighting);
 
     this.controls = new OrbitControls(this.camera, this.canvas);
-    this.controls.maxDistance = this.groundPlaneSize;
+    this.controls.maxDistance = this.maxCameraDistance;
     this.onControlsChange();
 
     this.toolHandler = createToolHandler('select', this);
@@ -147,8 +157,12 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   }
 
   private createCamera() {
-    // const camera = this.createOrthographicCamera();
-    const camera = this.createPerspectiveCamera();
+    let camera: THREE.OrthographicCamera | THREE.PerspectiveCamera;
+    if (this.cameraType === CameraType.ORTHOGRAPHIC) {
+      camera = this.createOrthographicCamera();
+    } else {
+      camera = this.createPerspectiveCamera();
+    }
     camera.layers.enable(1);
     return camera;
   }
@@ -162,12 +176,12 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
       frustum,
       -frustum,
       0,
-      this.groundPlaneSize * 3,
+      this.maxCameraDistance * 3,
     );
     camera.position.set(
-      this.groundPlaneSize * 0.6,
-      this.groundPlaneSize * 0.6,
-      this.groundPlaneSize * 0.9,
+      this.maxCameraDistance * 0.6,
+      this.maxCameraDistance * 0.6,
+      this.maxCameraDistance * 0.9,
     );
     camera.lookAt(new THREE.Vector3(0, 0, 0));
     return camera;
@@ -180,7 +194,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
       30,
       aspect,
       1,
-      this.groundPlaneSize * 3,
+      this.maxCameraDistance,
     );
     camera.position.set(distance * 0.6, distance * 0.6, distance * 0.9);
     camera.lookAt(new THREE.Vector3(0, 0, 0));
@@ -295,9 +309,18 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   // Events
 
   private onControlsChange = () => {
-    const distance = this.camera.position.distanceTo(this.controls.zoomTarget);
-    this.camera.near = Math.max(distance / 100, 1);
-    this.camera.far = distance * 5;
+    const distanceToTarget = this.camera.position.distanceTo(
+      this.controls.zoomTarget,
+    );
+    const distanceToPlane = Math.abs(this.camera.position.y);
+    this.camera.near = THREE.MathUtils.clamp(
+      distanceToTarget / 100,
+      1,
+      distanceToPlane / 10,
+    );
+    this.camera.far = distanceToTarget * 5;
+    this.camera.updateProjectionMatrix();
+
     this.cameraPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
       this.camera.getWorldDirection(new THREE.Vector3()),
       this.camera.position,
