@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build-opencascadejs": "lib/opencascade.js/build.sh",
+    "build-solvespace": "lib/solvespace/build.sh",
     "start": "next start",
     "lint": "next lint; tsc",
     "test": "vitest"

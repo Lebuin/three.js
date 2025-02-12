@@ -1,3 +1,6 @@
 [submodule "next/lib/three.js/three.js"]
 	path = next/lib/three.js/three.js
 	url = git@github.com:Lebuin/three.js.git
+[submodule "next/lib/solvespace/solvespace"]
+	path = next/lib/solvespace/solvespace
+	url = git@github.com:solvespace/solvespace.git
