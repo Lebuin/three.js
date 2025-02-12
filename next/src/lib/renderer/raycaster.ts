@@ -2,7 +2,7 @@ import { Pixels } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import { OCGeometries } from '../geom/geometries';
-import { projectOnto } from '../geom/projection';
+import { projectOnto } from '../geom/intersection';
 import { Edge, Face, Vertex } from '../geom/shape';
 import {
   GeometriesObject,

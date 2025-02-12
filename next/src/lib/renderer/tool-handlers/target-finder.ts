@@ -2,7 +2,7 @@ import {
   EdgeSupport,
   getIntersections as makeIntersection,
   VertexSupport,
-} from '@/lib/geom/projection';
+} from '@/lib/geom/intersection';
 import { Edge, Face, Vertex } from '@/lib/geom/shape';
 import { Axes } from '@/lib/model/parts/axes';
 import { Line } from '@/lib/model/parts/line';
