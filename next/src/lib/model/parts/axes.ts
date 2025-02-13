@@ -3,7 +3,7 @@ import { typedEntries } from '@/lib/util';
 import { Axis, axisDirections } from '@/lib/util/geometry';
 import { getOC, TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
-import { Part } from './part';
+import { BasePart } from './base-part';
 
 export interface AxesOptions {
   length: number;
@@ -14,7 +14,7 @@ const defaultAxesOptions: AxesOptions = {
   include: ['x', 'y', 'z'],
 };
 
-export class Axes extends Part {
+export class Axes extends BasePart {
   private options: AxesOptions;
 
   constructor(

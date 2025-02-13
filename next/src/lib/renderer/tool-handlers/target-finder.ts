@@ -15,11 +15,11 @@ import {
   vectorsAreParallel,
 } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
+import { BasePartObject, PartObject } from '../part-objects';
 import {
   GeometriesObject,
   OCGeometriesObject,
 } from '../part-objects/geometries-object';
-import { PartObject } from '../part-objects/part-object';
 import Raycaster, { Intersection } from '../raycaster';
 import { Renderer } from '../renderer';
 
@@ -73,9 +73,9 @@ export class TargetFinder {
   private _constraintLine?: THREE.Line3;
 
   private snapObjects: PartObject[] = [];
-  private mainAxes: PartObject;
-  private constraintPlaneAxes?: PartObject;
-  private constraintObject?: PartObject;
+  private mainAxes: BasePartObject;
+  private constraintPlaneAxes?: BasePartObject;
+  private constraintObject?: BasePartObject;
   private constraintIntersections: OCGeometriesObject[] = [];
   private snapHelpers: THREE.Group;
 
@@ -223,7 +223,7 @@ export class TargetFinder {
     return this.constraintPlane == null && this.constraintLine == null;
   }
 
-  private getConstraintObject(): Nullable<PartObject> {
+  private getConstraintObject(): Nullable<BasePartObject> {
     if (this.constraintPlane) {
       return this.getPlaneConstraintObject(
         this.constraintPlane,
@@ -243,26 +243,28 @@ export class TargetFinder {
   private getPlaneConstraintObject(
     plane: THREE.Plane,
     point: THREE.Vector3,
-  ): PartObject {
+  ): BasePartObject {
     const quaternion = getQuaternionFromNormal(plane.normal);
     const planePart = new Plane(
       this.renderer.groundPlaneSize,
       point,
       quaternion,
     );
-    const object = new PartObject(planePart);
+    const object = new BasePartObject(planePart);
     return object;
   }
 
-  private getLineConstraintObject(line: THREE.Line3): PartObject {
+  private getLineConstraintObject(line: THREE.Line3): BasePartObject {
     const direction = line.delta(new THREE.Vector3());
     const quaternion = getQuaternionFromNormal(direction);
     const linePart = new Line(direction.length(), line.start, quaternion);
-    const object = new PartObject(linePart);
+    const object = new BasePartObject(linePart);
     return object;
   }
 
-  private getAxesConstraintObject(origin: THREE.Vector3): Nullable<PartObject> {
+  private getAxesConstraintObject(
+    origin: THREE.Vector3,
+  ): Nullable<BasePartObject> {
     const include = this.filterIncludesOnMainAxes(['x', 'y', 'z'], origin);
     if (include.length === 0) {
       return null;
@@ -274,13 +276,13 @@ export class TargetFinder {
     origin: THREE.Vector3,
     include: Axis[] = ['x', 'y', 'z'],
     quaternion?: THREE.Quaternion,
-  ): PartObject {
+  ): BasePartObject {
     const axes = new Axes(
       { length: this.renderer.groundPlaneSize, include },
       origin,
       quaternion,
     );
-    const object = new PartObject(axes);
+    const object = new BasePartObject(axes);
     return object;
   }
 
@@ -325,8 +327,8 @@ export class TargetFinder {
   }
 
   private getConstraintIntersections(
-    constraintObject: PartObject,
-    sceneObjects: PartObject[],
+    constraintObject: BasePartObject,
+    sceneObjects: BasePartObject[],
   ): OCGeometriesObject[] {
     return sceneObjects.map((sceneObject) => {
       return this.getConstraintIntersection(constraintObject, sceneObject);
@@ -334,8 +336,8 @@ export class TargetFinder {
   }
 
   private getConstraintIntersection(
-    constraintObject: PartObject,
-    sceneObject: PartObject,
+    constraintObject: BasePartObject,
+    sceneObject: BasePartObject,
   ): OCGeometriesObject {
     const {
       shape,
@@ -410,8 +412,9 @@ export class TargetFinder {
       plane: this.getPlaneFromIntersection(intersection),
     };
 
-    if (this.snapObjects.includes(object as PartObject)) {
-      target.object = object as PartObject;
+    const partObject = object as PartObject;
+    if (this.snapObjects.includes(partObject)) {
+      target.object = partObject;
     }
 
     if (

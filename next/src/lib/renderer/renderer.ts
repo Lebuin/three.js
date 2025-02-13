@@ -1,15 +1,14 @@
 import { Tool } from '@/components/toolbar';
 import { Model } from '@/lib/model/model';
-import { Part } from '@/lib/model/parts/part';
 import { initOC } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
+import { Part } from '../model/parts';
 import { GroundPlaneHelper } from './helpers/ground-plane-helper';
 import { UpdatingObject } from './helpers/updating-object-mixin';
 import { Lighting } from './lighting';
 import { OrbitControls } from './orbit-controls';
-import { createPartObject } from './part-objects';
-import { PartObject } from './part-objects/part-object';
+import { createPartObject, PartObject } from './part-objects';
 import Raycaster from './raycaster';
 import { createToolHandler } from './tool-handlers';
 import { ToolHandler } from './tool-handlers/tool-handler';

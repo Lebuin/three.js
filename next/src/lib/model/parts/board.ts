@@ -2,26 +2,8 @@ import { directionFromVector } from '@/lib/geom/util';
 import { getOC } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
 import { Part } from './part';
+
 export class Board extends Part {
-  private _size: THREE.Vector3;
-
-  constructor(
-    size?: THREE.Vector3,
-    position?: THREE.Vector3,
-    quaternion?: THREE.Quaternion,
-  ) {
-    super(position, quaternion);
-    this._size = size ?? new THREE.Vector3();
-  }
-
-  get size() {
-    return this._size;
-  }
-  set size(size: THREE.Vector3) {
-    this._size = size;
-    this.onChange();
-  }
-
   protected buildOCShape() {
     const numZeroes = this.size.toArray().filter((x) => x < 1e-6).length;
     if (numZeroes === 0) {

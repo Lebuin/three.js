@@ -1,9 +1,9 @@
 import { pointFromVector } from '@/lib/geom/util';
 import { getOC, TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
-import { Part } from './part';
+import { BasePart } from './base-part';
 
-export class Line extends Part {
+export class Line extends BasePart {
   private _length: number;
 
   constructor(

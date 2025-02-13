@@ -1,6 +1,8 @@
+import { initSolveSpace } from '@lib/solvespace';
 import { THREE } from '@lib/three.js';
+import { Solver } from '../solver';
 import { EventDispatcher } from '../util/event-dispatcher';
-import { Beam } from './parts/beam';
+import { CoincidentConstraint } from './constraints';
 import { Board } from './parts/board';
 import { Part } from './parts/part';
 
@@ -33,10 +35,15 @@ export class Model extends EventDispatcher()<ModelEvents> {
 /**
  * Prepopulate the model during development.
  */
-export function initModel(model: Model) {
+export async function initModel(model: Model) {
   const size = new THREE.Vector3(800, 500, 300);
   const boardThickness = 18;
-  const beamThickness = [50, 100];
+  // const beamThickness = [50, 100];
+
+  function getVertexIndex(u: 0 | 1, v: 0 | 1, n: 0 | 1) {
+    return u + v * 2 + n * 4;
+  }
+
   const parts = [
     new Board(
       new THREE.Vector3(size.x, size.z, boardThickness),
@@ -78,10 +85,87 @@ export function initModel(model: Model) {
       ),
       new THREE.Vector3(boardThickness, boardThickness, 0),
     ),
-    new Beam(
-      new THREE.Vector3(size.x, beamThickness[0], beamThickness[0]),
-      new THREE.Vector3(0, size.y, size.z - beamThickness[0]),
+    // new Beam(
+    //   new THREE.Vector3(size.x, beamThickness[0], beamThickness[0]),
+    //   new THREE.Vector3(0, size.y, size.z - beamThickness[0]),
+    // ),
+  ];
+
+  const constraints = [
+    new CoincidentConstraint(
+      parts[0].vertices[getVertexIndex(0, 0, 0)],
+      parts[2].vertices[getVertexIndex(0, 0, 1)],
+    ),
+    new CoincidentConstraint(
+      parts[0].vertices[getVertexIndex(0, 1, 0)],
+      parts[2].vertices[getVertexIndex(1, 0, 1)],
+    ),
+
+    new CoincidentConstraint(
+      parts[1].vertices[getVertexIndex(0, 0, 1)],
+      parts[2].vertices[getVertexIndex(0, 1, 1)],
+    ),
+    new CoincidentConstraint(
+      parts[1].vertices[getVertexIndex(0, 1, 1)],
+      parts[2].vertices[getVertexIndex(1, 1, 1)],
+    ),
+
+    new CoincidentConstraint(
+      parts[0].vertices[getVertexIndex(1, 0, 0)],
+      parts[3].vertices[getVertexIndex(0, 0, 0)],
+    ),
+    new CoincidentConstraint(
+      parts[0].vertices[getVertexIndex(1, 1, 0)],
+      parts[3].vertices[getVertexIndex(1, 0, 0)],
+    ),
+
+    new CoincidentConstraint(
+      parts[1].vertices[getVertexIndex(1, 0, 1)],
+      parts[3].vertices[getVertexIndex(0, 1, 0)],
+    ),
+    new CoincidentConstraint(
+      parts[1].vertices[getVertexIndex(1, 1, 1)],
+      parts[3].vertices[getVertexIndex(1, 1, 0)],
+    ),
+
+    new CoincidentConstraint(
+      parts[2].vertices[getVertexIndex(0, 0, 0)],
+      parts[4].vertices[getVertexIndex(0, 0, 0)],
+    ),
+    new CoincidentConstraint(
+      parts[2].vertices[getVertexIndex(0, 1, 0)],
+      parts[4].vertices[getVertexIndex(0, 1, 0)],
+    ),
+    new CoincidentConstraint(
+      parts[3].vertices[getVertexIndex(0, 0, 1)],
+      parts[4].vertices[getVertexIndex(1, 0, 0)],
+    ),
+    new CoincidentConstraint(
+      parts[3].vertices[getVertexIndex(0, 1, 1)],
+      parts[4].vertices[getVertexIndex(1, 1, 0)],
     ),
   ];
+
   model.addPart(...parts);
+  constraints.forEach((constraint) => {
+    constraint.add();
+  });
+
+  await initSolveSpace();
+  const solver = new Solver();
+  solver.buildSketch(model);
+
+  const origin = solver.slvs.addPoint3D(solver.groupConstant, -10, 0, 0);
+  solver.slvs.distance(
+    solver.groupSolve,
+    origin,
+    solver.solverParts[0].vertices![4].point,
+    100,
+    solver.slvs.E_FREE_IN_3D,
+  );
+
+  solver.solve();
+  solver.apply();
+
+  // void test();
 }

@@ -1,5 +1,5 @@
 import { Edge, Face, Vertex } from '@/lib/geom/shape';
-import { Part } from '@/lib/model/parts/part';
+import { Part } from '@/lib/model/parts';
 import { THREE } from '@lib/three.js';
 import { Target } from '../target-finder';
 import { BaseMover } from './base-mover';

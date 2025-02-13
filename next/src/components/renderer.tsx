@@ -35,7 +35,7 @@ export default function Renderer(props: RendererProps) {
       }
 
       const model = new Model();
-      initModel(model);
+      void initModel(model);
 
       const renderer = new SceneRenderer(mount, model);
       renderer.addEventListener('tool', (event) => {

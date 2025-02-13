@@ -1,8 +1,8 @@
 import { Tool } from '@/components/toolbar';
 import { Edge, Face, Vertex } from '@/lib/geom/shape';
+import { Part } from '@/lib/model/parts';
 import { Beam } from '@/lib/model/parts/beam';
 import { Board } from '@/lib/model/parts/board';
-import { Part } from '@/lib/model/parts/part';
 import { Target } from '../target-finder';
 import { BeamStretcher } from './beam-stretcher';
 import { BoardStretcher } from './board-stretcher';

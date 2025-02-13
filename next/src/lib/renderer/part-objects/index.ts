@@ -1,6 +1,13 @@
-import { Part } from '@/lib/model/parts/part';
-import { PartObject } from './part-object';
+export { GeometriesObject } from './geometries-object';
+export type { OCGeometriesObject } from './geometries-object';
+export { MaterialObject } from './material-object';
+export { BasePartObject, PartObject } from './part-object';
 
-export function createPartObject<T extends Part>(part: T): PartObject<T> {
-  return new PartObject(part);
+import { BasePart } from '@/lib/model/parts';
+import { BasePartObject } from './part-object';
+
+export function createPartObject<T extends BasePart>(
+  part: T,
+): BasePartObject<T> {
+  return new BasePartObject(part);
 }

@@ -3,7 +3,7 @@ import { mouseButtonPressed } from '@/lib/util';
 import { THREE } from '@lib/three.js';
 import { DrawingHelper } from '../helpers/drawing-helper';
 import { Direction, SelectionBoxHelper } from '../helpers/selection-box-helper';
-import { PartObject } from '../part-objects/part-object';
+import { PartObject } from '../part-objects';
 import { Renderer } from '../renderer';
 import {
   keyboardHandler,

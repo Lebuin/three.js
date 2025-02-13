@@ -1,11 +1,12 @@
 import { OCGeometries } from '@/lib/geom/geometries';
-import { Part } from '@/lib/model/parts/part';
+import { Part } from '@/lib/model/parts';
+import { BasePart } from '@/lib/model/parts/base-part';
 import { UpdatingObjectMixin } from '../helpers/updating-object-mixin';
 import { MaterialObject } from './material-object';
 
-export class PartObject<T extends Part = Part> extends UpdatingObjectMixin(
-  MaterialObject<OCGeometries>,
-) {
+export class BasePartObject<
+  T extends BasePart = BasePart,
+> extends UpdatingObjectMixin(MaterialObject<OCGeometries>) {
   protected _part: T;
 
   constructor(part: T) {
@@ -23,3 +24,5 @@ export class PartObject<T extends Part = Part> extends UpdatingObjectMixin(
     }
   }
 }
+
+export class PartObject<T extends Part = Part> extends BasePartObject<T> {}

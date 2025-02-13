@@ -1,6 +1,6 @@
 import { Geometries } from '@/lib/geom/geometries';
 import { Edge, Face, Vertex } from '@/lib/geom/shape';
-import { Part } from '@/lib/model/parts/part';
+import { Part } from '@/lib/model/parts';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import { DrawingHelper } from '../helpers/drawing-helper';
@@ -189,14 +189,6 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
     this.drawingHelper.setEdges(edges);
     this.drawingHelper.setPlanes(planes);
     this.drawingHelper.setFaces(faces);
-  }
-
-  getOrbitTarget(target: Target) {
-    if (this.points.length > 0) {
-      return target.point;
-    } else {
-      return super.getOrbitTarget(target);
-    }
   }
 
   ///

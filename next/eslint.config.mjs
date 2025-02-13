@@ -65,6 +65,7 @@ export default tseslint.config(
         'error',
         {
           allowAny: false,
+          allowArray: true,
           allowBoolean: true,
           allowNullish: true,
           allowNumber: true,

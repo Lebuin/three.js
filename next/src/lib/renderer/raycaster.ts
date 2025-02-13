@@ -313,7 +313,8 @@ export default class Raycaster {
       intersections.map((intersection) => intersection.object.faces),
     );
     for (const intersection of intersections) {
-      if (intersection.distance - distance > 2 * this.threshold) {
+      const threshold = this.getThreshold(intersection.point);
+      if (intersection.distance - distance > 2 * threshold) {
         break;
       }
       if (

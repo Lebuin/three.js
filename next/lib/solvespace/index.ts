@@ -1,10 +1,13 @@
+export * from './slvs';
+
+import _ from 'lodash';
 import Solvespace, { SlvsModule } from './slvs';
 
 let slvs: SlvsModule | undefined;
 
-export async function initSolveSpace() {
+export const initSolveSpace = _.once(async () => {
   slvs = await Solvespace();
-}
+});
 
 export function getSolvespace() {
   if (!slvs) {

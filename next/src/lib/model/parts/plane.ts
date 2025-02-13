@@ -1,9 +1,9 @@
 import { directionFromVector, pointFromVector } from '@/lib/geom/util';
 import { getOC, TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
-import { Part } from './part';
+import { BasePart } from './base-part';
 
-export class Plane extends Part {
+export class Plane extends BasePart {
   private _size: number;
 
   constructor(

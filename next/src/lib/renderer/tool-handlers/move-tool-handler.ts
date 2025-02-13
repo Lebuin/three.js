@@ -1,7 +1,7 @@
 import { Edge, Face } from '@/lib/geom/shape';
 import { THREE } from '@lib/three.js';
 import { DrawingHelper } from '../helpers/drawing-helper';
-import { PartObject } from '../part-objects/part-object';
+import { PartObject } from '../part-objects';
 import { Renderer } from '../renderer';
 import {
   MouseHandlerEvent as BaseMouseHandlerEvent,
@@ -272,14 +272,6 @@ export class MoveToolHandler extends ToolHandler {
     this.drawingHelper.setPoints(points);
     this.drawingHelper.setFaces(faces);
     this.drawingHelper.setEdges(edges);
-  }
-
-  getOrbitTarget(target: Target) {
-    if (this.isMoving) {
-      return target.point;
-    } else {
-      return super.getOrbitTarget(target);
-    }
   }
 }
 

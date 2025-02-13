@@ -1,84 +1,49 @@
-import {
-  RootShapeWithEdges,
-  RootShapeWithFaces,
-  shapeFactory,
-} from '@/lib/geom/shape';
-import { quaternionFromQuaternion, vectorFromVector } from '@/lib/geom/util';
-import { getOC, gp_Trsf, TopoDS_Shape } from '@lib/opencascade.js';
 import { THREE } from '@lib/three.js';
-interface PartEvents {
-  change: object;
-}
+import { BasePart } from './base-part';
+import { PartVertex } from './part-vertex';
 
-export abstract class Part extends THREE.EventDispatcher<PartEvents> {
-  private _position: THREE.Vector3;
-  private _quaternion: THREE.Quaternion;
+export abstract class Part extends BasePart {
+  private _size: THREE.Vector3;
+  /**
+   * Each vertex in this array corresponds to a corner of the part. The vertices are ordered as
+   * follows: (0, 0, 0); (1, 0, 0); (0, 1, 0); (1, 1, 0); (0, 0, 1); (1, 0, 1); (0, 1, 1); (1, 1, 1).
+   */
+  private _vertices: PartVertex<this>[];
 
-  protected _shape?: RootShapeWithEdges | RootShapeWithFaces;
-
-  constructor(position?: THREE.Vector3, quaternion?: THREE.Quaternion) {
-    super();
-    this._position = position ?? new THREE.Vector3();
-    this._quaternion = quaternion ?? new THREE.Quaternion();
+  constructor(
+    size = new THREE.Vector3(),
+    position = new THREE.Vector3(),
+    quaternion = new THREE.Quaternion(),
+  ) {
+    super(position, quaternion);
+    this._size = size;
+    this._vertices = this.createVertices();
   }
 
-  protected onChange() {
-    this.invalidateShape();
-    this.dispatchEvent({ type: 'change' });
+  get size() {
+    return this._size;
   }
-
-  get position() {
-    return this._position;
-  }
-  set position(position: THREE.Vector3) {
-    this._position = position;
+  set size(size: THREE.Vector3) {
+    this._size = size;
     this.onChange();
   }
 
-  get quaternion() {
-    return this._quaternion;
-  }
-  set quaternion(quaternion: THREE.Quaternion) {
-    this._quaternion = quaternion;
-    this.onChange();
+  get vertices() {
+    return this._vertices;
   }
 
-  protected invalidateShape() {
-    this._shape = undefined;
-  }
-
-  get shape() {
-    if (!this._shape) {
-      const shape = this.buildOCShape();
-      const locatedShape = this.locateOCShape(shape);
-      this._shape = shapeFactory(locatedShape);
+  protected createVertices() {
+    const vertices: PartVertex<this>[] = [];
+    for (const n of [0, 1]) {
+      for (const v of [0, 1]) {
+        for (const u of [0, 1]) {
+          const localPosition = new THREE.Vector3(u, v, n);
+          const vertex = new PartVertex(this, localPosition);
+          vertices.push(vertex);
+        }
+      }
     }
-    return this._shape;
-  }
 
-  protected abstract buildOCShape(): TopoDS_Shape;
-
-  protected locateOCShape(shape: TopoDS_Shape) {
-    const oc = getOC();
-    // It should be possible, and way more efficient, to use shape.Located(location), but for some
-    // reason OCCT doesn't always respect the local coordinate system of the shape, e.g. when using
-    // BRepExtrema_DistShapeShape.
-    const transform = this.getOCTransform();
-    const transformer = new oc.BRepBuilderAPI_Transform_2(
-      shape,
-      transform,
-      true,
-    );
-    const locatedShape = transformer.Shape();
-    return locatedShape;
-  }
-
-  getOCTransform(): gp_Trsf {
-    const oc = getOC();
-    const transform = new oc.gp_Trsf_1();
-    const quaternion = quaternionFromQuaternion(this.quaternion);
-    const translation = vectorFromVector(this.position);
-    transform.SetTransformation_3(quaternion, translation);
-    return transform;
+    return vertices;
   }
 }
