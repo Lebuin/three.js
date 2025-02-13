@@ -22,9 +22,9 @@ const defaultGroundPlaneOptions = {
   colors: {
     xAxis: settings.axesColors.x.primary,
     yAxis: settings.axesColors.z.primary,
-    majorDivision: new Color4().setHSLA(186 / 360, 28 / 100, 16 / 100, 0.14),
-    minorDivision: new Color4().setHSLA(186 / 360, 28 / 100, 16 / 100, 0.07),
-    plane: new Color4().setHSLA(186 / 360, 28 / 100, 16 / 100, 0.03),
+    majorDivision: new Color4().setHSLA(186 / 360, 28 / 100, 16 / 100, 0.2),
+    minorDivision: new Color4().setHSLA(186 / 360, 28 / 100, 16 / 100, 0.1),
+    plane: new Color4().setHSLA(186 / 360, 28 / 100, 16 / 100, 0.05),
   },
 };
 
