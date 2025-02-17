@@ -3,6 +3,7 @@ import { THREE } from '@lib/three.js';
 import { Solver } from '../solver';
 import { EventDispatcher } from '../util/event-dispatcher';
 import { CoincidentConstraint } from './constraints';
+import { Beam } from './parts';
 import { Board } from './parts/board';
 import { Part } from './parts/part';
 
@@ -38,7 +39,7 @@ export class Model extends EventDispatcher()<ModelEvents> {
 export async function initModel(model: Model) {
   const size = new THREE.Vector3(800, 500, 300);
   const boardThickness = 18;
-  // const beamThickness = [50, 100];
+  const beamThickness = [50, 100];
 
   function getVertexIndex(u: 0 | 1, v: 0 | 1, n: 0 | 1) {
     return u + v * 2 + n * 4;
@@ -85,10 +86,10 @@ export async function initModel(model: Model) {
       ),
       new THREE.Vector3(boardThickness, boardThickness, 0),
     ),
-    // new Beam(
-    //   new THREE.Vector3(size.x, beamThickness[0], beamThickness[0]),
-    //   new THREE.Vector3(0, size.y, size.z - beamThickness[0]),
-    // ),
+    new Beam(
+      new THREE.Vector3(size.x, beamThickness[0], beamThickness[0]),
+      new THREE.Vector3(0, size.y, size.z - beamThickness[0]),
+    ),
   ];
 
   const constraints = [
@@ -144,6 +145,15 @@ export async function initModel(model: Model) {
       parts[3].vertices[getVertexIndex(0, 1, 1)],
       parts[4].vertices[getVertexIndex(1, 1, 0)],
     ),
+
+    new CoincidentConstraint(
+      parts[1].vertices[getVertexIndex(0, 1, 0)],
+      parts[5].vertices[getVertexIndex(0, 0, 1)],
+    ),
+    new CoincidentConstraint(
+      parts[1].vertices[getVertexIndex(1, 1, 0)],
+      parts[5].vertices[getVertexIndex(1, 0, 1)],
+    ),
   ];
 
   model.addPart(...parts);
@@ -155,7 +165,7 @@ export async function initModel(model: Model) {
   const solver = new Solver();
   solver.buildSketch(model);
 
-  const origin = solver.slvs.addPoint3D(solver.groupConstant, -10, 0, 0);
+  const origin = solver.slvs.addPoint3D(solver.groupConstant, -10, -10, 0);
   solver.slvs.distance(
     solver.groupSolve,
     origin,
@@ -166,6 +176,4 @@ export async function initModel(model: Model) {
 
   solver.solve();
   solver.apply();
-
-  // void test();
 }

@@ -4,9 +4,10 @@ import { getSolvespace, SlvsModule } from '@lib/solvespace';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
 import { CoincidentConstraint } from '../model/constraints';
-import { SolverConstraint } from './parts/solver-constraint';
+import { solverPartFactory } from './parts';
 import { SolverPart } from './parts/solver-part';
 import { SolverVertex } from './parts/solver-vertex';
+import { SolverConstraint } from './solver-constraint';
 
 export class Solver {
   public readonly slvs: SlvsModule;
@@ -47,7 +48,7 @@ export class Solver {
   }
 
   private createSolverPart(part: Part) {
-    const solverPart = new SolverPart(part);
+    const solverPart = solverPartFactory(part);
     return solverPart;
   }
 

@@ -1,7 +1,7 @@
 import { Part, PartVertex } from '@/lib/model/parts';
 import { Entity } from '@lib/solvespace';
+import { SolverWorkplane } from '../solver-workplane';
 import { SolverPart } from './solver-part';
-import { SolverWorkplane } from './solver-workplane';
 
 export class SolverVertex<T extends Part = Part> {
   public readonly solverPart: SolverPart<T>;

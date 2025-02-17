@@ -2,10 +2,10 @@ import { Part } from '@/lib/model/parts';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import { Solver } from '../solver';
+import { SolverWorkplane } from '../solver-workplane';
 import { SolverVertex } from './solver-vertex';
-import { SolverWorkplane } from './solver-workplane';
 
-export class SolverPart<T extends Part = Part> {
+export abstract class SolverPart<T extends Part = Part> {
   public readonly part: T;
   private _vertices?: SolverVertex<T>[];
 
@@ -19,8 +19,15 @@ export class SolverPart<T extends Part = Part> {
 
   addToSolver(solver: Solver) {
     const workplanes = this.createWorkplanes(solver);
-    this._vertices = this.createVertices(solver, workplanes);
+    const vertices = this.createVertices(solver, workplanes);
+    this.addConstraints(solver, vertices);
+    this._vertices = vertices;
   }
+
+  protected abstract addConstraints(
+    solver: Solver,
+    vertices: SolverVertex<T>[],
+  ): void;
 
   private createWorkplanes(solver: Solver) {
     // The start point of the part, in local uvn coordinates.
@@ -71,13 +78,13 @@ export class SolverPart<T extends Part = Part> {
     );
     solver.slvs.horizontal(solver.groupSolve, origin, zWorkplane, startOrigin);
     solver.slvs.horizontal(solver.groupSolve, origin, zWorkplane, endOrigin);
-    solver.slvs.distance(
-      solver.groupSolve,
-      startOrigin,
-      endOrigin,
-      this.part.size.z,
-      zWorkplane,
-    );
+    // solver.slvs.distance(
+    //   solver.groupSolve,
+    //   startOrigin,
+    //   endOrigin,
+    //   this.part.size.z,
+    //   zWorkplane,
+    // );
 
     const quaternion = solver.slvs.addNormal3D(
       solver.groupConstant,

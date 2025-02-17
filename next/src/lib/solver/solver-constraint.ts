@@ -1,6 +1,6 @@
 import { CoincidentConstraint } from '@/lib/model/constraints';
 import { Solver } from '../solver';
-import { SolverVertex } from './solver-vertex';
+import { SolverVertex } from './parts/solver-vertex';
 
 export class SolverConstraint {
   public readonly constraint: CoincidentConstraint;
