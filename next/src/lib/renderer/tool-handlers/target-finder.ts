@@ -174,7 +174,7 @@ export class TargetFinder {
     this.updateSnapObjects();
   }
 
-  private updateSnapObjects() {
+  updateSnapObjects() {
     this.snapObjects = this.renderer.partObjects.filter((object) => {
       return object.layers.test(this.layers);
     });
@@ -385,6 +385,8 @@ export class TargetFinder {
 
   private findIntersection(mouseEvent: MouseEvent): Intersection | undefined {
     this.renderer.raycaster.setFromEvent(mouseEvent);
+
+    this.snapObjects.forEach(snapObject => snapObject.update());
 
     const snapObjects: OCGeometriesObject[] = [
       this.mainAxes,

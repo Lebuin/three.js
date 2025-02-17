@@ -15,8 +15,8 @@ export abstract class RootShape<
   T extends TopoDS_Shape = TopoDS_Shape,
   V extends Vertex = Vertex,
 > extends Shape<T, void> {
-  _vertices?: V[];
-  shapeMap = new Map<number, Shape>();
+  protected _vertices?: V[];
+  protected _shapeMap?: Map<number, Shape>;
 
   isRoot = true;
   _geometries?: OCGeometries;
@@ -26,6 +26,12 @@ export abstract class RootShape<
       this.explore();
     }
     return this._vertices!;
+  }
+  get shapeMap() {
+    if (!this._shapeMap) {
+      this.explore();
+    }
+    return this._shapeMap!;
   }
 
   get geometries() {
@@ -38,6 +44,7 @@ export abstract class RootShape<
 
   protected explore() {
     this._vertices = [];
+    this._shapeMap = new Map();
     this.exploreShapes();
   }
 

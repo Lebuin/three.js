@@ -13,3 +13,12 @@ type ButtonName = (typeof buttonNames)[number];
 export function mouseButtonPressed(event: MouseEvent, buttonName: ButtonName) {
   return Boolean(event.buttons & (1 << buttonNames.indexOf(buttonName)));
 }
+
+export function popFromSet<T>(set: Set<T>): T {
+  const value = set.values().next().value;
+  if (value == null) {
+    throw new Error('Set is empty');
+  }
+  set.delete(value);
+  return value;
+}

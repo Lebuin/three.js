@@ -81,6 +81,21 @@ export abstract class Part extends BasePart {
     return vertices;
   }
 
+  getConnectedParts(): Set<Part> {
+    const connectedParts = new Set<Part>();
+    for (const vertex of this.vertices) {
+      for (const constraint of vertex.constraints) {
+        const otherVertex =
+          constraint.vertex1 === vertex
+            ? constraint.vertex2
+            : constraint.vertex1;
+        const otherPart = otherVertex.part;
+        connectedParts.add(otherPart);
+      }
+    }
+    return connectedParts;
+  }
+
   getOCTransform(): gp_Trsf {
     const oc = getOC();
     const transform = new oc.gp_Trsf_1();

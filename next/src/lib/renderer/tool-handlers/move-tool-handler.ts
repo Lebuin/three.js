@@ -1,5 +1,7 @@
 import { Edge, Face } from '@/lib/geom/shape';
+import { Part } from '@/lib/model/parts';
 import { Solver } from '@/lib/solver';
+import { popFromSet } from '@/lib/util';
 import { THREE } from '@lib/three.js';
 import { DrawingHelper } from '../helpers/drawing-helper';
 import { PartObject } from '../part-objects';
@@ -125,11 +127,13 @@ export class MoveToolHandler extends ToolHandler {
 
   private setSelectedObject(object: PartObject, target: Target) {
     this.selectedObject = object;
+    this.updateSnappingParts();
     this.initMove(target);
   }
   private unsetSelectedObject() {
     this.cancelMove();
     this.selectedObject = undefined;
+    this.updateSnappingParts();
   }
 
   ///
@@ -158,9 +162,6 @@ export class MoveToolHandler extends ToolHandler {
     }
 
     this.mover = mover;
-    this.selectedObject.traverse((object) => {
-      object.layers.set(1);
-    });
     this.lastTarget = target;
     this.fixedLine = undefined;
     this.updateConstraints();
@@ -168,11 +169,6 @@ export class MoveToolHandler extends ToolHandler {
   }
 
   private endMove() {
-    if (this.selectedObject) {
-      this.selectedObject.traverse((object) => {
-        object.layers.set(0);
-      });
-    }
     this.mover = undefined;
     this.solver = undefined;
     this.lastTarget = undefined;
@@ -226,6 +222,39 @@ export class MoveToolHandler extends ToolHandler {
     } else {
       this.targetFinder.clearConstraints();
     }
+  }
+
+  protected updateSnappingParts() {
+    const connectedParts = this.getConnectedParts();
+    for (const partObject of this.renderer.partObjects) {
+      const layer = connectedParts.has(partObject.part) ? 1 : 0;
+      partObject.traverse((object) => {
+        object.layers.set(layer);
+      });
+    }
+    this.targetFinder.updateSnapObjects();
+  }
+
+  protected getConnectedParts(): Set<Part> {
+    if (!this.selectedObject) {
+      return new Set<Part>();
+    } else if (!this.shouldSolveModel) {
+      return new Set([this.selectedObject.part]);
+    }
+
+    const connectedParts = new Set<Part>();
+    const partsToCheck = new Set([this.selectedObject.part]);
+    while (partsToCheck.size > 0) {
+      const part = popFromSet(partsToCheck);
+      connectedParts.add(part);
+      for (const connectedPart of part.getConnectedParts()) {
+        if (!connectedParts.has(connectedPart)) {
+          partsToCheck.add(connectedPart);
+        }
+      }
+    }
+
+    return connectedParts;
   }
 
   ///
@@ -297,10 +326,15 @@ export class MoveToolHandler extends ToolHandler {
 
   private updateSolver(event: MouseHandlerEvent) {
     const shouldSolveModel = !event.modifiers.Control;
-    if (this.solver && this.shouldSolveModel && !shouldSolveModel) {
+    if (shouldSolveModel === this.shouldSolveModel) {
+      return;
+    }
+
+    this.shouldSolveModel = shouldSolveModel;
+    if (this.solver && !this.shouldSolveModel) {
       this.solver.restoreModel();
     }
-    this.shouldSolveModel = shouldSolveModel;
+    this.updateSnappingParts();
   }
 
   private solveModel() {
