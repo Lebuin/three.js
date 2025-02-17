@@ -14,6 +14,7 @@ import { Target, TargetFinder } from './target-finder';
 import { ToolHandler } from './tool-handler';
 
 const mouseHandlerModifiers = {
+  Control: false,
   ArrowUp: true,
 } as const;
 type MouseHandlerModifiers = typeof mouseHandlerModifiers;
@@ -28,9 +29,11 @@ export class MoveToolHandler extends ToolHandler {
 
   private selectedObject?: PartObject;
   private mover?: BaseMover;
-  private solver?: Solver;
   private lastTarget?: Target;
   private fixedLine?: THREE.Line3;
+
+  private solver?: Solver;
+  private shouldSolveModel = false;
 
   constructor(renderer: Renderer) {
     super(renderer);
@@ -74,6 +77,7 @@ export class MoveToolHandler extends ToolHandler {
 
   private onMouseMove = (event: MouseHandlerEvent) => {
     this.updateFixedLine(event);
+    this.updateSolver(event);
 
     const target = this.targetFinder.findTarget(event.event);
     if (this.selectedObject && target) {
@@ -195,6 +199,12 @@ export class MoveToolHandler extends ToolHandler {
 
   private confirmMove(target: Target) {
     this.doMove(target);
+
+    if (this.selectedObject) {
+      this.model.removeConstraints(this.selectedObject.part);
+      this.model.addCoincidentConstraints(this.selectedObject.part);
+    }
+
     this.endMove();
   }
 
@@ -285,13 +295,24 @@ export class MoveToolHandler extends ToolHandler {
     this.solver.buildSketch(this.renderer.model, draggedParts);
   }
 
+  private updateSolver(event: MouseHandlerEvent) {
+    const shouldSolveModel = !event.modifiers.Control;
+    if (this.solver && this.shouldSolveModel && !shouldSolveModel) {
+      this.solver.restoreModel();
+    }
+    this.shouldSolveModel = shouldSolveModel;
+  }
+
   private solveModel() {
     if (!this.solver) {
       throw new Error('Illegal state');
     }
-    this.solver.reset();
-    this.solver.solve();
-    this.solver.apply();
+
+    if (this.shouldSolveModel) {
+      this.solver.reset();
+      this.solver.solve();
+      this.solver.apply();
+    }
   }
 }
 

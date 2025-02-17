@@ -369,6 +369,7 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
       const { size, position, quaternion } = this.getBoxProperties(this.points);
       const box = this.getPart(size, position, quaternion);
       this.model.addPart(box);
+      this.model.addCoincidentConstraints(box);
       this.removeFleetingBox();
     }
 

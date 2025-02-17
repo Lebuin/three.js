@@ -15,9 +15,8 @@ export class Model extends EventDispatcher()<ModelEvents> {
   parts: Part[] = [];
 
   addPart(...parts: Part[]) {
+    this.parts.push(...parts);
     for (const part of parts) {
-      this.addConstraints(part);
-      this.parts.push(part);
       this.dispatchEvent({ type: 'addPart', part });
     }
   }
@@ -33,7 +32,7 @@ export class Model extends EventDispatcher()<ModelEvents> {
     }
   }
 
-  private addConstraints(part: Part) {
+  addCoincidentConstraints(part: Part) {
     for (const vertex of part.vertices) {
       const coincidentVertices = this.findCoincidentVertices(vertex);
       for (const coincidentVertex of coincidentVertices) {
@@ -43,7 +42,7 @@ export class Model extends EventDispatcher()<ModelEvents> {
     }
   }
 
-  private removeConstraints(part: Part) {
+  removeConstraints(part: Part) {
     part.vertices.forEach((vertex) => {
       vertex.constraints.forEach((constraint) => {
         constraint.remove();
@@ -57,7 +56,7 @@ export class Model extends EventDispatcher()<ModelEvents> {
       const distance = vertex.globalPosition.distanceToSquared(
         otherVertex.globalPosition,
       );
-      return distance < tolerance;
+      return otherVertex.part !== vertex.part && distance < tolerance;
     }
 
     const coincidentVertices: PartVertex[] = _.chain(this.parts)
