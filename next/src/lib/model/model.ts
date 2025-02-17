@@ -161,18 +161,12 @@ export async function initModel(model: Model) {
     constraint.add();
   });
 
+  parts[0].size.x = 1500;
+  const draggedVertex = parts[0].vertices[1];
+
   await initSolveSpace();
   const solver = new Solver();
-  solver.buildSketch(model);
-
-  const origin = solver.slvs.addPoint3D(solver.groupConstant, -10, -10, 0);
-  solver.slvs.distance(
-    solver.groupSolve,
-    origin,
-    solver.solverParts[0].vertices![4].point,
-    100,
-    solver.slvs.E_FREE_IN_3D,
-  );
+  solver.buildSketch(model, [draggedVertex]);
 
   solver.solve();
   solver.apply();

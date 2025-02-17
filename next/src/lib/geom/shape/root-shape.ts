@@ -61,9 +61,6 @@ export abstract class RootShape<
   getVertex(ocVertex: TopoDS_Vertex): V | null {
     return this.getSubShape(ocVertex) as V | null;
   }
-  getVertexIndex(vertex: Vertex): number {
-    return this.vertices.indexOf(vertex as V);
-  }
 
   protected addVertex(
     ocVertex: TopoDS_Vertex,

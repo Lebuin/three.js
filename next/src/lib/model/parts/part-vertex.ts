@@ -13,6 +13,12 @@ export class PartVertex<T extends Part = Part> {
     this._localPosition = localPosition;
   }
 
+  get index() {
+    return (
+      this.localPosition.x + this.localPosition.y * 2 + this.localPosition.z * 4
+    );
+  }
+
   get localPosition() {
     return this._localPosition;
   }

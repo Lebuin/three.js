@@ -1,5 +1,5 @@
 import { Model } from '@/lib/model/model';
-import { Part } from '@/lib/model/parts';
+import { Part, PartVertex } from '@/lib/model/parts';
 import { getSolvespace, SlvsModule } from '@lib/solvespace';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
@@ -11,8 +11,8 @@ import { SolverConstraint } from './solver-constraint';
 
 export class Solver {
   public readonly slvs: SlvsModule;
-  public solverParts: SolverPart[] = [];
-  public solverConstraints: SolverConstraint[] = [];
+  public solverParts = new Map<Part, SolverPart>();
+  public solverConstraints = new Map<CoincidentConstraint, SolverConstraint>();
 
   public readonly groupConstant = 1;
   public readonly groupSolve = 2;
@@ -21,17 +21,32 @@ export class Solver {
     this.slvs = getSolvespace();
   }
 
-  buildSketch(model: Model) {
+  buildSketch(model: Model, draggedVertices: Iterable<PartVertex> = []) {
     this.slvs.clearSketch();
 
     this.solverParts = this.createSolverParts(model);
-    for (const solverPart of this.solverParts) {
+    for (const solverPart of this.solverParts.values()) {
       this.addSolverPart(solverPart);
     }
 
+    for (const vertex of draggedVertices) {
+      const part = vertex.part;
+      const solverPart = this.solverParts.get(part);
+      if (solverPart == null) {
+        throw new Error('Solver part not found');
+      }
+      solverPart.setDragged(vertex);
+    }
+
     this.solverConstraints = this.createSolverConstraints(this.solverParts);
-    for (const solverConstraint of this.solverConstraints) {
+    for (const solverConstraint of this.solverConstraints.values()) {
       this.addSolverConstraint(solverConstraint);
+    }
+  }
+
+  update() {
+    for (const solverPart of this.solverParts.values()) {
+      solverPart.update();
     }
   }
 
@@ -43,36 +58,40 @@ export class Solver {
   }
 
   private createSolverParts(model: Model) {
-    const parts = model.parts.map((part) => this.createSolverPart(part));
+    const parts = new Map<Part, SolverPart>();
+    for (const part of model.parts) {
+      const solverPart = this.createSolverPart(part);
+      parts.set(part, solverPart);
+    }
     return parts;
   }
 
   private createSolverPart(part: Part) {
-    const solverPart = solverPartFactory(part);
+    const solverPart = solverPartFactory(this, part);
     return solverPart;
   }
 
   private addSolverPart(solverPart: SolverPart) {
-    solverPart.addToSolver(this);
+    solverPart.addToSolver();
   }
 
-  private createSolverConstraints(solverParts: SolverPart[]) {
+  private createSolverConstraints(solverParts: Map<Part, SolverPart>) {
     interface ConstraintInfo {
       solverVertex1?: SolverVertex;
       solverVertex2?: SolverVertex;
     }
-    const constraints = new Map<CoincidentConstraint, ConstraintInfo>();
+    const constraintsInfo = new Map<CoincidentConstraint, ConstraintInfo>();
 
-    for (const solverPart of solverParts) {
+    for (const solverPart of solverParts.values()) {
       if (solverPart.vertices == null) {
         throw new Error('Solver part not added to solver');
       }
       for (const solverVertex of solverPart.vertices) {
         for (const constraint of solverVertex.vertex.constraints) {
-          let info = constraints.get(constraint);
+          let info = constraintsInfo.get(constraint);
           if (info == null) {
             info = {};
-            constraints.set(constraint, info);
+            constraintsInfo.set(constraint, info);
           }
           if (constraint.vertex1 === solverVertex.vertex) {
             info.solverVertex1 = solverVertex;
@@ -83,21 +102,21 @@ export class Solver {
       }
     }
 
-    const solverConstraints = constraints
-      .entries()
-      .map(([constraint, info]) => {
+    const solverConstraints = new Map(
+      constraintsInfo.entries().map(([constraint, info]) => {
         if (info.solverVertex1 == null || info.solverVertex2 == null) {
           throw new Error(
             'One or more constraint vertices are not yet added to the solver',
           );
         }
-        return this.createSolverConstraint(
+        const solverConstraint = this.createSolverConstraint(
           constraint,
           info.solverVertex1,
           info.solverVertex2,
         );
-      })
-      .toArray();
+        return [constraint, solverConstraint];
+      }),
+    );
     return solverConstraints;
   }
 
@@ -128,7 +147,7 @@ export class Solver {
       return u + v * 2 + n * 4;
     }
 
-    for (const solverPart of this.solverParts) {
+    for (const solverPart of this.solverParts.values()) {
       if (solverPart.vertices == null) {
         throw new Error('Solver part not added to solver');
       }
