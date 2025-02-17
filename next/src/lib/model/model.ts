@@ -1,9 +1,8 @@
-import { initSolveSpace } from '@lib/solvespace';
 import { THREE } from '@lib/three.js';
-import { Solver } from '../solver';
+import _ from 'lodash';
 import { EventDispatcher } from '../util/event-dispatcher';
 import { CoincidentConstraint } from './constraints';
-import { Beam } from './parts';
+import { Beam, PartVertex } from './parts';
 import { Board } from './parts/board';
 import { Part } from './parts/part';
 
@@ -16,8 +15,9 @@ export class Model extends EventDispatcher()<ModelEvents> {
   parts: Part[] = [];
 
   addPart(...parts: Part[]) {
-    this.parts.push(...parts);
     for (const part of parts) {
+      this.addConstraints(part);
+      this.parts.push(part);
       this.dispatchEvent({ type: 'addPart', part });
     }
   }
@@ -27,24 +27,79 @@ export class Model extends EventDispatcher()<ModelEvents> {
       const index = this.parts.indexOf(part);
       if (index !== -1) {
         this.parts.splice(index, 1);
+        this.removeConstraints(part);
         this.dispatchEvent({ type: 'removePart', part });
       }
     }
   }
+
+  private addConstraints(part: Part) {
+    for (const vertex of part.vertices) {
+      const coincidentVertices = this.findCoincidentVertices(vertex);
+      for (const coincidentVertex of coincidentVertices) {
+        const constraint = new CoincidentConstraint(vertex, coincidentVertex);
+        constraint.add();
+      }
+    }
+  }
+
+  private removeConstraints(part: Part) {
+    part.vertices.forEach((vertex) => {
+      vertex.constraints.forEach((constraint) => {
+        constraint.remove();
+      });
+    });
+  }
+
+  private findCoincidentVertices(vertex: PartVertex) {
+    const tolerance = 1e-6 ^ 2;
+    function filter(otherVertex: PartVertex) {
+      const distance = vertex.globalPosition.distanceToSquared(
+        otherVertex.globalPosition,
+      );
+      return distance < tolerance;
+    }
+
+    const coincidentVertices: PartVertex[] = _.chain(this.parts)
+      .map((part) => part.vertices)
+      .flatten()
+      .filter(filter)
+      .value();
+
+    return coincidentVertices;
+  }
+}
+
+interface ModelDefinition {
+  parts: Part[];
+  constraints: CoincidentConstraint[];
 }
 
 /**
  * Prepopulate the model during development.
  */
-export async function initModel(model: Model) {
+export function initModel(model: Model) {
   const size = new THREE.Vector3(800, 500, 300);
   const boardThickness = 18;
   const beamThickness = [50, 100];
 
-  function getVertexIndex(u: 0 | 1, v: 0 | 1, n: 0 | 1) {
-    return u + v * 2 + n * 4;
-  }
+  const models = {
+    full: getFullModel(size, boardThickness, beamThickness),
+    small: getSmallModel(size, boardThickness, beamThickness),
+  };
 
+  const modelDef = models.full;
+  model.addPart(...modelDef.parts);
+  modelDef.constraints.forEach((constraint) => {
+    constraint.add();
+  });
+}
+
+function getFullModel(
+  size: THREE.Vector3,
+  boardThickness: number,
+  beamThickness: number[],
+): ModelDefinition {
   const parts = [
     new Board(
       new THREE.Vector3(size.x, size.z, boardThickness),
@@ -156,18 +211,47 @@ export async function initModel(model: Model) {
     ),
   ];
 
-  model.addPart(...parts);
-  constraints.forEach((constraint) => {
-    constraint.add();
-  });
+  return { parts, constraints };
+}
 
-  parts[0].size.x = 1500;
-  const draggedVertex = parts[0].vertices[1];
+function getSmallModel(
+  size: THREE.Vector3,
+  boardThickness: number,
+  beamThickness: number[],
+): ModelDefinition {
+  const parts = [
+    new Board(
+      new THREE.Vector3(size.x, size.z, boardThickness),
+      new THREE.Vector3(0, boardThickness, 0),
+      new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1, 0, 0),
+        Math.PI / 2,
+      ),
+    ),
+    new Board(
+      new THREE.Vector3(size.z, size.y - 2 * boardThickness, boardThickness),
+      new THREE.Vector3(boardThickness, boardThickness, 0),
+      new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        -Math.PI / 2,
+      ),
+    ),
+  ];
 
-  await initSolveSpace();
-  const solver = new Solver();
-  solver.buildSketch(model, [draggedVertex]);
+  const constraints = [
+    new CoincidentConstraint(
+      parts[0].vertices[getVertexIndex(0, 0, 0)],
+      parts[1].vertices[getVertexIndex(0, 0, 1)],
+    ),
+    new CoincidentConstraint(
+      parts[0].vertices[getVertexIndex(0, 1, 0)],
+      parts[1].vertices[getVertexIndex(1, 0, 1)],
+    ),
+  ];
 
-  solver.solve();
-  solver.apply();
+  return { parts, constraints };
+}
+
+function getVertexIndex(u: 0 | 1, v: 0 | 1, n: 0 | 1) {
+  return u + v * 2 + n * 4;
 }

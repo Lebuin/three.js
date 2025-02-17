@@ -3,7 +3,9 @@
 import { initModel, Model } from '@/lib/model/model';
 import { Renderer as SceneRenderer } from '@/lib/renderer/renderer';
 import { initOC } from '@lib/opencascade.js';
+import { initSolveSpace } from '@lib/solvespace';
 import React from 'react';
+import { useImmer } from 'use-immer';
 import { Tool, toolInfo } from './toolbar';
 
 export interface RendererProps {
@@ -12,21 +14,39 @@ export interface RendererProps {
 }
 export interface RendererState {
   ocReady: boolean;
+  slvsReady: boolean;
 }
 
 export default function Renderer(props: RendererProps) {
-  const [state, setState] = React.useState<RendererState>({ ocReady: false });
+  const [state, setState] = useImmer<RendererState>({
+    ocReady: false,
+    slvsReady: false,
+  });
   const rendererRef = React.useRef<SceneRenderer | null>(null);
 
   React.useEffect(() => {
     initOC()
       .then(() => {
-        setState({ ocReady: true });
+        setState((state) => {
+          state.ocReady = true;
+        });
       })
       .catch((e: unknown) => {
         console.error(e);
       });
-  }, []);
+  }, [setState]);
+
+  React.useEffect(() => {
+    initSolveSpace()
+      .then(() => {
+        setState((state) => {
+          state.slvsReady = true;
+        });
+      })
+      .catch((e: unknown) => {
+        console.error(e);
+      });
+  }, [setState]);
 
   const mountRef = React.useCallback(
     (mount: HTMLCanvasElement | null) => {
@@ -59,7 +79,7 @@ export default function Renderer(props: RendererProps) {
     renderer.setTool(props.tool);
   }, [props.tool]);
 
-  if (!state.ocReady) {
+  if (!state.ocReady || !state.slvsReady) {
     return <></>;
   }
 

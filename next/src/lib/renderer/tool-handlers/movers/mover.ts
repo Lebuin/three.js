@@ -23,8 +23,4 @@ export class Mover extends BaseMover<Part> {
   move(delta: THREE.Vector3) {
     this.part.position = this.startPosition.clone().add(delta);
   }
-
-  cancel() {
-    this.part.position = this.startPosition;
-  }
 }

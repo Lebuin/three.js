@@ -6,12 +6,18 @@ import { Part } from './part';
 export class PartVertex<T extends Part = Part> {
   public readonly part: T;
   private _localPosition: THREE.Vector3;
+  private _globalPosition?: THREE.Vector3;
   private _constraints: CoincidentConstraint[] = [];
 
   constructor(part: T, localPosition: THREE.Vector3) {
     this.part = part;
     this._localPosition = localPosition;
+    this.part.addEventListener('change', this.onChange);
   }
+
+  private onChange = () => {
+    this._globalPosition = undefined;
+  };
 
   get index() {
     return (
@@ -24,11 +30,14 @@ export class PartVertex<T extends Part = Part> {
   }
 
   get globalPosition() {
-    return this._localPosition
-      .clone()
-      .multiply(this.part.size)
-      .applyQuaternion(this.part.quaternion)
-      .add(this.part.position);
+    if (this._globalPosition == null) {
+      this._globalPosition = this._localPosition
+        .clone()
+        .multiply(this.part.size)
+        .applyQuaternion(this.part.quaternion)
+        .add(this.part.position);
+    }
+    return this._globalPosition;
   }
 
   get constraints() {

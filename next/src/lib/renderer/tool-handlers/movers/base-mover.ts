@@ -28,10 +28,9 @@ export abstract class BaseMover<T extends Part = Part> {
   abstract isMovable(): boolean;
 
   abstract move(delta: THREE.Vector3): void;
-  abstract cancel(): void;
 
   /**
-   * Given a point that the user clicked:
+   * Get the constraint (a line or plane) on which the move destination has to lie.
    */
   abstract getConstraint(): Nullable<Constraint>;
 }

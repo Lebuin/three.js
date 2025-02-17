@@ -1,5 +1,5 @@
 import { Model } from '@/lib/model/model';
-import { Part, PartVertex } from '@/lib/model/parts';
+import { Part } from '@/lib/model/parts';
 import { getSolvespace, SlvsModule } from '@lib/solvespace';
 import { THREE } from '@lib/three.js';
 import _ from 'lodash';
@@ -21,21 +21,12 @@ export class Solver {
     this.slvs = getSolvespace();
   }
 
-  buildSketch(model: Model, draggedVertices: Iterable<PartVertex> = []) {
+  buildSketch(model: Model, draggedParts = new Set<Part>()) {
     this.slvs.clearSketch();
 
-    this.solverParts = this.createSolverParts(model);
+    this.solverParts = this.createSolverParts(model, draggedParts);
     for (const solverPart of this.solverParts.values()) {
       this.addSolverPart(solverPart);
-    }
-
-    for (const vertex of draggedVertices) {
-      const part = vertex.part;
-      const solverPart = this.solverParts.get(part);
-      if (solverPart == null) {
-        throw new Error('Solver part not found');
-      }
-      solverPart.setDragged(vertex);
     }
 
     this.solverConstraints = this.createSolverConstraints(this.solverParts);
@@ -44,9 +35,15 @@ export class Solver {
     }
   }
 
-  update() {
+  reset() {
     for (const solverPart of this.solverParts.values()) {
-      solverPart.update();
+      solverPart.resetSolver();
+    }
+  }
+
+  restoreModel() {
+    for (const solverPart of this.solverParts.values()) {
+      solverPart.restoreModel();
     }
   }
 
@@ -57,10 +54,11 @@ export class Solver {
     return this.slvs.getParamValue(param);
   }
 
-  private createSolverParts(model: Model) {
+  private createSolverParts(model: Model, draggedParts: Set<Part>) {
     const parts = new Map<Part, SolverPart>();
     for (const part of model.parts) {
       const solverPart = this.createSolverPart(part);
+      solverPart.dragged = draggedParts.has(part);
       parts.set(part, solverPart);
     }
     return parts;

@@ -317,7 +317,11 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
       1,
       distanceToPlane / 10,
     );
-    this.camera.far = distanceToTarget * 5;
+    this.camera.far = THREE.MathUtils.clamp(
+      distanceToTarget * 5,
+      distanceToPlane * 10,
+      Infinity,
+    );
     this.camera.updateProjectionMatrix();
 
     this.cameraPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(

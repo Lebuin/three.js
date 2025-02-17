@@ -1,19 +1,33 @@
-import { Part, PartVertex } from '@/lib/model/parts';
+import { Part } from '@/lib/model/parts';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
 import { Solver } from '../solver';
 import { SolverWorkplane } from '../solver-workplane';
 import { SolverVertex } from './solver-vertex';
 
+interface InitialState {
+  position: THREE.Vector3;
+  size: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+}
+
 export abstract class SolverPart<T extends Part = Part> {
   public readonly solver: Solver;
   public readonly part: T;
   private _workplanes?: SolverWorkplane[];
   private _vertices?: SolverVertex<T>[];
+  private _dragged = false;
+
+  private initialState: InitialState;
 
   constructor(solver: Solver, part: T) {
     this.solver = solver;
     this.part = part;
+    this.initialState = {
+      position: part.position.clone(),
+      size: part.size.clone(),
+      quaternion: part.quaternion.clone(),
+    };
   }
 
   get vertices() {
@@ -24,42 +38,59 @@ export abstract class SolverPart<T extends Part = Part> {
     this._workplanes = this.createWorkplanes();
     this._vertices = this.createVertices(this._workplanes);
     this.addConstraints(this._vertices);
-    this.update();
+
+    if (this.dragged) {
+      this.updateVerticesDragged();
+    }
+    this.resetSolver();
   }
 
   protected abstract addConstraints(vertices: SolverVertex<T>[]): void;
 
-  setDragged(vertex: PartVertex<T>, dragged = true) {
-    if (!this.vertices) {
-      throw new Error('Solver part not added to solver');
+  get dragged() {
+    return this._dragged;
+  }
+  set dragged(dragged: boolean) {
+    this._dragged = dragged;
+    if (this.vertices) {
+      this.updateVerticesDragged();
+    }
+  }
+
+  private updateVerticesDragged() {
+    for (const workplane of this._workplanes ?? []) {
+      this.solver.slvs.dragged(
+        this.solver.groupSolve,
+        workplane.origin,
+        this.solver.slvs.E_FREE_IN_3D,
+      );
     }
 
-    const solverVertex = this.vertices[vertex.index];
-    if (solverVertex.vertex !== vertex) {
-      throw new Error('Solver vertex does not match part vertex');
+    for (const solverVertex of this.vertices ?? []) {
+      solverVertex.dragged = this.dragged;
+      this.solver.slvs.dragged(
+        this.solver.groupSolve,
+        solverVertex.point,
+        solverVertex.workplane.workplane,
+      );
     }
-
-    solverVertex.dragged = dragged;
-    this.solver.slvs.dragged(
-      this.solver.groupSolve,
-      solverVertex.point,
-      solverVertex.workplane.workplane,
-    );
   }
 
   /**
    * Update the position and size of the part based on the model part.
    */
-  update() {
+  resetSolver() {
     if (!this._workplanes || !this.vertices) {
       throw new Error('Solver part not added to solver');
     }
 
+    const state = this.dragged ? this.part : this.initialState;
+
     // The start and end point of the part, in local uvn coordinates.
-    const start = this.part.position
+    const start = state.position
       .clone()
-      .applyQuaternion(this.part.quaternion.clone().invert());
-    const end = start.clone().add(this.part.size);
+      .applyQuaternion(state.quaternion.clone().invert());
+    const end = start.clone().add(state.size);
     const points = [start, end];
 
     for (const i of [0, 1]) {
@@ -82,6 +113,12 @@ export abstract class SolverPart<T extends Part = Part> {
       this.solver.slvs.setParamValue(solverVertex.point.param[0], pointU.x);
       this.solver.slvs.setParamValue(solverVertex.point.param[1], pointV.y);
     }
+  }
+
+  restoreModel() {
+    this.part.position = this.initialState.position.clone();
+    this.part.size = this.initialState.size.clone();
+    this.part.quaternion = this.initialState.quaternion.clone();
   }
 
   private createWorkplanes() {

@@ -1,4 +1,5 @@
 import { Edge, Face } from '@/lib/geom/shape';
+import { Solver } from '@/lib/solver';
 import { THREE } from '@lib/three.js';
 import { DrawingHelper } from '../helpers/drawing-helper';
 import { PartObject } from '../part-objects';
@@ -27,6 +28,7 @@ export class MoveToolHandler extends ToolHandler {
 
   private selectedObject?: PartObject;
   private mover?: BaseMover;
+  private solver?: Solver;
   private lastTarget?: Target;
   private fixedLine?: THREE.Line3;
 
@@ -145,18 +147,20 @@ export class MoveToolHandler extends ToolHandler {
       subShape,
       target,
     );
-    if (mover.isMovable()) {
-      this.mover = mover;
-      this.selectedObject.traverse((object) => {
-        object.layers.set(1);
-      });
-      this.lastTarget = undefined;
-      this.fixedLine = undefined;
-      this.updateConstraints();
-    } else {
+    if (!mover.isMovable()) {
       // TODO: indicate this in the UI
       console.warn('Part cannot be moved in this direction');
+      return;
     }
+
+    this.mover = mover;
+    this.selectedObject.traverse((object) => {
+      object.layers.set(1);
+    });
+    this.lastTarget = target;
+    this.fixedLine = undefined;
+    this.updateConstraints();
+    this.createSolver();
   }
 
   private endMove() {
@@ -166,16 +170,10 @@ export class MoveToolHandler extends ToolHandler {
       });
     }
     this.mover = undefined;
+    this.solver = undefined;
     this.lastTarget = undefined;
     this.fixedLine = undefined;
     this.updateConstraints();
-  }
-
-  private cancelMove() {
-    if (this.mover) {
-      this.mover.cancel();
-    }
-    this.endMove();
   }
 
   private doMove(target: Target) {
@@ -185,6 +183,14 @@ export class MoveToolHandler extends ToolHandler {
     const delta = target.constrainedPoint.clone().sub(this.mover.startPoint);
     this.mover.move(delta);
     this.lastTarget = target;
+    this.solveModel();
+  }
+
+  private cancelMove() {
+    if (this.solver) {
+      this.solver.restoreModel();
+    }
+    this.endMove();
   }
 
   private confirmMove(target: Target) {
@@ -231,24 +237,17 @@ export class MoveToolHandler extends ToolHandler {
     const faces: Face[] = [];
     const edges: Edge[] = [];
 
-    if (this.mover && this.lastTarget) {
-      lines.push(
-        new THREE.Line3(
-          this.mover.startPoint,
-          this.lastTarget.constrainedPoint,
-        ),
-      );
-    }
     if (target.object) {
       points.push(target.point);
     }
 
-    const objects = [];
-    if (this.selectedObject) {
-      objects.push(this.selectedObject);
-    }
+    const objects: PartObject[] = [];
 
     if (this.isMoving) {
+      objects.push(this.selectedObject!);
+      lines.push(
+        new THREE.Line3(this.mover!.startPoint, target.constrainedPoint),
+      );
       if (target.edge) {
         edges.push(target.edge);
       }
@@ -272,6 +271,27 @@ export class MoveToolHandler extends ToolHandler {
     this.drawingHelper.setPoints(points);
     this.drawingHelper.setFaces(faces);
     this.drawingHelper.setEdges(edges);
+  }
+
+  ///
+  // Solve the model
+
+  private createSolver() {
+    if (!this.selectedObject) {
+      throw new Error('Illegal state');
+    }
+    const draggedParts = new Set([this.selectedObject.part]);
+    this.solver = new Solver();
+    this.solver.buildSketch(this.renderer.model, draggedParts);
+  }
+
+  private solveModel() {
+    if (!this.solver) {
+      throw new Error('Illegal state');
+    }
+    this.solver.reset();
+    this.solver.solve();
+    this.solver.apply();
   }
 }
 
