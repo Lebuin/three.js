@@ -25,7 +25,7 @@ export abstract class Stretcher<T extends Part> extends BaseMover<T> {
       .applyQuaternion(this.part.quaternion.clone().invert());
     const stretchMask = new THREE.Vector3(1, 1, 1);
     for (let i = 0; i < 3; i++) {
-      if (localTarget.getComponent(i) < 1e-6) {
+      if (Math.abs(localTarget.getComponent(i)) < 1e-6) {
         stretchMask.setComponent(i, -1);
       }
     }
@@ -52,17 +52,6 @@ export abstract class Stretcher<T extends Part> extends BaseMover<T> {
 
     const position = this.startPosition.clone().add(globalPositionDelta);
     const size = this.startSize.clone().add(stretchDelta);
-
-    for (let i = 0; i < 3; i++) {
-      const length = size.getComponent(i);
-      if (length < 0) {
-        size.setComponent(i, -length);
-        const globalDirection = new THREE.Vector3()
-          .setComponent(i, 1)
-          .applyQuaternion(this.part.quaternion);
-        position.add(globalDirection.clone().multiplyScalar(length));
-      }
-    }
 
     this.part.position = position;
     this.part.size = size;

@@ -174,7 +174,7 @@ export function vectorsAreParallel(
   tolerance = 1e-6,
 ): boolean {
   const cross = new THREE.Vector3().crossVectors(vector1, vector2);
-  return cross.lengthSq() < tolerance;
+  return cross.lengthSq() < tolerance ** 2;
 }
 
 export const axisDirections = {

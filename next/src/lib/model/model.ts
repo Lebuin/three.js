@@ -52,7 +52,7 @@ export class Model extends EventDispatcher()<ModelEvents> {
   }
 
   private findCoincidentVertices(vertex: PartVertex) {
-    const tolerance = 1e-6 ^ 2;
+    const tolerance = 1e-6 ** 2;
     function filter(otherVertex: PartVertex) {
       const distance = vertex.globalPosition.distanceToSquared(
         otherVertex.globalPosition,

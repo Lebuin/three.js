@@ -338,7 +338,7 @@ export default class Raycaster {
 
     const distance = this.ray.origin.distanceTo(point);
     for (const faceIntersection of faceIntersections) {
-      if (faceIntersection.distance - distance > 1e-6) {
+      if (faceIntersection.distance - distance >= 1e-6) {
         break;
       }
       const isCorner = faceIntersection.point.distanceTo(point) < 1e-6;

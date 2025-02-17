@@ -5,7 +5,9 @@ import { Part } from './part';
 
 export class Board extends Part {
   protected buildOCShape() {
-    const numZeroes = this.size.toArray().filter((x) => x < 1e-6).length;
+    const numZeroes = this.absSize
+      .toArray()
+      .filter((x) => Math.abs(x) < 1e-6).length;
     if (numZeroes === 0) {
       return this.buildOCBox();
     } else if (numZeroes === 1) {
@@ -17,14 +19,14 @@ export class Board extends Part {
 
   private buildOCBox() {
     const oc = getOC();
-    const box = new oc.BRepPrimAPI_MakeBox_2(...this.size.toArray());
+    const box = new oc.BRepPrimAPI_MakeBox_2(...this.absSize.toArray());
     const shape = box.Shape();
     return shape;
   }
 
   private buildOCPlane() {
     const oc = getOC();
-    const sides = this.size
+    const sides = this.absSize
       .toArray()
       .map((length, index) => ({ index, length }))
       .filter((side) => side.length >= 1e-6);

@@ -139,7 +139,7 @@ export function makeIntersectionWithWire(
   }
 
   const distance = distanceTool.Value();
-  if (distance > tolerance) {
+  if (distance >= tolerance) {
     const shape = new PointCloud([]);
     return { shape, vertexSupportMap1: [], vertexSupportMap2: [] };
   }
