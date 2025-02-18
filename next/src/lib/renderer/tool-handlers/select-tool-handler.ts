@@ -185,8 +185,10 @@ export class SelectToolHandler extends ToolHandler {
       return;
     }
 
-    const mouseEvent = this.mouseHandler.mouseMoveEvent;
-    const target = mouseEvent ? this.targetFinder.findTarget(mouseEvent) : null;
+    const mouseEvent = this.mouseHandler.getMouseMoveEvent();
+    const target = mouseEvent
+      ? this.targetFinder.findTarget(mouseEvent.event)
+      : null;
     this.updateRenderer(target);
   };
 

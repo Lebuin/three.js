@@ -22,3 +22,10 @@ export function popFromSet<T>(set: Set<T>): T {
   set.delete(value);
   return value;
 }
+
+export function setElemStyle(
+  elem: HTMLElement,
+  style: Partial<CSSStyleDeclaration>,
+) {
+  Object.assign(elem.style, style);
+}

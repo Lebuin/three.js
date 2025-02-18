@@ -16,7 +16,7 @@ export abstract class ToolHandler {
     return this.renderer.model;
   }
 
-  protected updateRenderer(target: Optional<Target>) {
+  protected updateRenderer(target?: Optional<Target>) {
     const mouseTarget = target ? this.getOrbitTarget(target) : null;
     const zoomTarget = target ? this.getZoomTarget(target) : null;
     this.renderer.setRotateTarget(mouseTarget);

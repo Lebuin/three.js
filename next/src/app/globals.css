@@ -2,7 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-
 @layer base {
   :root {
     --background: #ffffff;
@@ -11,7 +10,6 @@
     --font-sans: var(--font-poppins);
     --font-heading: var(--font-rubik);
   }
-
 
   body {
     color: var(--foreground);
@@ -29,5 +27,30 @@
 
   h3 {
     @apply text-2xl mb-2;
+  }
+}
+
+@layer components {
+  .dimension-helper {
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    width: 4em;
+    text-align: center;
+
+    display: block;
+    pointer-events: none;
+
+    background: hsla(0, 0%, 100%, 0.8);
+    border: 1px solid hsl(0, 0%, 50%);
+    border-radius: 0.25rem;
+    padding: 0.125rem;
+    outline: none;
+
+    @apply text-sm;
+  }
+  .dimension-helper::selection {
+    background: hsla(186, 94%, 26%, 0.2);
   }
 }

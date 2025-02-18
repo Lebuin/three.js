@@ -3,6 +3,10 @@ import { Edge, Face, Vertex } from '@/lib/geom/shape';
 import { Part } from '@/lib/model/parts';
 import { getQuaternionFromAxes } from '@/lib/util/geometry';
 import { THREE } from '@lib/three.js';
+import {
+  DimensionHelper,
+  DimensionHelperEvents,
+} from '../helpers/dimension-helper';
 import { DrawingHelper } from '../helpers/drawing-helper';
 import { PlaneHelperRect } from '../helpers/plane-helper';
 import { MaterialObject } from '../part-objects/material-object';
@@ -36,6 +40,7 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
   protected mouseHandler: MouseHandler<MouseHandlerModifiers>;
   protected targetFinder: TargetFinder;
   protected drawingHelper: DrawingHelper;
+  protected dimensionHelper: DimensionHelper;
 
   protected points: BoxPoint[] = [];
   protected fleetingPoint?: BoxPoint;
@@ -56,6 +61,11 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
     this.drawingHelper = new DrawingHelper();
     this.renderer.addUpdating(this.drawingHelper);
 
+    this.dimensionHelper = new DimensionHelper();
+    this.dimensionHelper.visible = false;
+    this.dimensionHelper.addEventListener('submit', this.onDimensionSubmit);
+    this.renderer.addUpdating(this.dimensionHelper);
+
     this.setupListeners();
   }
 
@@ -63,7 +73,8 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
     super.delete();
     this.mouseHandler.delete();
     this.targetFinder.delete();
-    this.renderer.removeUpdating(this.drawingHelper);
+    this.dimensionHelper.delete();
+    this.renderer.removeUpdating(this.drawingHelper, this.dimensionHelper);
     this.renderer.setRotateTarget();
     this.removeFleetingBox();
     this.removeListeners();
@@ -87,7 +98,10 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
 
     const target = this.targetFinder.findTarget(event.event);
     if (target) {
-      this.fleetingPoint = this.createBoxPoint(event, target);
+      this.fleetingPoint = this.createBoxPoint(
+        target.constrainedPoint,
+        this.isCenterAligned(event),
+      );
     }
 
     this.updateRenderer(target);
@@ -100,13 +114,26 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
       return;
     }
 
-    const boxPoint = this.createBoxPoint(event, target);
+    const boxPoint = this.createBoxPoint(
+      target.constrainedPoint,
+      this.isCenterAligned(event),
+    );
+    this.addBoxPoint(boxPoint, target);
+  };
+
+  protected onDimensionSubmit = (event: DimensionHelperEvents['submit']) => {
+    // TODO: allow center aligning when typing dimension
+    const boxPoint = this.createBoxPoint(event.point, false);
+    this.addBoxPoint(boxPoint);
+  };
+
+  protected addBoxPoint(boxPoint: BoxPoint, target?: Optional<Target>) {
     this.points.push(boxPoint);
     this.fleetingPoint = undefined;
     this.isFixedLine = false;
 
     if (this.points.length < 4) {
-      this.updateRenderer(target);
+      this.updateRenderer();
       this.updateConstraints();
     } else {
       this.mouseHandler.reset();
@@ -114,7 +141,7 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
       this.drawingHelper.clear();
       this.confirmBox();
     }
-  };
+  }
 
   protected isCenterAligned(event: MouseHandlerEvent) {
     return event.modifiers.Control;
@@ -131,14 +158,16 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
   ///
   // Update the scene based on the current target
 
-  protected updateRenderer(target: Optional<Target>): void {
+  protected updateRenderer(target?: Optional<Target>): void {
     this.updateDrawingHelper(target);
+    this.updateDimensionHelper(target);
     this.updateFleetingBox();
     super.updateRenderer(target);
   }
 
-  protected updateDrawingHelper(target: Optional<Target>) {
-    if (!target) {
+  protected updateDrawingHelper(target?: Optional<Target>) {
+    if (target == null) {
+      this.drawingHelper.clear();
       return;
     }
 
@@ -191,6 +220,24 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
     this.drawingHelper.setFaces(faces);
   }
 
+  protected updateDimensionHelper(target?: Optional<Target>) {
+    if (
+      !target ||
+      !this.targetFinder.neighborPoint ||
+      this.points.length === 3
+    ) {
+      this.dimensionHelper.visible = false;
+      return;
+    }
+
+    const line = new THREE.Line3(
+      this.targetFinder.neighborPoint,
+      target.constrainedPoint,
+    );
+    this.dimensionHelper.setLine(line);
+    this.dimensionHelper.visible = true;
+  }
+
   ///
   // Update the targetFinder constraints
 
@@ -239,43 +286,42 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
   ///
   // Update the fleeting box
 
-  protected createBoxPoint(event: MouseHandlerEvent, target: Target): BoxPoint {
+  protected createBoxPoint(
+    point: THREE.Vector3,
+    centerAligned: boolean,
+  ): BoxPoint {
     const totalPoints = 4;
     const numFreePoints = totalPoints - this.fixedDimensions.length;
     if (this.points.length < numFreePoints) {
       return {
-        point: target.constrainedPoint,
-        centerAligned: this.isCenterAligned(event),
+        point,
+        centerAligned,
       };
     } else {
-      return this.getPointAlongFixedDimension(
-        event,
-        target,
+      return this.getBoxPointAlongFixedDimension(
+        point,
+        centerAligned,
         this.points[this.points.length - 1],
         this.fixedDimensions[this.points.length - numFreePoints],
       );
     }
   }
 
-  protected getPointAlongFixedDimension(
-    event: MouseHandlerEvent,
-    target: Target,
+  protected getBoxPointAlongFixedDimension(
+    point: THREE.Vector3,
+    centerAligned: boolean,
     previousPoint: BoxPoint,
     length: number,
   ): BoxPoint {
-    const direction = target.constrainedPoint
-      .clone()
-      .sub(previousPoint.point)
-      .normalize();
-    const isCenterAligned = this.isCenterAligned(event);
-    const distance = isCenterAligned ? length / 2 : length;
-    const point = previousPoint.point
+    const direction = point.clone().sub(previousPoint.point).normalize();
+    const distance = centerAligned ? length / 2 : length;
+    const boxPoint = previousPoint.point
       .clone()
       .add(direction.clone().multiplyScalar(distance));
 
     return {
-      point,
-      centerAligned: isCenterAligned,
+      point: boxPoint,
+      centerAligned,
     };
   }
 

@@ -1,5 +1,5 @@
 import { mouseButtonPressed } from '@/lib/util';
-import { EventDispatcher } from '@/lib/util/event-dispatcher';
+import { BaseEvent, EventDispatcher } from '@/lib/util/event-dispatcher';
 import _ from 'lodash';
 
 export type Sticky = boolean;
@@ -29,7 +29,7 @@ export class MouseHandler<
   private elem: HTMLElement;
   private modifierDefinition: ModifierDefinition;
 
-  public mouseMoveEvent?: MouseEvent;
+  private mouseMoveEvent?: MouseEvent;
   private modifiers: Modifiers<T>;
 
   constructor(elem: HTMLElement, modifierDefinition: T) {
@@ -136,14 +136,27 @@ export class MouseHandler<
     this.dispatchMouseEvent(event);
   };
 
-  ///
-  // Raycasting
+  private dispatchMouseEvent(mouseEvent: MouseEvent) {
+    const event = this.getMouseEvent(mouseEvent);
+    this.dispatchEvent(event);
+  }
 
-  private dispatchMouseEvent(event: MouseEvent) {
-    this.dispatchEvent({
+  public getMouseMoveEvent() {
+    if (this.mouseMoveEvent) {
+      return this.getMouseEvent(this.mouseMoveEvent);
+    } else {
+      return null;
+    }
+  }
+
+  private getMouseEvent(
+    event: MouseEvent,
+  ): MouseHandlerEvent<T> &
+    BaseEvent<Extract<keyof MouseHandlerEvents<T>, string>> {
+    return {
       type: event.type as keyof MouseHandlerEvents<T>,
       event,
       modifiers: this.modifiers,
-    });
+    };
   }
 }

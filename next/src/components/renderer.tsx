@@ -1,6 +1,6 @@
 'use client';
 
-import { initModel, Model } from '@/lib/model/model';
+import { Model } from '@/lib/model/model';
 import { Renderer as SceneRenderer } from '@/lib/renderer/renderer';
 import { initOC } from '@lib/opencascade.js';
 import { initSolveSpace } from '@lib/solvespace';
@@ -55,7 +55,7 @@ export default function Renderer(props: RendererProps) {
       }
 
       const model = new Model();
-      void initModel(model);
+      // void initModel(model);
 
       const renderer = new SceneRenderer(mount, model);
       renderer.addEventListener('tool', (event) => {

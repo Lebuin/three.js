@@ -24,6 +24,7 @@ enum CameraType {
 
 export class Renderer extends THREE.EventDispatcher<RendererEvents> {
   private readonly _canvas: HTMLCanvasElement;
+  public canvasRect: DOMRect;
   private readonly _model: Model;
   private _raycaster: Raycaster;
 
@@ -52,6 +53,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     super();
 
     this._canvas = canvas;
+    this.canvasRect = canvas.getBoundingClientRect();
     this._model = model;
     this._raycaster = new Raycaster(this);
 
@@ -149,8 +151,8 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
    */
   private setRendererSize(renderer: THREE.WebGLRenderer) {
     const pixelRatio = window.devicePixelRatio;
-    const width = Math.floor(this.canvas.clientWidth * pixelRatio);
-    const height = Math.floor(this.canvas.clientHeight * pixelRatio);
+    const width = Math.floor(this.canvasRect.width * pixelRatio);
+    const height = Math.floor(this.canvasRect.height * pixelRatio);
     renderer.setSize(width, height, false);
     return renderer.getSize(new THREE.Vector2());
   }
@@ -295,13 +297,35 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
     }
   }
 
+  /**
+   * Get a pointer in normalized device coordinates from a mouse event.
+   */
   public getPointerFromEvent(event: MouseEvent) {
-    const boundingRect = this.canvas.getBoundingClientRect();
     const pointer = new THREE.Vector2(
-      ((event.clientX - boundingRect.left) / boundingRect.width) * 2 - 1,
-      -((event.clientY - boundingRect.top) / boundingRect.height) * 2 + 1,
+      ((event.clientX - this.canvasRect.left) / this.canvasRect.width) * 2 - 1,
+      -((event.clientY - this.canvasRect.top) / this.canvasRect.height) * 2 + 1,
     );
     return pointer;
+  }
+
+  /**
+   * Get a pointer in normalized device coordinates from a point in the scene.
+   */
+  public getPointerFromPosition(position: THREE.Vector3) {
+    const position2D = position.clone().project(this.camera);
+    const pointer = new THREE.Vector2(position2D.x, position2D.y);
+    return pointer;
+  }
+
+  /**
+   * Get a point in screen coordinates from a pointer in normalized device coordinates.
+   */
+  public getScreenCoordinate(pointer: THREE.Vector2) {
+    const x =
+      ((pointer.x + 1) / 2) * this.canvasRect.width + this.canvasRect.left;
+    const y =
+      ((1 - pointer.y) / 2) * this.canvasRect.height + this.canvasRect.top;
+    return new THREE.Vector2(x, y);
   }
 
   ///
@@ -335,6 +359,7 @@ export class Renderer extends THREE.EventDispatcher<RendererEvents> {
    * Update the size of the renderer and the camera aspect ratio when the window is resized.
    */
   private onResize() {
+    this.canvasRect = this.canvas.getBoundingClientRect();
     const size = this.setRendererSize(this.renderer);
     const aspect = size.width / size.height;
     if (this.camera instanceof THREE.OrthographicCamera) {

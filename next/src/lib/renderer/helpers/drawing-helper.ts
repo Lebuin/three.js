@@ -51,6 +51,16 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     super();
   }
 
+  clear() {
+    this.shrinkHelpers(this.helpers.point, 0);
+    this.shrinkHelpers(this.helpers.line, 0);
+    this.shrinkHelpers(this.helpers.plane, 0);
+    this.shrinkHelpers(this.helpers.vertex, 0);
+    this.shrinkHelpers(this.helpers.edge, 0);
+    this.shrinkHelpers(this.helpers.face, 0);
+    return this;
+  }
+
   update(renderer: Renderer) {
     this.helpers.point.forEach((pointHelper) => {
       pointHelper.update(renderer);
@@ -65,17 +75,28 @@ export class DrawingHelper extends UpdatingObjectMixin(THREE.Group) {
     length: number,
     createCallback: () => T,
   ): T[] {
+    this.shrinkHelpers(helpers, length);
+    this.growHelpers(helpers, length, createCallback);
+    return helpers;
+  }
+
+  private shrinkHelpers<T extends Helper>(helpers: T[], length: number) {
     while (helpers.length > length) {
       const helper = helpers.pop()!;
       this.remove(helper);
     }
+  }
+
+  private growHelpers<T extends Helper>(
+    helpers: T[],
+    length: number,
+    createCallback: () => T,
+  ) {
     while (helpers.length < length) {
       const helper = createCallback();
       this.add(helper);
       helpers.push(helper);
     }
-
-    return helpers;
   }
 
   ///

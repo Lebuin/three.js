@@ -148,7 +148,6 @@ const finalizationRegistry = new FinalizationRegistry<Deletable>(
     try {
       deletable.delete();
     } catch (e) {
-      debugger;
       // Do nothing
     }
   },

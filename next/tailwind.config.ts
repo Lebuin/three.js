@@ -6,6 +6,9 @@ export default {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  purge: {
+    safelist: ['dimension-helper'],
+  },
   theme: {
     extend: {
       colors: {
