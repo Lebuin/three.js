@@ -57,7 +57,6 @@ export class MoveToolHandler extends ToolHandler {
     this.renderer.addUpdating(this.drawingHelper);
 
     this.dimensionHelper = new DimensionHelper();
-    this.dimensionHelper.visible = false;
     this.renderer.addUpdating(this.dimensionHelper);
 
     this.setupListeners();

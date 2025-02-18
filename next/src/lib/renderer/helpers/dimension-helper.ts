@@ -27,7 +27,7 @@ export class DimensionHelper extends EventDispatcherMixin(
   constructor() {
     super();
     this.elemInput = this.createInput();
-    this.updateInputVisibility();
+    this._visible = false;
   }
 
   delete() {
@@ -37,6 +37,7 @@ export class DimensionHelper extends EventDispatcherMixin(
   reset() {
     this.hasInput = false;
     this.line = undefined;
+    this.visible = false;
   }
 
   update(renderer: Renderer) {
@@ -48,6 +49,10 @@ export class DimensionHelper extends EventDispatcherMixin(
     return this._visible;
   }
   set visible(visible: boolean) {
+    if (visible === this._visible) {
+      return;
+    }
+
     this._visible = visible;
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (this.elemInput) {
@@ -66,6 +71,7 @@ export class DimensionHelper extends EventDispatcherMixin(
         value = '~' + value;
       }
       this.elemInput.value = value;
+      this.selectInputText();
     }
   }
 
@@ -76,6 +82,7 @@ export class DimensionHelper extends EventDispatcherMixin(
     const elemInput = document.createElement('input');
     elemInput.type = 'text';
     elemInput.className = 'dimension-helper';
+    elemInput.style.display = 'none';
 
     elemInput.addEventListener('input', this.onInput);
     keyboardHandler.addEventListener('keydown', this.onKeyDown);
@@ -92,7 +99,11 @@ export class DimensionHelper extends EventDispatcherMixin(
 
   private updateInputVisibility() {
     this.elemInput.style.display = this.visible ? '' : 'none';
-    if (this.visible) {
+    this.selectInputText();
+  }
+
+  private selectInputText() {
+    if (this.visible && !this.hasInput) {
       this.elemInput.focus();
       this.elemInput.select();
     }
