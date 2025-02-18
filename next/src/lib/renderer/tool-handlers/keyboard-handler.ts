@@ -2,9 +2,9 @@ import { EventDispatcher } from '@/lib/util/event-dispatcher';
 import _ from 'lodash';
 
 export interface Modifiers {
-  ctrl: boolean;
-  alt: boolean;
-  shift: boolean;
+  Control: boolean;
+  Alt: boolean;
+  Shift: boolean;
 }
 export class KeyCombo {
   public key: string;
@@ -13,30 +13,30 @@ export class KeyCombo {
   constructor(key: string, modifiers: Partial<Modifiers> = {}) {
     this.key = key.toLowerCase();
     this.modifiers = {
-      ctrl: false,
-      alt: false,
-      shift: false,
+      Control: false,
+      Alt: false,
+      Shift: false,
       ...modifiers,
     };
   }
 
   static fromKeyboardEvent(event: KeyboardEvent) {
     return new KeyCombo(event.key, {
-      ctrl: event.ctrlKey,
-      alt: event.altKey,
-      shift: event.shiftKey,
+      Control: event.ctrlKey,
+      Alt: event.altKey,
+      Shift: event.shiftKey,
     });
   }
 
   toString() {
     const parts = [];
-    if (this.modifiers.ctrl) {
+    if (this.modifiers.Control) {
       parts.push('Ctrl');
     }
-    if (this.modifiers.alt) {
+    if (this.modifiers.Alt) {
       parts.push('Alt');
     }
-    if (this.modifiers.shift) {
+    if (this.modifiers.Shift) {
       parts.push('Shift');
     }
     parts.push(_.capitalize(this.key));
@@ -46,9 +46,9 @@ export class KeyCombo {
   equals(keyCombo: KeyCombo) {
     return (
       this.key === keyCombo.key &&
-      this.modifiers.ctrl === keyCombo.modifiers.ctrl &&
-      this.modifiers.alt === keyCombo.modifiers.alt &&
-      this.modifiers.shift === keyCombo.modifiers.shift
+      this.modifiers.Control === keyCombo.modifiers.Control &&
+      this.modifiers.Alt === keyCombo.modifiers.Alt &&
+      this.modifiers.Shift === keyCombo.modifiers.Shift
     );
   }
 }

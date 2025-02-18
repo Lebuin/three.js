@@ -11,6 +11,7 @@ import { DrawingHelper } from '../helpers/drawing-helper';
 import { PlaneHelperRect } from '../helpers/plane-helper';
 import { MaterialObject } from '../part-objects/material-object';
 import { Renderer } from '../renderer';
+import { KeyCombo } from './keyboard-handler';
 import {
   MouseHandlerEvent as BaseMouseHandlerEvent,
   MouseHandler,
@@ -119,19 +120,29 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
       target.constrainedPoint,
       this.isCenterAligned(event),
     );
-    this.addBoxPoint(boxPoint, target);
-  };
-
-  protected onDimensionSubmit = (event: DimensionHelperEvents['submit']) => {
-    // TODO: allow center aligning when typing dimension
-    const boxPoint = this.createBoxPoint(event.point, false);
     this.addBoxPoint(boxPoint);
   };
 
-  protected addBoxPoint(boxPoint: BoxPoint, target?: Optional<Target>) {
+  protected onDimensionSubmit = (event: DimensionHelperEvents['submit']) => {
+    const centerAligned = this.isCenterAligned(event.keyCombo);
+    const boxPoint = this.createBoxPoint(event.point, centerAligned);
+    this.addBoxPoint(boxPoint);
+  };
+
+  protected addBoxPoint(boxPoint: BoxPoint) {
+    if (this.points.length > 0) {
+      const distance = this.points[this.points.length - 1].point.distanceTo(
+        boxPoint.point,
+      );
+      if (distance < 1e-6) {
+        return;
+      }
+    }
+
     this.points.push(boxPoint);
     this.fleetingPoint = undefined;
     this.isFixedLine = false;
+    this.dimensionHelper.reset();
 
     if (this.points.length < 4) {
       this.updateRenderer();
@@ -144,7 +155,7 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
     }
   }
 
-  protected isCenterAligned(event: MouseHandlerEvent) {
+  protected isCenterAligned(event: MouseHandlerEvent | KeyCombo) {
     return event.modifiers.Control;
   }
 

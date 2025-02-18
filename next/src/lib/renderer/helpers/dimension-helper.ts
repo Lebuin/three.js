@@ -1,10 +1,16 @@
 import { EventDispatcherMixin } from '@/lib/util/event-dispatcher';
 import { THREE } from '@lib/three.js';
 import { Renderer } from '../renderer';
+import {
+  keyboardHandler,
+  KeyboardHandlerEvent,
+  KeyCombo,
+} from '../tool-handlers/keyboard-handler';
 import { UpdatingObjectMixin } from './updating-object-mixin';
 
 export interface DimensionHelperSubmitEvent {
   point: THREE.Vector3;
+  keyCombo: KeyCombo;
 }
 export interface DimensionHelperEvents {
   submit: DimensionHelperSubmitEvent;
@@ -16,6 +22,7 @@ export class DimensionHelper extends EventDispatcherMixin(
   private line?: THREE.Line3;
   private elemInput: HTMLInputElement;
   private _visible = true;
+  private hasInput = false;
 
   constructor() {
     super();
@@ -25,6 +32,11 @@ export class DimensionHelper extends EventDispatcherMixin(
 
   delete() {
     this.removeInput(this.elemInput);
+  }
+
+  reset() {
+    this.hasInput = false;
+    this.line = undefined;
   }
 
   update(renderer: Renderer) {
@@ -47,37 +59,35 @@ export class DimensionHelper extends EventDispatcherMixin(
     this.line = line;
     line.getCenter(this.position);
 
-    const length = line.distance();
-    let value = length.toFixed(0);
-    if (Math.abs(length - Math.round(length)) >= 1e-6) {
-      value = '~' + value;
+    if (!this.hasInput) {
+      const length = line.distance();
+      let value = length.toFixed(0);
+      if (Math.abs(length - Math.round(length)) >= 1e-6) {
+        value = '~' + value;
+      }
+      this.elemInput.value = value;
     }
-    this.elemInput.value = value;
   }
 
   ///
   // Manage input element
 
   private createInput() {
-    const elemForm = document.createElement('form');
-
     const elemInput = document.createElement('input');
     elemInput.type = 'text';
     elemInput.className = 'dimension-helper';
 
-    elemForm.addEventListener('submit', this.onSubmit);
+    elemInput.addEventListener('input', this.onInput);
+    keyboardHandler.addEventListener('keydown', this.onKeyDown);
 
-    elemForm.append(elemInput);
-    document.body.append(elemForm);
+    document.body.append(elemInput);
     return elemInput;
   }
 
   private removeInput(elemInput: HTMLInputElement) {
-    const elemForm = elemInput.parentElement!;
-    elemForm.remove();
     elemInput.remove();
-
-    elemForm.removeEventListener('submit', this.onSubmit);
+    elemInput.removeEventListener('input', this.onInput);
+    keyboardHandler.removeEventListener('keydown', this.onKeyDown);
   }
 
   private updateInputVisibility() {
@@ -100,13 +110,17 @@ export class DimensionHelper extends EventDispatcherMixin(
     return screenCoordinate;
   }
 
-  private onSubmit = (event: SubmitEvent) => {
-    event.preventDefault();
+  private onInput = () => {
+    this.hasInput = true;
+  };
 
-    if (!this.line) {
-      return;
+  private onKeyDown = (event: KeyboardHandlerEvent) => {
+    if (this.line && this.hasInput && event.keyCombo.key === 'enter') {
+      this.confirm(this.line, event.keyCombo);
     }
+  };
 
+  private confirm(line: THREE.Line3, keyCombo: KeyCombo) {
     let length;
     try {
       length = this.parseInput(this.elemInput.value);
@@ -116,10 +130,10 @@ export class DimensionHelper extends EventDispatcherMixin(
       return;
     }
 
-    const direction = this.line.delta(new THREE.Vector3()).normalize();
-    const point = this.line.start.clone().addScaledVector(direction, length);
-    this.dispatchEvent({ type: 'submit', point });
-  };
+    const direction = line.delta(new THREE.Vector3()).normalize();
+    const point = line.start.clone().addScaledVector(direction, length);
+    this.dispatchEvent({ type: 'submit', point, keyCombo });
+  }
 
   private parseInput(input: string) {
     const value = parseFloat(input);

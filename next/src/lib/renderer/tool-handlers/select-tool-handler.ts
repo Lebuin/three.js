@@ -177,9 +177,9 @@ export class SelectToolHandler extends ToolHandler {
   private onKeyDown = (event: KeyboardHandlerEvent) => {
     // Key events also trigger a mouse move event through MouseHandler, so we don't need to update
     // the renderer or drawing helper here.
-    if (event.keyCombo.equals(new KeyCombo('Delete'))) {
+    if (event.keyCombo.equals(new KeyCombo('delete'))) {
       this.deleteSelectedObjects();
-    } else if (event.keyCombo.equals(new KeyCombo('a', { ctrl: true }))) {
+    } else if (event.keyCombo.equals(new KeyCombo('a', { Control: true }))) {
       this.setSelectedObjects(this.renderer.partObjects);
     } else {
       return;
