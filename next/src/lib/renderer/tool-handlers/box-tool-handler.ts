@@ -63,7 +63,6 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
 
     this.dimensionHelper = new DimensionHelper();
     this.dimensionHelper.visible = false;
-    this.dimensionHelper.addEventListener('submit', this.onDimensionSubmit);
     this.renderer.addUpdating(this.dimensionHelper);
 
     this.setupListeners();
@@ -86,11 +85,13 @@ export abstract class BoxToolHandler<T extends Part> extends ToolHandler {
   protected setupListeners() {
     this.mouseHandler.addEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.addEventListener('click', this.onClick);
+    this.dimensionHelper.addEventListener('submit', this.onDimensionSubmit);
   }
 
   protected removeListeners() {
     this.mouseHandler.removeEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.removeEventListener('click', this.onClick);
+    this.dimensionHelper.removeEventListener('submit', this.onDimensionSubmit);
   }
 
   protected onMouseMove = (event: MouseHandlerEvent) => {

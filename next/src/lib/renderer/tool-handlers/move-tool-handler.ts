@@ -3,6 +3,10 @@ import { Part } from '@/lib/model/parts';
 import { Solver } from '@/lib/solver';
 import { popFromSet } from '@/lib/util';
 import { THREE } from '@lib/three.js';
+import {
+  DimensionHelper,
+  DimensionHelperEvents,
+} from '../helpers/dimension-helper';
 import { DrawingHelper } from '../helpers/drawing-helper';
 import { PartObject } from '../part-objects';
 import { Renderer } from '../renderer';
@@ -28,10 +32,11 @@ export class MoveToolHandler extends ToolHandler {
   private mouseHandler: MouseHandler<MouseHandlerModifiers>;
   private targetFinder: TargetFinder;
   private drawingHelper: DrawingHelper;
+  protected dimensionHelper: DimensionHelper;
 
   private selectedObject?: PartObject;
   private mover?: BaseMover;
-  private lastTarget?: Target;
+  private lastPoint?: THREE.Vector3;
   private fixedLine?: THREE.Line3;
 
   private solver?: Solver;
@@ -51,6 +56,10 @@ export class MoveToolHandler extends ToolHandler {
     this.drawingHelper = new DrawingHelper();
     this.renderer.addUpdating(this.drawingHelper);
 
+    this.dimensionHelper = new DimensionHelper();
+    this.dimensionHelper.visible = false;
+    this.renderer.addUpdating(this.dimensionHelper);
+
     this.setupListeners();
   }
 
@@ -59,7 +68,8 @@ export class MoveToolHandler extends ToolHandler {
     this.cancelMove();
     this.mouseHandler.delete();
     this.targetFinder.delete();
-    this.renderer.removeUpdating(this.drawingHelper);
+    this.dimensionHelper.delete();
+    this.renderer.removeUpdating(this.drawingHelper, this.dimensionHelper);
     this.renderer.setRotateTarget();
     this.removeListeners();
   }
@@ -67,11 +77,13 @@ export class MoveToolHandler extends ToolHandler {
   private setupListeners() {
     this.mouseHandler.addEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.addEventListener('click', this.onClick);
+    this.dimensionHelper.addEventListener('submit', this.onDimensionSubmit);
   }
 
   private removeListeners() {
     this.mouseHandler.removeEventListener('mousemove', this.onMouseMove);
     this.mouseHandler.removeEventListener('click', this.onClick);
+    this.dimensionHelper.removeEventListener('submit', this.onDimensionSubmit);
   }
 
   ///
@@ -83,7 +95,7 @@ export class MoveToolHandler extends ToolHandler {
 
     const target = this.targetFinder.findTarget(event.event);
     if (this.selectedObject && target) {
-      this.doMove(target);
+      this.doMove(target.constrainedPoint);
     }
 
     this.updateRenderer(target);
@@ -96,7 +108,7 @@ export class MoveToolHandler extends ToolHandler {
 
     if (this.isMoving) {
       if (target) {
-        this.confirmMove(target);
+        this.confirmMove(target.constrainedPoint);
         this.unsetSelectedObject();
       }
     } else if (object) {
@@ -108,6 +120,12 @@ export class MoveToolHandler extends ToolHandler {
     this.updateRenderer(target);
   };
 
+  protected onDimensionSubmit = (event: DimensionHelperEvents['submit']) => {
+    this.confirmMove(event.point);
+    this.unsetSelectedObject();
+    this.updateRenderer();
+  };
+
   private updateFixedLine(event: MouseHandlerEvent) {
     const isFixedLine = event.modifiers.ArrowUp;
     if (isFixedLine === !!this.fixedLine) {
@@ -116,11 +134,8 @@ export class MoveToolHandler extends ToolHandler {
 
     if (!isFixedLine) {
       this.fixedLine = undefined;
-    } else if (this.mover && this.lastTarget) {
-      this.fixedLine = new THREE.Line3(
-        this.mover.startPoint,
-        this.lastTarget.constrainedPoint,
-      );
+    } else if (this.mover && this.lastPoint) {
+      this.fixedLine = new THREE.Line3(this.mover.startPoint, this.lastPoint);
     }
     this.updateConstraints();
   }
@@ -162,7 +177,7 @@ export class MoveToolHandler extends ToolHandler {
     }
 
     this.mover = mover;
-    this.lastTarget = target;
+    this.lastPoint = target.constrainedPoint;
     this.fixedLine = undefined;
     this.updateConstraints();
     this.createSolver();
@@ -171,18 +186,18 @@ export class MoveToolHandler extends ToolHandler {
   private endMove() {
     this.mover = undefined;
     this.solver = undefined;
-    this.lastTarget = undefined;
+    this.lastPoint = undefined;
     this.fixedLine = undefined;
     this.updateConstraints();
   }
 
-  private doMove(target: Target) {
+  private doMove(point: THREE.Vector3) {
     if (!this.mover) {
       return;
     }
-    const delta = target.constrainedPoint.clone().sub(this.mover.startPoint);
+    const delta = point.clone().sub(this.mover.startPoint);
     this.mover.move(delta);
-    this.lastTarget = target;
+    this.lastPoint = point;
     this.solveModel();
   }
 
@@ -193,8 +208,8 @@ export class MoveToolHandler extends ToolHandler {
     this.endMove();
   }
 
-  private confirmMove(target: Target) {
-    this.doMove(target);
+  private confirmMove(point: THREE.Vector3) {
+    this.doMove(point);
 
     if (this.selectedObject) {
       this.model.removeConstraints(this.selectedObject.part);
@@ -260,12 +275,13 @@ export class MoveToolHandler extends ToolHandler {
   ///
   // Render the selected objects
 
-  protected updateRenderer(target: Optional<Target>): void {
+  protected updateRenderer(target?: Optional<Target>): void {
     this.updateDrawingHelper(target);
+    this.updateDimensionHelper(target);
     super.updateRenderer(target);
   }
 
-  private updateDrawingHelper(target: Optional<Target>) {
+  private updateDrawingHelper(target?: Optional<Target>) {
     if (!target) {
       this.drawingHelper.clear();
       return;
@@ -310,6 +326,20 @@ export class MoveToolHandler extends ToolHandler {
     this.drawingHelper.setPoints(points);
     this.drawingHelper.setFaces(faces);
     this.drawingHelper.setEdges(edges);
+  }
+
+  protected updateDimensionHelper(target?: Optional<Target>) {
+    if (!target || !this.mover) {
+      this.dimensionHelper.visible = false;
+      return;
+    }
+
+    const line = new THREE.Line3(
+      this.mover.startPoint,
+      target.constrainedPoint,
+    );
+    this.dimensionHelper.setLine(line);
+    this.dimensionHelper.visible = true;
   }
 
   ///
